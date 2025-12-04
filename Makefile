@@ -1,7 +1,22 @@
 SHELL = bash
 
 BUILD_INFO = $(shell server/gen_build_info.sh base64)
-BUILD_FLAG = -ldflags="-X github.com/root-gg/plik/server/common.buildInfoString=$(BUILD_INFO) -w -s -extldflags=-static"
+
+# External ldflags: default to -static for static builds on linux.
+# macOS (Darwin) does not support full static linking; avoid -static there.
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	EXTLDFLAGS :=
+else
+	EXTLDFLAGS := -static
+endif
+
+ifeq ($(strip $(EXTLDFLAGS)),)
+	BUILD_FLAG = -ldflags="-X github.com/root-gg/plik/server/common.buildInfoString=$(BUILD_INFO) -w -s"
+else
+	BUILD_FLAG = -ldflags="-X github.com/root-gg/plik/server/common.buildInfoString=$(BUILD_INFO) -w -s -extldflags=$(EXTLDFLAGS)"
+endif
+
 BUILD_TAGS = -tags osusergo,netgo,sqlite_omit_load_extension
 
 GO_BUILD = go build $(BUILD_FLAG) $(BUILD_TAGS)
