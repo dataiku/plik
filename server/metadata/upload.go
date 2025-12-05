@@ -267,7 +267,7 @@ func (b *Backend) DeleteRemovedUploads() (removed int, err error) {
 		})
 		if err != nil {
 			errors++
-			b.log.Warningf(err.Error())
+			b.log.Warningf("%s", err.Error())
 		} else {
 			removed++
 		}

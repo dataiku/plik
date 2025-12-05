@@ -141,7 +141,7 @@ func AddFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 	cleanup := func() {
 		err := purge(ctx, file)
 		if err != nil {
-			log.Warningf(err.Error())
+			log.Warningf("%s", err.Error())
 		}
 	}
 
@@ -258,14 +258,14 @@ func preprocessor(ctx *context.Context, file io.Reader, preprocessWriter io.Writ
 		// Compute md5sum
 		_, err = md5Hash.Write(buf[:bytesRead])
 		if err != nil {
-			err = fmt.Errorf(err.Error())
+			err = fmt.Errorf("%s", err.Error())
 			break
 		}
 
 		// Forward data to the data backend
 		bytesWritten, err := preprocessWriter.Write(buf[:bytesRead])
 		if err != nil {
-			err = fmt.Errorf(err.Error())
+			err = fmt.Errorf("%s", err.Error())
 			break
 		}
 		if bytesWritten != bytesRead {
