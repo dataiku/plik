@@ -40,7 +40,7 @@ func RemoveFile(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 	// Remove the file asynchronously
 	err = purge(ctx, file)
 	if err != nil {
-		ctx.GetLogger().Warningf(err.Error())
+		ctx.GetLogger().Warningf("%s", err.Error())
 	}
 
 	_, _ = resp.Write([]byte("ok"))

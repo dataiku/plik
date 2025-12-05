@@ -125,7 +125,7 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		// Remove the file asynchronously
 		err := purge(ctx, file)
 		if err != nil {
-			log.Warningf(err.Error())
+			log.Warningf("%s", err.Error())
 		}
 	}
 }

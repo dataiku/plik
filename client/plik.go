@@ -337,7 +337,7 @@ func info(client *plik.Client) (err error) {
 	}
 
 	fmt.Printf("\nPlik server configuration :\n")
-	fmt.Printf(serverConfig.String())
+	fmt.Printf("%s", serverConfig.String())
 
 	return nil
 }
