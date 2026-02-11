@@ -1,0 +1,232 @@
+// Utility functions
+
+/**
+ * Format bytes into human-readable size string
+ */
+export function humanReadableSize(bytes) {
+    if (bytes === 0) return '0 B'
+    if (!bytes) return ''
+
+    const units = ['B', 'kB', 'MB', 'GB', 'TB']
+    const k = 1000
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    const size = (bytes / Math.pow(k, i)).toFixed(i > 0 ? 2 : 0)
+
+    return `${size} ${units[i]}`
+}
+
+/**
+ * Format a TTL (seconds) into a human-readable duration
+ */
+export function humanDuration(seconds) {
+    if (!seconds || seconds <= 0) return 'unlimited'
+
+    const days = Math.floor(seconds / 86400)
+    const hours = Math.floor((seconds % 86400) / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+
+    const parts = []
+    if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`)
+    if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`)
+    if (minutes > 0) parts.push(`${minutes} minute${minutes > 1 ? 's' : ''}`)
+
+    return parts.join(' ') || '< 1 minute'
+}
+
+/**
+ * Format a date for display
+ */
+export function formatDate(dateStr) {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return d.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    })
+}
+
+/**
+ * Convert TTL value + unit to seconds
+ */
+export function ttlToSeconds(value, unit) {
+    const multipliers = {
+        minutes: 60,
+        hours: 3600,
+        days: 86400,
+    }
+    return value * (multipliers[unit] || 86400)
+}
+
+/**
+ * Convert TTL in seconds to best value + unit pair
+ */
+export function secondsToTTL(seconds) {
+    if (seconds <= 0) return { value: 0, unit: 'days' }
+
+    if (seconds % 86400 === 0) return { value: seconds / 86400, unit: 'days' }
+    if (seconds % 3600 === 0) return { value: seconds / 3600, unit: 'hours' }
+    return { value: Math.round(seconds / 60), unit: 'minutes' }
+}
+
+/**
+ * Generate a unique reference ID for local file tracking
+ */
+let refCounter = 0
+export function generateRef() {
+    return `ref-${Date.now()}-${++refCounter}`
+}
+
+/**
+ * Encode basic auth header value
+ */
+export function encodeBasicAuth(login, password) {
+    return btoa(`${login}:${password}`)
+}
+
+// ── Quota & unit conversion helpers ──
+// Used by HomeView and AdminView for user/admin edit forms
+
+const GB = 1000 * 1000 * 1000
+
+export const TTL_UNITS = [
+    { label: 'minutes', seconds: 60 },
+    { label: 'hours', seconds: 3600 },
+    { label: 'days', seconds: 86400 },
+]
+
+/**
+ * Build the hash-based URL for an upload
+ */
+export function getUploadUrl(upload) {
+    return `${window.location.origin}${window.location.pathname}#/?id=${upload.id}`
+}
+
+/**
+ * Display label for a quota value (bytes)
+ */
+export function quotaLabel(value) {
+    if (!value || value === 0) return 'default'
+    if (value === -1) return 'unlimited'
+    return humanReadableSize(value)
+}
+
+/**
+ * Display label for a TTL value (seconds)
+ */
+export function ttlLabel(seconds) {
+    if (!seconds || seconds === 0) return 'default'
+    if (seconds === -1) return 'unlimited'
+    if (seconds < 60) return seconds + 's'
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm'
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h'
+    return Math.floor(seconds / 86400) + 'd'
+}
+
+/**
+ * Convert bytes to GB for display in form inputs.
+ * Preserves 0 (default) and -1 (unlimited).
+ */
+export function bytesToGB(bytes) {
+    if (bytes <= 0) return bytes
+    return parseFloat((bytes / GB).toFixed(4))
+}
+
+/**
+ * Convert GB from form input back to bytes.
+ * Preserves 0 (default) and -1 (unlimited).
+ */
+export function gbToBytes(gb) {
+    if (gb <= 0) return gb
+    return Math.round(gb * GB)
+}
+
+/**
+ * Convert seconds to { value, unit } using the best-fitting unit (seconds).
+ * Preserves 0 and -1 as-is.
+ */
+export function secondsToBestUnit(seconds) {
+    if (seconds <= 0) return { value: seconds, unit: 60 }
+    if (seconds % 86400 === 0) return { value: seconds / 86400, unit: 86400 }
+    if (seconds % 3600 === 0) return { value: seconds / 3600, unit: 3600 }
+    return { value: seconds / 60, unit: 60 }
+}
+
+/**
+ * Convert { value, unit (seconds) } back to total seconds.
+ * Preserves 0 and -1 as-is.
+ */
+export function unitToSeconds(value, unit) {
+    if (value <= 0) return value
+    return Math.round(value * unit)
+}
+
+/**
+ * Clamp a quota input value: empty/NaN → 0, < -1 → -1, between -1 and 0 → 0
+ */
+export function clampQuota(val) {
+    if (val === '' || val === null || val === undefined) return 0
+    const n = Number(val)
+    if (isNaN(n)) return 0
+    if (n < -1) return -1
+    if (n > -1 && n < 0) return 0
+    return n
+}
+
+/**
+ * Hint text for size quota inputs showing the server default
+ */
+export function defaultSizeHint(configVal) {
+    if (!configVal || configVal <= 0 || isNaN(configVal)) return '0 = default, -1 = unlimited'
+    return `0 = default (${humanReadableSize(configVal)}), -1 = unlimited`
+}
+
+/**
+ * Hint text for TTL quota inputs showing the server default
+ */
+export function defaultTTLHint(configVal) {
+    if (!configVal || configVal <= 0 || isNaN(configVal)) return '0 = default, -1 = unlimited'
+    const ttl = secondsToBestUnit(configVal)
+    const unit = TTL_UNITS.find(u => u.seconds === ttl.unit)
+    return `0 = default (${ttl.value} ${unit ? unit.label : 's'}), -1 = unlimited`
+}
+
+/**
+ * Build a form object from a user record for editing.
+ * Converts bytes → GB and seconds → best unit for display.
+ * Returns { form, ttlUnit }.
+ */
+export function buildEditForm(user) {
+    const ttl = secondsToBestUnit(user.maxTTL || 0)
+    return {
+        form: {
+            id: user.id,
+            provider: user.provider,
+            login: user.login,
+            name: user.name || '',
+            email: user.email || '',
+            password: '',
+            admin: user.admin || false,
+            maxFileSize: bytesToGB(user.maxFileSize || 0),
+            maxUserSize: bytesToGB(user.maxUserSize || 0),
+            maxTTL: ttl.value,
+        },
+        ttlUnit: ttl.unit,
+    }
+}
+
+/**
+ * Convert an edit form back into an API-ready payload.
+ * Converts GB → bytes and unit value → seconds.
+ * Strips empty password field.
+ */
+export function buildEditPayload(form, ttlUnit) {
+    const payload = { ...form }
+    if (!payload.password) delete payload.password
+    payload.maxFileSize = gbToBytes(payload.maxFileSize)
+    payload.maxUserSize = gbToBytes(payload.maxUserSize)
+    payload.maxTTL = unitToSeconds(payload.maxTTL, ttlUnit)
+    return payload
+}

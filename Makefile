@@ -34,9 +34,7 @@ all: clean clean-frontend frontend clients server
 # Build frontend ressources
 ###
 frontend:
-	@if [ ! -d webapp/node_modules ]; then cd webapp && npm install ; fi
-	@if [ ! -d webapp/bower_components ]; then cd webapp && node_modules/bower/bin/bower install --allow-root ; fi
-	@cd webapp && node_modules/grunt-cli/bin/grunt
+	@cd webapp && npm ci && npm run build
 
 ###
 # Build plik server for the current architecture
@@ -144,7 +142,6 @@ clean:
 # Remove frontend build files
 ###
 clean-frontend:
-	@rm -rf webapp/bower_components
 	@rm -rf webapp/dist
 
 ###
