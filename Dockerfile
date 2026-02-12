@@ -1,5 +1,5 @@
 ##################################################################################
-FROM --platform=$BUILDPLATFORM node:20-alpine AS plik-frontend-builder
+FROM --platform=$BUILDPLATFORM node:24-alpine AS plik-frontend-builder
 
 # Install needed binaries
 RUN apk add --no-cache git make bash

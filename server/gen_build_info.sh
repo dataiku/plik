@@ -87,6 +87,7 @@ for client in $clientList ; do
 		"386")		prettyArch="32bit" ;;
 		"amd64")	prettyArch="64bit" ;;
 		"arm")		prettyArch="ARM" ;;
+		"arm64")	prettyArch="ARM64" ;;
 	esac
 
 	fullName="$prettyOs $prettyArch"
