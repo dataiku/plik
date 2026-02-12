@@ -88,6 +88,10 @@ export function login(loginName, password) {
     return apiCall(`${base}/auth/local/login`, 'POST', { login: loginName, password })
 }
 
+export function oidcLogin() {
+    return apiCall(`${base}/auth/oidc/login`)
+}
+
 export function logout() {
     return apiCall(`${base}/auth/logout`, 'GET')
 }

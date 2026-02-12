@@ -241,6 +241,9 @@ The `GET /config` response also includes:
 | `maxTTL` | Max TTL in seconds |
 | `googleAuthentication` | `true` if Google OAuth is configured → shows Google login button |
 | `ovhAuthentication` | `true` if OVH OAuth is configured → shows OVH login button |
+| `localAuthentication` | `true` if local login is enabled (auth enabled AND `DisableLocalLogin` is `false`) |
+| `oidcAuthentication` | `true` if OIDC is configured → shows OIDC login button |
+| `oidcProviderName` | Display name for OIDC button (e.g. `"Keycloak"`, defaults to `"OpenID"`) |
 | `downloadDomain` | Alternate domain for download URLs (set in `api.js` via `setDownloadDomain`) |
 | `abuseContact` | Abuse contact email → displayed in global footer (`App.vue`) |
 
@@ -325,7 +328,7 @@ App.vue
 │       ├── QrCodeDialog    — QR code modal
 │       ├── CopyButton      — clipboard copy with feedback
 │       └── ConfirmDialog   — confirmation modal
-├── LoginView.vue          — local login form + OAuth buttons
+├── LoginView.vue          — local login form + OAuth/OIDC buttons
 ├── HomeView.vue           — user dashboard (uploads/tokens/account)
 │   └── CopyButton         — clipboard copy for tokens
 ├── AdminView.vue          — admin panel (stats/users/uploads)
@@ -342,8 +345,10 @@ Reactive singleton holding `auth.user` (set on login, cleared on logout). Checke
 
 ### LoginView (`/#/login`)
 
-- Local login form: username + password → `POST /auth/local/login`
+- Local login form (username + password → `POST /auth/local/login`) — **hidden** when `config.localAuthentication` is `false` (i.e. `DisableLocalLogin = true` on the server)
 - Conditional OAuth buttons (Google, OVH) based on `config.googleAuthentication` / `config.ovhAuthentication`
+- OIDC button (label from `config.oidcProviderName`) → calls `GET /auth/oidc/login` to get the authorization URL, then `window.location.href` redirects to the OIDC provider
+- "or continue with" divider only shown when both local login and at least one OAuth/OIDC provider are enabled
 - Redirects to `/#/home` on success
 
 ### HomeView (`/#/home`)
@@ -404,6 +409,10 @@ Allows an admin to "become" another user to browse their uploads, test their quo
 | Endpoint              | Method | Purpose                        | Auth       |
 |-----------------------|--------|--------------------------------|------------|
 | `/auth/local/login`   | POST   | Local login                    | —          |
+| `/auth/oidc/login`    | GET    | Get OIDC authorization URL     | —          |
+| `/auth/oidc/callback` | GET    | OIDC callback (sets session)   | —          |
+| `/auth/google/login`  | GET    | Get Google authorization URL   | —          |
+| `/auth/ovh/login`     | GET    | Get OVH authorization URL      | —          |
 | `/auth/logout`        | GET    | Logout                         | Session    |
 | `/me`                 | GET    | Get current user               | Session    |
 | `/me`                 | DELETE | Delete account                 | Session    |

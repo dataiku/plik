@@ -34,6 +34,9 @@ export const config = reactive({
     // OAuth providers (set by server config)
     googleAuthentication: false,
     ovhAuthentication: false,
+    localAuthentication: true,
+    oidcAuthentication: false,
+    oidcProviderName: 'OpenID',
 
     // Abuse contact
     abuseContact: '',

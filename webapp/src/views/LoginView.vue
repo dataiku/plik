@@ -1,7 +1,8 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { config } from '../config.js'
 import { login } from '../authStore.js'
+import { oidcLogin as apiOidcLogin } from '../api.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -10,6 +11,10 @@ const loginName = ref('')
 const password = ref('')
 const error = ref(null)
 const loading = ref(false)
+
+const hasOAuthProviders = computed(() =>
+  config.googleAuthentication || config.ovhAuthentication || config.oidcAuthentication
+)
 
 async function handleSubmit() {
   error.value = null
@@ -53,6 +58,15 @@ async function ovhLogin() {
     error.value = err.message || 'OVH login failed'
   }
 }
+
+async function handleOidcLogin() {
+  try {
+    const url = await apiOidcLogin()
+    window.location.href = url
+  } catch (err) {
+    error.value = err.message || 'OIDC login failed'
+  }
+}
 </script>
 
 <template>
@@ -72,8 +86,8 @@ async function ovhLogin() {
           {{ error }}
         </div>
 
-        <!-- Local Login Form -->
-        <form @submit.prevent="handleSubmit" class="space-y-4">
+        <!-- Local Login Form (hidden when local auth is disabled) -->
+        <form v-if="config.localAuthentication" @submit.prevent="handleSubmit" class="space-y-4">
           <div>
             <label class="text-xs text-surface-400 block mb-1.5">Login</label>
             <input type="text"
@@ -105,7 +119,7 @@ async function ovhLogin() {
         </form>
 
         <!-- OAuth Divider -->
-        <div v-if="config.googleAuthentication || config.ovhAuthentication"
+        <div v-if="config.localAuthentication && hasOAuthProviders"
              class="flex items-center gap-3">
           <div class="flex-1 border-t border-surface-700/50"></div>
           <span class="text-xs text-surface-500">or continue with</span>
@@ -113,7 +127,7 @@ async function ovhLogin() {
         </div>
 
         <!-- OAuth Buttons -->
-        <div v-if="config.googleAuthentication || config.ovhAuthentication"
+        <div v-if="hasOAuthProviders"
              class="space-y-2">
           <button v-if="config.googleAuthentication"
                   @click="googleLogin"
@@ -138,6 +152,18 @@ async function ovhLogin() {
               <path d="M0 12l5-8h14l-5 8 5 8H5z" fill="#0050D4"/>
             </svg>
             Sign in with OVH
+          </button>
+
+          <button v-if="config.oidcAuthentication"
+                  @click="handleOidcLogin"
+                  class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-surface-600
+                         bg-surface-700/50 text-surface-200 hover:bg-surface-600/50 hover:text-white
+                         transition-all text-sm font-medium">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            Sign in with {{ config.oidcProviderName }}
           </button>
         </div>
       </div>

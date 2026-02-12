@@ -648,6 +648,7 @@ onMounted(async () => {
               <option value="local">local</option>
               <option value="google">google</option>
               <option value="ovh">ovh</option>
+              <option value="oidc">oidc</option>
             </select>
           </div>
 
