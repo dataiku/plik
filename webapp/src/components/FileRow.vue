@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { humanReadableSize } from '../utils.js'
 import { getFileURL } from '../api.js'
 import CopyButton from './CopyButton.vue'
@@ -11,7 +11,44 @@ const props = defineProps({
   canRemove: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['remove', 'update-name', 'show-qr'])
+const emit = defineEmits(['remove', 'update-name', 'show-qr', 'view'])
+
+// Determine if the file is viewable as text
+const TEXT_MIME_PREFIXES = ['text/']
+const TEXT_MIME_TYPES = [
+  'application/json', 'application/javascript', 'application/xml',
+  'application/x-yaml', 'application/yaml', 'application/x-sh',
+  'application/x-python', 'application/x-ruby', 'application/x-perl',
+  'application/x-httpd-php', 'application/sql', 'application/graphql',
+  'application/toml', 'application/xhtml+xml',
+]
+const TEXT_EXTENSIONS = [
+  'txt', 'md', 'json', 'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'go', 'rs',
+  'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sh', 'bash', 'zsh',
+  'yml', 'yaml', 'toml', 'ini', 'cfg', 'conf', 'xml', 'html', 'htm',
+  'css', 'scss', 'sass', 'less', 'sql', 'graphql', 'vue', 'svelte',
+  'swift', 'kt', 'kts', 'scala', 'pl', 'pm', 'r', 'lua', 'makefile',
+  'dockerfile', 'gitignore', 'env', 'log', 'csv', 'tsv',
+]
+const MAX_VIEWABLE_SIZE = 1024 * 1024 // 1 MB
+
+const isTextFile = computed(() => {
+  if (props.file.status !== 'uploaded') return false
+  const size = props.file.fileSize || props.file.size || 0
+  if (size > MAX_VIEWABLE_SIZE) return false
+
+  // Check MIME type
+  const mime = (props.file.fileType || '').toLowerCase()
+  if (mime && TEXT_MIME_PREFIXES.some(p => mime.startsWith(p))) return true
+  if (mime && TEXT_MIME_TYPES.includes(mime)) return true
+
+  // Check extension
+  const ext = (props.file.fileName || '').split('.').pop()?.toLowerCase()
+  if (ext && TEXT_EXTENSIONS.includes(ext)) return true
+
+  // If MIME is empty/octet-stream, fallback to extension check (already done)
+  return false
+})
 
 const showDetails = ref(false)
 
@@ -104,6 +141,20 @@ function fileUrl() {
 
       <!-- Actions -->
       <div class="flex items-center gap-1 shrink-0">
+        <!-- View button (download mode, text files only) -->
+        <button v-if="mode === 'download' && file.status === 'uploaded' && isTextFile"
+                class="btn bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 px-2 py-1.5 text-xs"
+                title="View file content"
+                @click="emit('view', file)">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <span class="hidden md:inline">View</span>
+        </button>
+
         <!-- QR Code button (download mode) -->
         <button v-if="mode === 'download' && file.status === 'uploaded'"
                 class="btn bg-surface-700/50 text-surface-400 hover:text-white px-2 py-1.5 text-xs"

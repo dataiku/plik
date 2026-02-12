@@ -9,6 +9,7 @@ import { auth } from '../authStore.js'
 import { marked } from 'marked'
 import UploadSidebar from '../components/UploadSidebar.vue'
 import FileRow from '../components/FileRow.vue'
+import CodeEditor from '../components/CodeEditor.vue'
 
 const router = useRouter()
 const fileInput = ref(null)
@@ -77,6 +78,26 @@ const allUploaded = computed(() =>
 const textMode = ref(false)
 const textContent = ref('')
 const textFilename = ref('paste.txt')
+
+function onLanguageDetected({ extension }) {
+  if (!extension) return
+  
+  const current = textFilename.value
+  // If empty or default, set default
+  if (!current || current === 'paste.txt') {
+    textFilename.value = `paste.${extension}`
+    return
+  }
+  
+  // Replace extension
+  const parts = current.split('.')
+  if (parts.length > 1) {
+    parts.pop()
+    textFilename.value = `${parts.join('.')}.${extension}`
+  } else {
+    textFilename.value = `${current}.${extension}`
+  }
+}
 
 function addTextAsFile() {
   if (!textContent.value.trim()) return
@@ -381,13 +402,11 @@ async function doUpload() {
                      class="input-field text-sm flex-1 font-mono"
                      placeholder="paste.txt" />
             </div>
-            <textarea
+            <CodeEditor
               v-model="textContent"
-              class="w-full bg-transparent border border-surface-700 rounded-lg p-3 text-sm text-surface-200
-                     placeholder-surface-500 font-mono resize-y focus:outline-none focus:border-accent-500/50
-                     transition-colors min-h-[200px]"
+              :filename="textFilename"
               placeholder="Paste or type text here..."
-              autofocus
+              @language-detected="onLanguageDetected"
             />
             <div class="flex justify-end gap-2">
               <button class="btn border border-surface-600 bg-surface-700/50 text-surface-300 hover:bg-surface-600/50

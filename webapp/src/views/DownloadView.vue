@@ -10,6 +10,7 @@ import FileRow from '../components/FileRow.vue'
 import CopyButton from '../components/CopyButton.vue'
 import QrCodeDialog from '../components/QrCodeDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import CodeEditor from '../components/CodeEditor.vue'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -33,6 +34,41 @@ const qrUrl = ref('')
 
 // Confirmation dialog state
 const confirmDialog = ref(null)
+
+// File viewer state
+const viewingFile = ref(null)
+const viewingContent = ref('')
+const viewingLoading = ref(false)
+const viewingError = ref(null)
+
+async function viewFile(file) {
+  // If already viewing this file, close it
+  if (viewingFile.value?.id === file.id) {
+    closeViewer()
+    return
+  }
+  viewingFile.value = file
+  viewingContent.value = ''
+  viewingLoading.value = true
+  viewingError.value = null
+  try {
+    const url = getFileURL(props.id, file.id, file.fileName)
+    const resp = await fetch(url, { credentials: 'same-origin' })
+    if (!resp.ok) throw new Error(`Failed to fetch file (${resp.status})`)
+    const text = await resp.text()
+    viewingContent.value = text
+  } catch (err) {
+    viewingError.value = err.message || 'Failed to load file content'
+  } finally {
+    viewingLoading.value = false
+  }
+}
+
+function closeViewer() {
+  viewingFile.value = null
+  viewingContent.value = ''
+  viewingError.value = null
+}
 
 // Active (non-removed) files — includes missing, uploading, and uploaded
 const activeFiles = computed(() => {
@@ -258,6 +294,37 @@ onMounted(() => {
             <div class="prose prose-sm max-w-none" v-html="marked.parse(upload.comments, { breaks: true })" />
           </div>
 
+          <!-- File Viewer -->
+          <div v-if="viewingFile" class="glass-card overflow-hidden animate-fade-in">
+            <div class="flex items-center justify-between border-b border-surface-700/50 px-4 py-2">
+              <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                <span class="text-sm font-medium text-surface-200">{{ viewingFile.fileName }}</span>
+              </div>
+              <button class="text-surface-400 hover:text-white transition-colors"
+                      @click="closeViewer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div v-if="viewingLoading" class="flex items-center justify-center py-8">
+              <div class="animate-spin rounded-full h-6 w-6 border-2 border-accent-500 border-t-transparent" />
+              <span class="ml-3 text-sm text-surface-400">Loading file content...</span>
+            </div>
+            <div v-else-if="viewingError" class="p-4 text-sm text-danger-500">{{ viewingError }}</div>
+            <div v-else class="p-2">
+              <CodeEditor
+                :model-value="viewingContent"
+                :filename="viewingFile.fileName"
+                :readonly="true"
+              />
+            </div>
+          </div>
+
           <!-- File List -->
           <div v-if="activeFiles.length" class="space-y-2">
             <div class="flex items-center justify-between px-1">
@@ -273,7 +340,8 @@ onMounted(() => {
                      mode="download"
                      :can-remove="canRemoveFiles"
                      @remove="deleteFile"
-                     @show-qr="openQrFile" />
+                     @show-qr="openQrFile"
+                     @view="viewFile" />
           </div>
 
           <!-- Pending Files (staged for upload) -->
