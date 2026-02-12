@@ -14,43 +14,19 @@ import (
 
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/handlers"
-	"github.com/root-gg/plik/server/server"
 )
 
-// keycloakDiscoveryURL is used to check if Keycloak is running and the plik realm is configured
-const keycloakDiscoveryURL = "http://localhost:2607/realms/plik/.well-known/openid-configuration"
-
-// keycloakAvailable checks if Keycloak is reachable and the plik realm is ready
-func keycloakAvailable() bool {
-	resp, err := http.Get(keycloakDiscoveryURL)
+// oidcAvailable checks if the OIDC provider configured in the given config is reachable
+func oidcAvailable(config *common.Configuration) bool {
+	if config == nil || config.OIDCProviderURL == "" {
+		return false
+	}
+	resp, err := http.Get(config.OIDCProviderURL + "/.well-known/openid-configuration")
 	if err != nil {
 		return false
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
-}
-
-// newPlikServerWithLocalAuth creates a Plik server configured for local auth
-func newPlikServerWithLocalAuth() (ps *server.PlikServer, baseURL string) {
-	ps, _ = newPlikServerAndClient()
-	ps.GetConfig().FeatureAuthentication = common.FeatureForced
-	_ = ps.GetConfig().Initialize()
-	baseURL = ps.GetConfig().GetServerURL().String()
-	return ps, baseURL
-}
-
-// newPlikServerWithOIDC creates a Plik server configured for OIDC auth with Keycloak
-func newPlikServerWithOIDC() (ps *server.PlikServer, baseURL string) {
-	ps, _ = newPlikServerAndClient()
-	config := ps.GetConfig()
-	config.FeatureAuthentication = common.FeatureForced
-	config.OIDCClientID = "plik"
-	config.OIDCClientSecret = "plik-secret"
-	config.OIDCProviderURL = "http://localhost:2607/realms/plik"
-	config.OIDCProviderName = "Keycloak"
-	_ = config.Initialize()
-	baseURL = config.GetServerURL().String()
-	return ps, baseURL
 }
 
 // newBrowserClient creates an http.Client with a cookie jar (simulates a browser)
@@ -102,8 +78,12 @@ func getCookie(resp *http.Response, name string) *http.Cookie {
 // ---- Local Authentication Tests (run with make test) ----
 
 func TestLocalLoginBrowser(t *testing.T) {
-	ps, baseURL := newPlikServerWithLocalAuth()
+	ps, _ := newPlikServerAndClient()
 	defer shutdown(ps)
+
+	ps.GetConfig().FeatureAuthentication = common.FeatureForced
+	_ = ps.GetConfig().Initialize()
+	baseURL := ps.GetConfig().GetServerURL().String()
 
 	// Create a local user with a hashed password
 	user := common.NewUser(common.ProviderLocal, "testuser")
@@ -174,8 +154,12 @@ func TestLocalLoginBrowser(t *testing.T) {
 }
 
 func TestLocalLoginBrowserInvalidPassword(t *testing.T) {
-	ps, baseURL := newPlikServerWithLocalAuth()
+	ps, _ := newPlikServerAndClient()
 	defer shutdown(ps)
+
+	ps.GetConfig().FeatureAuthentication = common.FeatureForced
+	_ = ps.GetConfig().Initialize()
+	baseURL := ps.GetConfig().GetServerURL().String()
 
 	// Create a local user
 	user := common.NewUser(common.ProviderLocal, "testuser2")
@@ -205,8 +189,12 @@ func TestLocalLoginBrowserInvalidPassword(t *testing.T) {
 }
 
 func TestLocalLoginBrowserDisabled(t *testing.T) {
-	ps, baseURL := newPlikServerWithLocalAuth()
+	ps, _ := newPlikServerAndClient()
 	defer shutdown(ps)
+
+	ps.GetConfig().FeatureAuthentication = common.FeatureForced
+	_ = ps.GetConfig().Initialize()
+	baseURL := ps.GetConfig().GetServerURL().String()
 
 	// Disable local login
 	ps.GetConfig().DisableLocalLogin = true
@@ -228,12 +216,17 @@ func TestLocalLoginBrowserDisabled(t *testing.T) {
 // ---- OIDC Authentication Tests (require Keycloak) ----
 
 func TestOIDCLoginBrowser(t *testing.T) {
-	if !keycloakAvailable() {
-		t.Skip("keycloak not running on localhost:2607, skipping OIDC test")
+	ps, _ := newPlikServerAndClient()
+	defer shutdown(ps)
+
+	ps.GetConfig().FeatureAuthentication = common.FeatureForced
+	_ = ps.GetConfig().Initialize()
+
+	if !oidcAvailable(ps.GetConfig()) {
+		t.Skip("OIDC provider not available, skipping OIDC test")
 	}
 
-	ps, baseURL := newPlikServerWithOIDC()
-	defer shutdown(ps)
+	baseURL := ps.GetConfig().GetServerURL().String()
 
 	err := start(ps)
 	require.NoError(t, err, "unable to start Plik server")
@@ -262,7 +255,7 @@ func TestOIDCLoginBrowser(t *testing.T) {
 	authURLBytes, err := io.ReadAll(loginResp.Body)
 	require.NoError(t, err)
 	authURL := string(authURLBytes)
-	require.Contains(t, authURL, "localhost:2607", "auth URL should point to Keycloak")
+	require.Contains(t, authURL, ps.GetConfig().OIDCProviderURL, "auth URL should point to OIDC provider")
 
 	// Step 2: Follow the auth URL through Keycloak redirects to get the login page
 	// Use a client that follows redirects to accumulate all Keycloak session cookies
@@ -332,12 +325,17 @@ func TestOIDCLoginBrowser(t *testing.T) {
 }
 
 func TestOIDCLoginRedirectURL(t *testing.T) {
-	if !keycloakAvailable() {
-		t.Skip("keycloak not running on localhost:2607, skipping OIDC test")
+	ps, _ := newPlikServerAndClient()
+	defer shutdown(ps)
+
+	ps.GetConfig().FeatureAuthentication = common.FeatureForced
+	_ = ps.GetConfig().Initialize()
+
+	if !oidcAvailable(ps.GetConfig()) {
+		t.Skip("OIDC provider not available, skipping OIDC test")
 	}
 
-	ps, baseURL := newPlikServerWithOIDC()
-	defer shutdown(ps)
+	baseURL := ps.GetConfig().GetServerURL().String()
 
 	err := start(ps)
 	require.NoError(t, err, "unable to start Plik server")
@@ -357,7 +355,7 @@ func TestOIDCLoginRedirectURL(t *testing.T) {
 	authURL := string(body)
 
 	// Verify the URL points to the configured Keycloak provider
-	require.Contains(t, authURL, "localhost:2607/realms/plik/protocol/openid-connect/auth")
+	require.Contains(t, authURL, ps.GetConfig().OIDCProviderURL+"/protocol/openid-connect/auth")
 	require.Contains(t, authURL, "client_id=plik")
 	require.Contains(t, authURL, "redirect_uri=")
 	// URL-decode the auth URL to check the redirect_uri contains the test server port
@@ -386,5 +384,7 @@ func extractFormAction(html string) string {
 	return actionURL
 }
 
-// Ensure handlers package is used (for InitOIDCDiscovery which is called by server.Start)
+// Force import of handlers package so that handler routes (including OIDC endpoints)
+// are registered via init(). Without this, the test binary would not include the
+// handler code and OIDC routes would return 404.
 var _ = handlers.OIDCLogin

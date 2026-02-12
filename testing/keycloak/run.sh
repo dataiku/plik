@@ -33,7 +33,7 @@ function start {
             --hostname=http://localhost:$DOCKER_PORT
 
         echo "waiting for keycloak to start ..."
-        sleep 15
+        sleep 5
         if ! status ; then
             echo "IMAGE IS NOT RUNNING"
             exit 1
@@ -141,6 +141,7 @@ function configure_keycloak {
 # Keycloak is an auth provider, not a data/metadata backend,
 # so we only run the OIDC test functions.
 function run_tests {
+    export PLIKD_CONFIG="$ROOT/testing/$BACKEND/plikd.cfg"
     ( cd "$ROOT/plik" && GORACE="halt_on_error=1" go test -count=1 -v -race -run "TestOIDC" ./... )
 }
 

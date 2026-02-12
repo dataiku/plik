@@ -10,7 +10,7 @@ BACKENDS=(
     mariadb
     mysql
     postgres
-    #mssql // There is currently an issue with reserved keyword user not being escaped from queries
+    #mssql # There is currently an issue with reserved keyword user not being escaped from queries
     minio
     swift
     keycloak
@@ -29,7 +29,7 @@ do
         exit 1
     fi
 
-    echo -e "\n - Tesing $BACKEND :\n"
+    echo -e "\n - Testing $BACKEND :\n"
 
     "$BACKEND/run.sh" test "$TEST"
 done
