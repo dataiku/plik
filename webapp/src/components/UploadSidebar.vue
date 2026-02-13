@@ -67,6 +67,16 @@ const maxTTL = computed(() => {
   return val && val > 0 ? secondsToTTL(val) : null
 })
 
+// "Never expires" is allowed when there is no maxTTL limit
+const canNeverExpire = computed(() => {
+  const val = props.effectiveMaxTTL || config.maxTTL
+  return !val || val <= 0
+})
+
+function toggleNeverExpires() {
+  updateSetting('neverExpires', !props.settings.neverExpires)
+}
+
 const hasAnySettings = computed(() =>
   isFeatureEnabled('one_shot') ||
   isFeatureEnabled('stream') ||
@@ -205,7 +215,22 @@ const hasAnySettings = computed(() =>
     <!-- TTL Section -->
     <div v-if="isFeatureEnabled('set_ttl')" class="sidebar-section">
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Expiration</h3>
-      <div class="flex items-center gap-2">
+
+      <!-- Never expires toggle -->
+      <label v-if="canNeverExpire"
+             class="flex items-center justify-between py-1 mb-2 cursor-pointer group">
+        <span class="text-sm text-surface-200 group-hover:text-white transition-colors">
+          Never expires
+        </span>
+        <button type="button"
+                class="toggle-switch"
+                :data-active="settings.neverExpires"
+                @click="toggleNeverExpires">
+          <span class="toggle-dot" />
+        </button>
+      </label>
+
+      <div v-if="!settings.neverExpires" class="flex items-center gap-2">
         <input type="number"
                class="input-field w-20"
                min="1"
@@ -221,7 +246,7 @@ const hasAnySettings = computed(() =>
           <option value="days">days</option>
         </select>
       </div>
-      <p v-if="maxTTL" class="text-xs text-surface-500 mt-1">
+      <p v-if="maxTTL && !settings.neverExpires" class="text-xs text-surface-500 mt-1">
         Max: {{ maxTTL.value }} {{ maxTTL.unit }}
       </p>
     </div>
