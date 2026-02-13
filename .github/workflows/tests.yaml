@@ -1,6 +1,6 @@
 name: test
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   test:
@@ -8,7 +8,7 @@ jobs:
     steps:
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -16,8 +16,7 @@ jobs:
         go-version-file: 'go.mod'
 
     - name: Fetch tags
-      run: |
-        git fetch --prune --unshallow --tags
+      run: git fetch --prune --unshallow --tags
 
     - name: Run linter
       run: make lint
@@ -25,16 +24,44 @@ jobs:
     - name: Run tests
       run: make test
 
-    - name: Run test-backends
+    - name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+    - name: Run vulnerability check (report only)
+      run: make vuln || true
+
+  test-backends:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+
+    - name: Fetch tags
+      run: git fetch --prune --unshallow --tags
+
+    - name: Run backend tests
       run: make test-backends
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 24
+  release:
+    runs-on: ubuntu-latest
+    steps:
 
-    - name: Build documentation
-      run: make docs
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+
+    - name: Fetch tags
+      run: git fetch --prune --unshallow --tags
 
     - name: Set up Docker Buildx
       id: buildx
@@ -43,8 +70,21 @@ jobs:
     - name: Run release
       run: make release
 
-    - name: Install govulncheck
-      run: go install golang.org/x/vuln/cmd/govulncheck@latest
+  docs:
+    runs-on: ubuntu-latest
+    steps:
 
-    - name: Run vulnerability check (report only)
-      run: make vuln || true
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: docs/package-lock.json
+
+    - name: Build docs
+      run: make docs
