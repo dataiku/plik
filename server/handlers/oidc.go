@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 
 	"github.com/root-gg/plik/server/common"
@@ -181,9 +181,11 @@ func OIDCLogin(ctx *context.Context, resp http.ResponseWriter, req *http.Request
 		},
 	}
 
-	state := jwt.New(jwt.SigningMethodHS256)
-	state.Claims.(jwt.MapClaims)["redirectURL"] = redirectURL
-	state.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(time.Minute * 5).Unix()
+	claims := jwt.MapClaims{
+		"redirectURL": redirectURL,
+		"expire":      time.Now().Add(time.Minute * 5).Unix(),
+	}
+	state := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	b64state, err := state.SignedString([]byte(config.OIDCClientSecret))
 	if err != nil {

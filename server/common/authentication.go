@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	uuid "github.com/nu7hatch/gouuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -37,18 +37,19 @@ type SessionAuthenticator struct {
 // GenAuthCookies generate a sign a jwt session cookie to authenticate a user
 func (sa *SessionAuthenticator) GenAuthCookies(user *User) (sessionCookie *http.Cookie, xsrfCookie *http.Cookie, err error) {
 	// Generate session jwt
-	session := jwt.New(jwt.SigningMethodHS512)
-	session.Claims.(jwt.MapClaims)["uid"] = user.ID
-
-	// Generate xsrf token
+	// Generate xsrfToken first
 	xsrfToken, err := uuid.NewV4()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to generate xsrf token")
 	}
-	session.Claims.(jwt.MapClaims)["xsrf"] = xsrfToken.String()
 
-	// Session cookie creation date
-	session.Claims.(jwt.MapClaims)["created_at"] = strconv.FormatInt(time.Now().Unix(), 10)
+	// Create JWT claims
+	claims := jwt.MapClaims{
+		"uid":        user.ID,
+		"xsrf":       xsrfToken.String(),
+		"created_at": strconv.FormatInt(time.Now().Unix(), 10),
+	}
+	session := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 
 	sessionString, err := session.SignedString([]byte(sa.SignatureKey))
 	if err != nil {

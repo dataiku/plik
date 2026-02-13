@@ -82,6 +82,13 @@ lint:
 	test $$FAIL -eq 0
 
 ###
+# Run vulnerability check (requires: go install golang.org/x/vuln/cmd/govulncheck@latest)
+###
+vuln:
+	@echo "Running govulncheck..."
+	@govulncheck ./... || true
+
+###
 # Run fmt
 ###
 fmt:

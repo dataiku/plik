@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	api_oauth2 "google.golang.org/api/oauth2/v2"
