@@ -46,6 +46,8 @@ const settings = reactive({
   password: '',
   commentEnabled: isFeatureDefaultOn('comments'),
   extendTTL: isFeatureDefaultOn('extend_ttl'),
+  // When both defaultTTL and maxTTL are 0 (no limit), default to "never expires" ON (opt-out)
+  neverExpires: config.defaultTTL <= 0 && effectiveMaxTTL.value <= 0,
   ttlValue: defaultTTL.value.value || 15,
   ttlUnit: defaultTTL.value.unit || 'days',
 })
@@ -185,7 +187,7 @@ function buildUploadParams() {
     stream: settings.stream,
     removable: settings.removable,
     extend_ttl: settings.extendTTL,
-    ttl: ttlToSeconds(settings.ttlValue, settings.ttlUnit),
+    ttl: settings.neverExpires ? -1 : ttlToSeconds(settings.ttlValue, settings.ttlUnit),
   }
 
   if (settings.passwordEnabled && settings.login && settings.password) {
