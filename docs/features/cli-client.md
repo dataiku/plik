@@ -1,0 +1,115 @@
+# CLI
+
+Plik ships with a powerful cross-platform CLI client written in Go.
+
+## Usage
+
+```
+plik [options] [FILE] ...
+```
+
+```
+Options:
+  -o, --oneshot             Enable OneShot ( Each file will be deleted on first download )
+  -r, --removable           Enable Removable upload ( Each file can be deleted by anyone at any moment )
+  -S, --stream              Enable Streaming ( It will block until remote user starts downloading )
+  -t, --ttl TTL             Time before expiration (Upload will be removed in m|h|d)
+  --extend-ttl              Extend upload expiration date by TTL when accessed
+  -n, --name NAME           Set file name when piping from STDIN
+  --stdin                   Enable pipe from stdin explicitly when DisableStdin is set in .plikrc
+  --server SERVER           Overrides server url
+  --token TOKEN             Specify an upload token ( if '-' prompt for value )
+  --comments COMMENT        Set comments of the upload ( MarkDown compatible )
+  -p                        Protect the upload with login and password ( be prompted )
+  --password PASSWD         Protect the upload with "login:password" ( if omitted default login is "plik" )
+  -a                        Archive upload using default archive params ( see ~/.plikrc )
+  --archive MODE            Archive upload using the specified archive backend : tar|zip
+  --compress MODE           [tar] Compression codec : gzip|bzip2|xz|lzip|lzma|lzop|compress|no
+  --archive-options OPTIONS [tar|zip] Additional command line options
+  -s                        Encrypt upload using the default encryption parameters ( see ~/.plikrc )
+  --not-secure              Do not encrypt upload files regardless of the ~/.plikrc configurations
+  --secure MODE             Encrypt upload files using the specified crypto backend : openssl|pgp
+  --cipher CIPHER           [openssl] Openssl cipher to use ( see openssl help )
+  --passphrase PASSPHRASE   [openssl] Passphrase or '-' to be prompted for a passphrase
+  --recipient RECIPIENT     [pgp] Set recipient for pgp backend ( example : --recipient Bob )
+  --secure-options OPTIONS  [openssl|pgp] Additional command line options
+  --insecure                (TLS) Do not verify the server's certificate chain and hostname
+  --update                  Update client
+  -q --quiet                Enable quiet mode
+  -d --debug                Enable debug mode
+  -v --version              Show client version
+  -i --info                 Show client and server information
+  -h --help                 Show this help
+```
+
+### Examples
+
+Upload a file:
+```bash
+plik myfile.txt
+```
+
+Create an encrypted archive:
+```bash
+plik -a -s mydirectory/
+```
+
+Upload with expiration:
+```bash
+plik --ttl 24h document.pdf
+```
+
+## Quick Upload with curl
+
+No CLI needed — upload with a single curl command:
+
+```bash
+curl --form 'file=@/path/to/file' http://127.0.0.1:8080
+```
+
+With authentication token:
+```bash
+curl --form 'file=@/path/to/file' \
+     --header 'X-PlikToken: xxxx-xxx-xxxx-xxxxx-xxxxxxxx' \
+     http://127.0.0.1:8080
+```
+
+::: tip
+The `DownloadDomain` configuration option must be set for quick upload to work properly.
+:::
+
+## Configuration (.plikrc)
+
+The client configuration is a TOML file loaded from:
+1. `PLIKRC` environment variable
+2. `~/.plikrc`
+3. `/etc/plik/plikrc`
+
+Key settings:
+
+```toml
+URL = "https://plik.example.com"
+Token = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Archive defaults
+[Archive]
+    Backend = "tar"
+    Compress = "gzip"
+
+# Encryption defaults
+[Secure]
+    Backend = "openssl"
+    Cipher = "aes-256-cbc"
+```
+
+See the [full .plikrc template](https://github.com/root-gg/plik/blob/master/client/.plikrc) for all available options.
+
+## Tips & Tricks
+
+### Screenshot Upload
+
+Upload screenshots directly to clipboard (requires `scrot` and `xclip`):
+
+```bash
+alias pshot="scrot -s -e 'plik -q \$f | xclip ; xclip -o ; rm \$f'"
+```
