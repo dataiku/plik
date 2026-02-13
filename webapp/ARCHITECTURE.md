@@ -1,6 +1,6 @@
 # Plik Webapp — Architecture & Gotchas
 
-> Non-obvious details, design decisions, and pitfalls that agents should know before iterating on this codebase.
+> Non-obvious details, design decisions, and pitfalls that agents should know before iterating on this codebase. For system-wide overview, see the root [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ---
 

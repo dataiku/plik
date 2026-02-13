@@ -117,6 +117,12 @@ test-backends:
 	@testing/test_backends.sh
 
 ###
+# Build documentation
+###
+docs:
+	@cd docs && npm ci && bash inject_version.sh && bash copy_architecture.sh && npm run build
+
+###
 # Build a docker image locally
 ###
 docker:
@@ -162,4 +168,4 @@ clean-all: clean clean-frontend
 # by make, we must declare these targets as phony to avoid :
 # "make: `client' is up to date" cases at compile time
 ###
-.PHONY: client clients server release
+.PHONY: client clients server release docs

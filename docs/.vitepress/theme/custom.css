@@ -1,0 +1,11 @@
+/* Center and widen the search bar in the navbar */
+.VPNavBarSearch {
+    display: flex !important;
+    justify-content: center !important;
+}
+
+.VPNavBarSearch .DocSearch-Button {
+    margin: 0 !important;
+    width: 700px !important;
+    max-width: 700px !important;
+}
