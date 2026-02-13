@@ -63,7 +63,8 @@ cd server && ./plikd        # Run server on http://127.0.0.1:8080
 
 ```bash
 make test                   # Unit tests + CLI integration tests
-make test-backends           # Docker-based backend integration tests
+make test-backends           # Docker-based backend integration tests (all)
+make test-backend mariadb    # Docker-based test for a single backend
 make lint                   # go fmt + go vet
 make vuln                   # govulncheck (report only)
 ```
@@ -106,7 +107,7 @@ The documentation lives in two places:
 
 ```bash
 cd docs && npm install       # First time only
-cd docs && npx vitepress dev # Preview at localhost:5173
+cd docs && npm run dev       # Preview at localhost:5173
 make docs                    # Build docs (validates links, injects version)
 ```
 

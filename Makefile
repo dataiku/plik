@@ -117,6 +117,18 @@ test-backends:
 	@testing/test_backends.sh
 
 ###
+# Run integration tests for a single backend
+# Usage: make test-backend mariadb
+###
+ifeq (test-backend,$(firstword $(MAKECMDGOALS)))
+  BACKEND_ARG := $(wordlist 2,2,$(MAKECMDGOALS))
+  $(eval $(BACKEND_ARG):;@:)
+endif
+
+test-backend:
+	@testing/test_backends.sh $(BACKEND_ARG)
+
+###
 # Build documentation
 ###
 docs:
@@ -168,4 +180,4 @@ clean-all: clean clean-frontend
 # by make, we must declare these targets as phony to avoid :
 # "make: `client' is up to date" cases at compile time
 ###
-.PHONY: client clients server release docs
+.PHONY: client clients server release docs test-backend
