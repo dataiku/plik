@@ -5,9 +5,9 @@
 Download the latest release and run:
 
 ```bash
-wget https://github.com/root-gg/plik/releases/download/1.3.8/plik-1.3.8-linux-amd64.tar.gz
-tar xzvf plik-1.3.8-linux-amd64.tar.gz
-cd plik-1.3.8/server
+wget https://github.com/root-gg/plik/releases/download/__VERSION__/plik-__VERSION__-linux-amd64.tar.gz
+tar xzvf plik-__VERSION__-linux-amd64.tar.gz
+cd plik-__VERSION__/server
 ./plikd
 ```
 

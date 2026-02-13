@@ -387,6 +387,12 @@ docs/
 - **Deploy**: Automated via `.github/workflows/deploy-docs.yml` on push to `master`
 - **CI**: Build is verified on every push/PR via `.github/workflows/tests.yaml`
 
+**Build pipeline** (`make docs`):
+
+1. `inject_version.sh` — replaces `__VERSION__` placeholders in markdown files with the current version from `gen_build_info.sh`. Only runs in CI (`$CI` env var); skipped locally to avoid dirtying source files.
+2. `copy_architecture.sh` — copies each `ARCHITECTURE.md` from the repo into `docs/architecture/` with cross-link rewriting. These generated files are `.gitignored`.
+3. `npm run build` — runs the VitePress build (includes dead link checking).
+
 ### Agent-Readable Docs (`ARCHITECTURE.md` files)
 
 Scoped `ARCHITECTURE.md` files placed in each package directory, designed for AI coding assistants. Each file documents internal structure, key abstractions, data flow, and design decisions. See the list below.
