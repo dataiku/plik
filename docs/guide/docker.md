@@ -10,7 +10,7 @@ docker run -p 8080:8080 rootgg/plik
 
 Available tags:
 - `latest` — Latest stable release
-- `1.3.8` — Specific version
+- `__VERSION__` — Specific version
 - `dev` — Latest build from master branch
 
 ## Custom Configuration
