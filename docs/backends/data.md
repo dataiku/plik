@@ -1,0 +1,68 @@
+# Data Backends
+
+Plik supports multiple storage backends for uploaded files.
+
+## File (Default)
+
+Stores files in a local or mounted filesystem directory.
+
+```toml
+DataBackend = "file"
+[DataBackendConfig]
+    Directory = "files"
+```
+
+## Amazon S3
+
+Compatible with any S3-compatible storage (AWS, MinIO, etc.).
+
+```toml
+DataBackend = "s3"
+[DataBackendConfig]
+    Endpoint = "s3.amazonaws.com"
+    AccessKeyID = "your-access-key"
+    SecretAccessKey = "your-secret-key"
+    Bucket = "plik"
+    Location = "us-east-1"
+    Prefix = ""
+    UseSSL = true
+    PartSize = 16777216  # 16MiB chunks (min 5MiB, max file = PartSize × 10000)
+```
+
+### Server-Side Encryption
+
+| Mode | Description |
+|------|-------------|
+| `SSE-C` | Encryption keys managed by Plik |
+| `S3` | Encryption keys managed by the S3 backend |
+
+```toml
+[DataBackendConfig]
+    SSE = "SSE-C"  # or "S3"
+```
+
+## OpenStack Swift
+
+```toml
+DataBackend = "swift"
+[DataBackendConfig]
+    Container = "plik"
+    AuthUrl = "https://auth.swiftapi.example.com/v2.0/"
+    UserName = "user@example.com"
+    ApiKey = "xxxxxxxxxxxxxxxx"
+    Domain = "domain"   # v3 auth only
+    Tenant = "tenant"   # v2 auth only
+```
+
+See the [ncw/swift documentation](https://github.com/ncw/swift) for all available connection settings (v1/v2/v3).
+
+## Google Cloud Storage
+
+```toml
+DataBackend = "gcs"
+[DataBackendConfig]
+    Bucket = "my-plik-bucket"
+    Folder = "plik"
+```
+
+Requires Application Default Credentials or a service account key.

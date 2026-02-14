@@ -1,0 +1,74 @@
+# Authentication
+
+Plik supports multiple authentication providers. Enable with:
+
+```toml
+FeatureAuthentication = "enabled"   # Opt-in
+# or
+FeatureAuthentication = "forced"    # All uploads require auth
+```
+
+## Local Accounts
+
+Create users via the server CLI:
+
+```bash
+./plikd --config ./plikd.cfg user create --login root --name Admin --admin
+# Generated password for user root is 08ybEyh2KkiMho8dzpdQaJZm78HmvWGC
+```
+
+## Google OAuth
+
+1. Create an application in the [Google Developer Console](https://console.developers.google.com)
+2. Get your Client ID and Client Secret
+3. Whitelist the redirect URL: `https://yourdomain/auth/google/callback`
+
+```toml
+GoogleApiClientID = "your-client-id"
+GoogleApiSecret = "your-client-secret"
+GoogleValidDomains = ["company.com"]  # Optional: restrict to email domains
+```
+
+## OVH
+
+1. Create an application at [OVH API](https://eu.api.ovh.com/createApp/)
+2. Get your Application Key and Secret
+
+```toml
+OvhApiKey = "your-app-key"
+OvhApiSecret = "your-app-secret"
+OvhApiEndpoint = "https://eu.api.ovh.com/1.0"  # Optional, defaults to EU
+```
+
+## OpenID Connect (OIDC)
+
+Works with any OIDC provider (Keycloak, Authentik, Dex, etc.).
+
+1. Create a client application in your OIDC provider
+2. Set redirect URI to `https://yourdomain/auth/oidc/callback`
+
+```toml
+OIDCClientID = "plik"
+OIDCClientSecret = "your-secret"
+OIDCProviderURL = "https://keycloak.example.com/realms/myrealm"
+OIDCProviderName = "Keycloak"           # Optional: login button label
+OIDCValidDomains = ["company.com"]      # Optional: restrict by email domain
+```
+
+## Disabling Local Login
+
+When using an external provider exclusively:
+
+```toml
+DisableLocalLogin = true
+```
+
+This hides the login/password form and rejects local login attempts.
+
+## CLI Tokens
+
+Authenticated users can generate CLI tokens in the web UI or via the API. These tokens authenticate the CLI client, linking uploads to the user's account for quota tracking and management. They are sent via the `X-PlikToken` header or configured in `.plikrc`:
+
+```toml
+Token = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
