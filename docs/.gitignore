@@ -1,10 +1,4 @@
 node_modules
 .vitepress/dist
 .vitepress/cache
-architecture/system.md
-architecture/server.md
-architecture/client.md
-architecture/library.md
-architecture/webapp.md
-architecture/testing.md
-architecture/releaser.md
+architecture/*.md

@@ -2,6 +2,12 @@
 
 set -e
 
+# Only inject version in CI to avoid modifying source files locally
+if [[ -z "$CI" ]]; then
+    echo "Skipping version injection (not in CI)"
+    exit 0
+fi
+
 # Get the version from gen_build_info.sh
 VERSION=$(../server/gen_build_info.sh version)
 
@@ -12,12 +18,8 @@ fi
 
 echo "Injecting version $VERSION into documentation..."
 
-# Update getting-started.md with the current version
-sed -i "s|releases/download/[^/]*/plik-[^/]*-linux-amd64.tar.gz|releases/download/$VERSION/plik-$VERSION-linux-amd64.tar.gz|g" guide/getting-started.md
-sed -i "s|tar xzvf plik-[^/]*-linux-amd64.tar.gz|tar xzvf plik-$VERSION-linux-amd64.tar.gz|g" guide/getting-started.md
-sed -i "s|cd plik-[^/]*/server|cd plik-$VERSION/server|g" guide/getting-started.md
-
-# Update docker.md with the current version
-sed -i "s|- \`[0-9.]*\` — Specific version|- \`$VERSION\` — Specific version|g" guide/docker.md
+# Replace __VERSION__ placeholders in all markdown files
+find . -name '*.md' -not -path './node_modules/*' -not -path './vendor/*' -exec \
+    sed -i "s/__VERSION__/$VERSION/g" {} +
 
 echo "Version injection complete"
