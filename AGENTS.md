@@ -123,3 +123,4 @@ make docs                    # Build docs (validates links, injects version)
 | [plik/ARCHITECTURE.md](plik/ARCHITECTURE.md) | Go library: public API, types, test harness |
 | [webapp/ARCHITECTURE.md](webapp/ARCHITECTURE.md) | Vue 3 SPA: components, routing, API layer, state |
 | [testing/ARCHITECTURE.md](testing/ARCHITECTURE.md) | Backend integration tests: docker-based test scripts |
+| [releaser/ARCHITECTURE.md](releaser/ARCHITECTURE.md) | Release tooling: build pipeline, Docker stages, client/server compilation |

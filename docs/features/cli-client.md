@@ -2,6 +2,48 @@
 
 Plik ships with a powerful cross-platform CLI client written in Go.
 
+## Installation
+
+### From GitHub Releases
+
+Download the latest client binary for your platform directly from the [GitHub releases page](https://github.com/root-gg/plik/releases):
+
+```bash
+# Linux (amd64)
+wget https://github.com/root-gg/plik/releases/download/__VERSION__/plik-__VERSION__-linux-amd64
+chmod +x plik-__VERSION__-linux-amd64
+sudo mv plik-__VERSION__-linux-amd64 /usr/local/bin/plik
+
+# macOS (amd64)
+curl -L -o plik https://github.com/root-gg/plik/releases/download/__VERSION__/plik-__VERSION__-darwin-amd64
+chmod +x plik
+sudo mv plik /usr/local/bin/plik
+
+# Windows (amd64)
+# Download plik-__VERSION__-windows-amd64.exe from the release page
+```
+
+Available platforms: `linux-amd64`, `linux-386`, `linux-arm`, `linux-arm64`, `darwin-amd64`, `freebsd-amd64`, `freebsd-386`, `openbsd-amd64`, `openbsd-386`, `windows-amd64`, `windows-386`
+
+### From Plik Web UI
+
+Any running Plik instance serves its client binaries through the web interface. Navigate to your Plik server and download the client for your platform.
+
+### Bash Client
+
+A lightweight bash client (`plik.sh`) is also available for environments where you can't install a Go binary. It requires only `curl`, `openssl`, and standard POSIX tools:
+
+```bash
+# Download from GitHub releases
+wget https://github.com/root-gg/plik/releases/download/__VERSION__/plik-__VERSION__.sh
+chmod +x plik-__VERSION__.sh
+sudo mv plik-__VERSION__.sh /usr/local/bin/plik
+
+# Or grab it from a running Plik server
+curl -o plik https://your-plik-server/clients/bash/plik.sh
+chmod +x plik
+```
+
 ## Usage
 
 ```

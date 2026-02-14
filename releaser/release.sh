@@ -52,6 +52,30 @@ fi
 mkdir -p releases
 rm -rf releases/*
 
+# Export client binaries
+echo ""
+echo " Exporting client binaries"
+echo ""
+docker buildx build --progress=plain --platform linux/amd64 $BUILD_ARGS --target plik-clients-archive -o releases/clients .
+
+# Rename client binaries for release ( e.g. plik-1.4-RC1-linux-amd64 )
+for dir in releases/clients/*/; do
+  target=$(basename "$dir")
+
+  # Copy the bash client as-is
+  if [[ "$target" == "bash" ]]; then
+    cp "$dir/plik.sh" "releases/plik-${VERSION}.sh"
+    continue
+  fi
+
+  if [[ -f "$dir/plik.exe" ]]; then
+    mv "$dir/plik.exe" "releases/plik-${VERSION}-${target}.exe"
+  elif [[ -f "$dir/plik" ]]; then
+    mv "$dir/plik" "releases/plik-${VERSION}-${target}"
+  fi
+done
+rm -rf releases/clients
+
 # Build release archives
 docker buildx build --progress=plain --platform $TARGETS $BUILD_ARGS --target plik-release-archive -o releases .
 
