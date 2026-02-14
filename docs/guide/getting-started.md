@@ -5,15 +5,19 @@
 Download the latest release and run:
 
 ```bash
-wget https://github.com/root-gg/plik/releases/download/__VERSION__/plik-__VERSION__-linux-amd64.tar.gz
-tar xzvf plik-__VERSION__-linux-amd64.tar.gz
-cd plik-__VERSION__/server
+wget https://github.com/root-gg/plik/releases/download/__VERSION__/plik-server-__VERSION__-linux-amd64.tar.gz
+tar xzvf plik-server-__VERSION__-linux-amd64.tar.gz
+cd plik-server-__VERSION__/server
 ./plikd
 ```
 
 Plik is now running at [http://127.0.0.1:8080](http://127.0.0.1:8080).
 
 Edit `plikd.cfg` to adjust the configuration (ports, TLS, TTL, backends, etc.).
+
+::: tip
+Standalone client binaries for all platforms are also available on the [release page](https://github.com/root-gg/plik/releases). See the [CLI documentation](../features/cli-client.md) for installation instructions.
+:::
 
 ## From Source
 

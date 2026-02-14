@@ -56,8 +56,7 @@ client:
 # Build clients for all architectures
 ###
 clients:
-	# Only build clients
-	@MAKEFILE_TARGET="clients" releaser/releaser.sh
+	@releaser/build_clients.sh
 
 ###
 # Display build info
