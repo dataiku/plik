@@ -57,6 +57,8 @@ router.beforeEach((to) => {
     if (config.feature_authentication !== 'forced') return true
     if (auth.user) return true
     if (to.name === 'login') return true
+    // Allow CLI client download page without authentication
+    if (to.name === 'clients') return true
     // Allow download pages — they have ?id= query
     if (to.name === 'root' && to.query.id) return true
     return { name: 'login' }
