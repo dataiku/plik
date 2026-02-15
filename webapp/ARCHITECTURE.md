@@ -493,6 +493,8 @@ Reusable CodeMirror 6 wrapper (`CodeEditor.vue`) used in two contexts:
 
 **Content-based language detection**: Uses `highlight.js` (lazy-loaded via dynamic `import()` on first detection call) for accurate auto-detection of ~190 languages. Detection fires via a 1s debounce on content changes. In UploadView, auto-detection only updates the filename when it still matches the default `paste.*` pattern.
 
+**JSON prettify / validate**: When the detected language is JSON, two action buttons appear in the editor header bar. **Validate** (`JSON.parse()` only) checks syntax and shows a brief green "Valid" flash on success or a dismissable red error banner on failure — it never changes the content. **Prettify** (`JSON.parse()` → `JSON.stringify(…, null, 2)`) validates *and* reformats the content with 2-space indentation. In read-only mode (DownloadView file viewer) prettify updates the displayed view only — it does not modify the file on the server.
+
 ### Text-File Detection
 
 The `isTextFile()` utility in `utils.js` determines if a file can be viewed in the code editor based on:
