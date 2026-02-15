@@ -1,0 +1,99 @@
+name: docker-build-pr
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  docker-build:
+    name: Docker Build & Push
+    # Trigger only on pull request comments and when the comment contains "docker build"
+    if: github.event.issue.pull_request && contains(github.event.comment.body, 'docker build')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check permissions
+        id: check_perms
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.payload.comment.user.login,
+            });
+            const allowed = ['admin', 'write'].includes(permission.permission);
+            if (!allowed) {
+              core.setFailed(`User ${context.payload.comment.user.login} does not have permission to trigger this workflow.`);
+            }
+
+      - name: Add reaction
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket',
+            });
+
+      - name: Get PR info
+        id: pr
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            return pr;
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ fromJson(steps.pr.outputs.result).head.ref }}
+          repository: ${{ fromJson(steps.pr.outputs.result).head.repo.full_name }}
+
+      - name: Fetch tags
+        run: |
+          git fetch --prune --unshallow --tags
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and push
+        env:
+          TAG: pr-${{ github.event.issue.number }}
+          PUSH_TO_DOCKER_HUB: "true"
+        run: make release-and-push-to-docker-hub
+
+      - name: Post success comment
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `✅ Docker build and push successful!\n\nImage: \`rootgg/plik:pr-${context.issue.number}\``
+            });
+
+      - name: Post failure comment
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ Docker build and push failed. Check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
+            });
