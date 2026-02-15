@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -51,9 +51,11 @@ func GoogleLogin(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 	}
 
 	/* Generate state */
-	state := jwt.New(jwt.SigningMethodHS256)
-	state.Claims.(jwt.MapClaims)["redirectURL"] = redirectURL
-	state.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(time.Minute * 5).Unix()
+	claims := jwt.MapClaims{
+		"redirectURL": redirectURL,
+		"expire":      time.Now().Add(time.Minute * 5).Unix(),
+	}
+	state := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	/* Sign state */
 	b64state, err := state.SignedString([]byte(config.GoogleAPISecret))

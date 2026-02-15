@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
@@ -109,9 +109,11 @@ func OvhLogin(ctx *context.Context, resp http.ResponseWriter, req *http.Request)
 	}
 
 	// Generate session jwt
-	session := jwt.New(jwt.SigningMethodHS256)
-	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = userConsentResponse.ConsumerKey
-	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = config.OvhAPIEndpoint
+	claims := jwt.MapClaims{
+		"ovh-consumer-key": userConsentResponse.ConsumerKey,
+		"ovh-api-endpoint": config.OvhAPIEndpoint,
+	}
+	session := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	sessionString, err := session.SignedString([]byte(config.OvhAPISecret))
 	if err != nil {

@@ -1,6 +1,6 @@
 # Plik Webapp — Architecture & Gotchas
 
-> Non-obvious details, design decisions, and pitfalls that agents should know before iterating on this codebase.
+> Non-obvious details, design decisions, and pitfalls that agents should know before iterating on this codebase. For system-wide overview, see the root [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ---
 
@@ -508,39 +508,11 @@ The Go server serves `webapp/dist/` via `http.FileServer`. Default config: `Weba
 | `clean-frontend`  | Remove `webapp/dist/`                             |
 | `clean-all`       | Clean everything including `node_modules`         |
 
-### Docker Build (multi-stage)
+### Build Info & Client Downloads
 
-```
-Stage 1: node:24-alpine    → npm ci && npm run build → webapp/dist/
-Stage 2: golang:1-bullseye → cross-compile clients + server
-Stage 3: scratch           → extract release .tar.gz (optional target)
-Stage 4: alpine:3.18       → final runtime image with server + clients + webapp
-```
+The server binary embeds a JSON blob (via `server/gen_build_info.sh`) containing a client list discovered from the `clients/` directory. The `ClientsView` page displays download links from this embedded build info.
 
-Stage 2 copies `webapp/dist` from Stage 1 and asserts it exists (`releaser.sh` line 17).
-
-### Release Packaging (`releaser/releaser.sh`)
-
-Produces `plik-<version>-<os>-<arch>.tar.gz` containing:
-
-```
-release/
-├── clients/           # Cross-compiled CLI binaries + bash wrapper
-├── changelog/         # Version changelogs
-├── webapp/dist/       # Built frontend
-└── server/
-    ├── plikd          # Server binary
-    └── plikd.cfg      # Default config
-```
-
-### Build Info (`server/gen_build_info.sh`)
-
-Generates a JSON blob embedded in the Go binary via `-ldflags`. Contains:
-- Version, git revision, date, go version, release/mint status
-- Client list (discovered from `clients/` directory with OS/arch/md5)
-- Release history (from git tags matching `changelog/` entries)
-
-The `ClientsView` page displays client download links from this embedded build info.
+For full details on the Docker multi-stage build and release packaging, see [releaser/ARCHITECTURE.md](../releaser/ARCHITECTURE.md).
 
 ---
 

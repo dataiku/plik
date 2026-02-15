@@ -27,7 +27,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
-    "markdown-it": "^14.1.0",
+    "markdown-it": "^14.1.1",
     "marked": "^17.0.1",
     "tailwindcss": "^4.1.18",
     "vue": "^3.5.25",
