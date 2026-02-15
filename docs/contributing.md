@@ -49,12 +49,37 @@ make test-backends
 
 ### Running Locally
 
+Start the Go backend:
+
 ```bash
 cd server
 ./plikd --config ./plikd.cfg
 ```
 
 The server starts at [http://127.0.0.1:8080](http://127.0.0.1:8080) and serves both the API and the web interface.
+
+#### Webapp dev server
+
+For frontend development with hot-reload, run the Vite dev server which proxies API calls to the Go backend:
+
+```bash
+make docs
+cd webapp
+npm install
+npm run dev           # http://localhost:5173
+npm run dev -- --host # expose to local network
+```
+
+#### Documentation dev server
+
+To preview the documentation site locally:
+
+```bash
+cd docs
+npm install
+npm run dev           # http://localhost:5173/plik/
+npm run dev -- --host # expose to local network
+```
 
 ## Code Organization
 
