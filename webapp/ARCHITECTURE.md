@@ -41,6 +41,7 @@ Admin link (upload-level): `/#/?id=<uploadId>&uploadToken=<token>`
 
 When `config.feature_authentication` is `"forced"`, a `router.beforeEach` guard redirects unauthenticated users to `/#/login`. Exceptions:
 - The login page itself (`to.name === 'login'`)
+- CLI client downloads (`to.name === 'clients'`) — so users can get the CLI without logging in
 - Download pages (`to.name === 'root' && to.query.id`) — so shared links still work
 
 ---
