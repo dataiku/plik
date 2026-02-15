@@ -23,6 +23,7 @@ export default withMermaid(defineConfig({
                         { text: 'Getting Started', link: '/guide/getting-started' },
                         { text: 'Configuration', link: '/guide/configuration' },
                         { text: 'Docker Deployment', link: '/guide/docker' },
+                        { text: 'Kubernetes (Helm)', link: '/guide/kubernetes' },
                         { text: 'Security', link: '/guide/security' },
                         { text: 'Send to Plik', link: '/guide/windows-send-to' },
                     ],
