@@ -2,10 +2,12 @@
 .VPNavBarSearch {
     display: flex !important;
     justify-content: center !important;
+    padding: 0 1rem !important;
 }
 
-.VPNavBarSearch .DocSearch-Button {
+.VPNavBarSearch .DocSearch-Button,
+.VPNavBarSearch .VPNavBarSearchButton {
     margin: 0 !important;
-    width: 700px !important;
+    width: 100% !important;
     max-width: 700px !important;
 }
