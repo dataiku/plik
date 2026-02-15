@@ -152,6 +152,17 @@ try { return JSON.parse(text) } catch { return text }
 
 Errors from `fetchUpload` are displayed inline (not redirecting). This shows the actual server message like `"upload feafea not found"` instead of a generic error.
 
+### Separated error states in DownloadView
+
+DownloadView uses **two separate error refs** to avoid upload errors from hiding the upload content:
+
+| Ref | Purpose | Display |
+|-----|---------|---------|
+| `error` | Page-level failures (e.g., `fetchUpload` fails, upload not found) | Full-page error state via `v-else-if="error"` — replaces entire content |
+| `uploadError` | File transfer failures (e.g., 400 Bad Request during upload) | Dismissible inline banner within the upload content area |
+
+> **Why two refs**: The template uses `v-if="loading"` / `v-else-if="error"` / `v-else-if="upload"` branching. If file upload errors set `error`, the `v-else-if="error"` branch takes over and hides the sidebar + file list. The `uploadError` ref keeps errors in the `v-else-if="upload"` block so the user retains context.
+
 ---
 
 ## File Upload Mechanics
@@ -234,6 +245,21 @@ Files stored locally before upload use this shape (NOT the server shape):
 ```
 
 > **Gotcha**: Local files use `reference` as a key, not `id`. The `id` is only assigned by the server after upload. The `size` field is `size` locally but `fileSize` in server responses.
+
+---
+
+## Filename Length Limit
+
+Filenames are capped at **1024 characters** — enforced client-side at multiple points:
+
+| Location | Enforcement |
+|----------|-------------|
+| `UploadView.addFiles()` | Truncates `file.name` to 1024 chars when files are added to the staging list |
+| `FileRow.onNameInput()` | Truncates on blur (when editing finishes) |
+| `FileRow.onNameKeydown()` | Blocks character input at limit (allows Backspace/Delete/ctrl keys) |
+| `FileRow.onNamePaste()` | Intercepts paste, calculates available space, clamps inserted text |
+
+> **Note**: The server also validates filename length and returns a 400 if exceeded. The client-side enforcement prevents this from happening under normal use.
 
 ---
 
@@ -348,9 +374,9 @@ App.vue
 │   │   ├── UploadSidebar  — upload settings (one-shot, stream, TTL, etc.)
 │   │   ├── FileRow        — individual file display
 │   │   └── CodeEditor     — text paste mode with syntax highlighting
-│   └── DownloadView.vue   — file list, download links, admin actions
-│       ├── DownloadSidebar — upload info, admin URL, action buttons
-│       ├── FileRow         — download/QR/copy/remove per file + View button
+│   └── DownloadView.vue   — file list, admin actions
+│       ├── DownloadSidebar — upload info, share, admin URL, action buttons
+│       ├── FileRow         — file link (preview), caret (details), download/QR/copy/view/remove
 │       ├── CodeEditor      — inline file viewer (read-only)
 │       ├── QrCodeDialog    — QR code modal
 │       ├── CopyButton      — clipboard copy with feedback
@@ -596,4 +622,8 @@ For full details on the Docker multi-stage build and release packaging, see [rel
 10. **Vite dev server runs on port 5173/5174** — the Go backend runs on port 8080. During dev, Vite proxies API calls to the backend via `vite.config.js`.
 
 11. **`webapp/dist/` is gitignored** — never commit build artifacts. The CI/Docker build produces them fresh.
+
+12. **DownloadView has two error refs** — `error` (page-level) and `uploadError` (inline banner). Setting file upload errors on `error` hides the entire upload content due to template branching. Always use `uploadError` for file transfer failures.
+
+13. **Filenames are capped at 1024 characters** — enforced in `UploadView.addFiles()`, `FileRow.onNameInput/onNameKeydown/onNamePaste`. The server also validates this, so both layers must agree.
 

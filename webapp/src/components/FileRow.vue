@@ -21,7 +21,48 @@ const isTextFile = computed(() => {
 const showDetails = ref(false)
 
 function onNameInput(e) {
-  emit('update-name', e.target.textContent.trim())
+  let name = e.target.textContent.trim()
+  if (name.length > 1024) {
+    name = name.slice(0, 1024)
+    e.target.textContent = name
+  }
+  emit('update-name', name)
+}
+
+function onNameKeydown(e) {
+  // Allow control keys, but block character input if at limit
+  if (e.target.textContent.length >= 1024 && !e.ctrlKey && !e.metaKey &&
+      e.key.length === 1 && !['Backspace', 'Delete'].includes(e.key)) {
+    e.preventDefault()
+  }
+}
+
+function onNamePaste(e) {
+  e.stopPropagation()
+  // Handle paste manually to enforce limit
+  e.preventDefault()
+  const text = e.clipboardData?.getData('text/plain') || ''
+  const el = e.target
+  const current = el.textContent || ''
+  const sel = window.getSelection()
+  const range = sel.rangeCount ? sel.getRangeAt(0) : null
+
+  // Calculate how many chars we can insert
+  let selectedLen = 0
+  if (range && el.contains(range.startContainer)) {
+    selectedLen = range.toString().length
+  }
+  const available = 1024 - current.length + selectedLen
+  if (available <= 0) return
+
+  const insert = text.replace(/\n/g, '').slice(0, available)
+  if (range) {
+    range.deleteContents()
+    range.insertNode(document.createTextNode(insert))
+    range.collapse(false)
+    sel.removeAllRanges()
+    sel.addRange(range)
+  }
 }
 
 function fileUrl() {
@@ -44,28 +85,46 @@ function fileUrl() {
       <!-- File name -->
       <div class="flex-1 min-w-0">
         <!-- Editable name (upload mode) -->
-        <div v-if="mode === 'upload'"
-             class="text-sm text-surface-100 truncate cursor-text outline-none
-                    hover:text-white focus:ring-1 focus:ring-accent-500/50 rounded px-1 -mx-1"
-             contenteditable="true"
-             @blur="onNameInput"
-             @keydown.enter.prevent="$event.target.blur()">
-          {{ file.fileName }}
+        <div v-if="mode === 'upload'" class="inline-flex items-center gap-1 min-w-0 w-full">
+          <div class="text-sm text-surface-100 cursor-text outline-none
+                      overflow-hidden text-ellipsis whitespace-nowrap
+                      focus:overflow-x-auto focus:text-clip focus:whitespace-normal
+                      hover:text-white focus:ring-1 focus:ring-accent-500/50 rounded px-1 -mx-1"
+               contenteditable="true"
+               @blur="onNameInput"
+               @keydown="onNameKeydown"
+               @keydown.enter.prevent="$event.target.blur()"
+               @paste="onNamePaste">
+            {{ file.fileName }}
+          </div>
+          <svg class="w-3 h-3 text-surface-500 shrink-0"
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
         </div>
 
-        <!-- Clickable name → toggle details (download mode) -->
-        <button v-else-if="mode === 'download'"
-                class="text-sm text-surface-100 truncate hover:text-accent-400 transition-colors text-left w-full"
-                @click="showDetails = !showDetails">
-          <span class="inline-flex items-center gap-1">
-            <svg class="w-3 h-3 text-surface-500 transition-transform duration-200"
+        <!-- Download mode: caret toggles details, name is a link -->
+        <div v-else-if="mode === 'download'" class="inline-flex items-center gap-1 min-w-0 w-full">
+          <button class="shrink-0 p-0.5 text-surface-500 hover:text-surface-300 transition-colors"
+                  title="Toggle details"
+                  @click="showDetails = !showDetails">
+            <svg class="w-3 h-3 transition-transform duration-200"
                  :class="showDetails ? 'rotate-90' : ''"
                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
+          </button>
+          <a v-if="file.status === 'uploaded'"
+             :href="fileUrl()"
+             class="text-sm text-surface-100 hover:text-accent-400 transition-colors truncate"
+             target="_blank">
+            {{ file.fileName }}
+          </a>
+          <span v-else class="text-sm text-surface-100 truncate">
             {{ file.fileName }}
           </span>
-        </button>
+        </div>
 
         <!-- Static name -->
         <div v-else class="text-sm text-surface-100 truncate">

@@ -119,7 +119,7 @@ function addFiles(rawFiles) {
 
     files.value.push({
       reference: generateRef(),
-      fileName: file.name,
+      fileName: file.name.slice(0, 1024),
       size: file.size,
       file: file,
       status: 'toUpload',
