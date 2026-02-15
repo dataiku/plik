@@ -1,11 +1,18 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { config } from '../config.js'
-import { login } from '../authStore.js'
+import { auth, login } from '../authStore.js'
 import { oidcLogin as apiOidcLogin } from '../api.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+
+// Redirect authenticated users to the upload page
+// This handles OAuth callbacks (server redirects to /#/login after success)
+// and direct navigation to /#/login while already logged in
+onMounted(() => {
+  if (auth.user) router.replace('/')
+})
 
 const loginName = ref('')
 const password = ref('')
