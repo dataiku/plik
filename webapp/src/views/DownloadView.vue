@@ -325,7 +325,7 @@ onMounted(() => {
             <div v-else-if="viewingError" class="p-4 text-sm text-danger-500">{{ viewingError }}</div>
             <div v-else class="p-2">
               <CodeEditor
-                :model-value="viewingContent"
+                v-model="viewingContent"
                 :filename="viewingFile.fileName"
                 :readonly="true"
               />

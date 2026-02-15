@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap, placeholder as cmPlaceholder, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
@@ -51,6 +51,63 @@ const detectedLanguage = computed(() => {
   }
   return 'Plain Text'
 })
+
+// JSON prettify / validate
+const isJson = computed(() => detectedLanguage.value === 'JSON')
+const jsonError = ref(null)
+const justValidated = ref(false)
+const justPrettified = ref(false)
+let feedbackResetTimeout = null
+
+function showFeedback(which) {
+  if (which === 'validate') justValidated.value = true
+  else justPrettified.value = true
+  if (feedbackResetTimeout) clearTimeout(feedbackResetTimeout)
+  feedbackResetTimeout = setTimeout(() => {
+    justValidated.value = false
+    justPrettified.value = false
+  }, 1500)
+}
+
+function validateJson() {
+  const content = view ? view.state.doc.toString() : props.modelValue
+  if (!content) return
+  try {
+    JSON.parse(content)
+  } catch (e) {
+    jsonError.value = e.message
+    return
+  }
+  jsonError.value = null
+  showFeedback('validate')
+}
+
+function prettifyJson() {
+  const content = view ? view.state.doc.toString() : props.modelValue
+  if (!content) return
+
+  let parsed
+  try {
+    parsed = JSON.parse(content)
+  } catch (e) {
+    jsonError.value = e.message
+    return
+  }
+
+  jsonError.value = null
+  const pretty = JSON.stringify(parsed, null, 2)
+
+  // In read-only mode we can't dispatch to CM directly — emit so parent updates its ref
+  if (props.readonly) {
+    emit('update:modelValue', pretty)
+  } else if (view) {
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: pretty }
+    })
+  }
+
+  showFeedback('prettify')
+}
 
 // Custom theme to match Plik's dark glass-card aesthetic
 const plikTheme = EditorView.theme({
@@ -206,8 +263,10 @@ const DETECT_LANGUAGES = [
 
 // Minimum relevance score to accept a detection (0–∞, higher = more confident)
 const MIN_RELEVANCE = 5
+let hasDetected = false
 
 async function detectLanguageFromContent(content) {
+  if (hasDetected) return
   if (!content || content.length < 10) return
 
   // Lazy-load highlight.js on first detection call
@@ -232,6 +291,7 @@ async function detectLanguageFromContent(content) {
     (l.alias && l.alias.includes(result.language))
   )
   if (lang?.extensions?.length) {
+    hasDetected = true
     emit('language-detected', { language: lang.name, extension: lang.extensions[0].replace(/^\./, '') })
   }
 }
@@ -264,13 +324,14 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (detectionTimeout) clearTimeout(detectionTimeout)
+  if (feedbackResetTimeout) clearTimeout(feedbackResetTimeout)
   destroyEditor()
 })
 </script>
 
 <template>
   <div class="code-editor-wrapper">
-    <!-- Language badge -->
+    <!-- Language badge + actions -->
     <div class="flex items-center justify-between px-3 py-1.5 border-b border-surface-700/50">
       <div class="flex items-center gap-2">
         <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -279,13 +340,61 @@ onBeforeUnmount(() => {
         </svg>
         <span class="text-xs text-surface-400 font-medium">{{ detectedLanguage }}</span>
       </div>
-      <div v-if="readonly" class="flex items-center gap-1">
-        <svg class="w-3 h-3 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg>
-        <span class="text-xs text-surface-500">Read only</span>
+      <div class="flex items-center gap-2">
+        <!-- JSON Validate button -->
+        <button v-if="isJson"
+                class="flex items-center gap-1 text-xs transition-colors px-2 py-0.5 rounded"
+                :class="justValidated
+                  ? 'text-green-400'
+                  : 'text-surface-400 hover:text-accent-400 hover:bg-surface-700/50'"
+                @click="validateJson">
+          <svg v-if="justValidated" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {{ justValidated ? 'Valid' : 'Validate' }}
+        </button>
+        <!-- JSON Prettify button -->
+        <button v-if="isJson"
+                class="flex items-center gap-1 text-xs transition-colors px-2 py-0.5 rounded"
+                :class="justPrettified
+                  ? 'text-green-400'
+                  : 'text-surface-400 hover:text-accent-400 hover:bg-surface-700/50'"
+                @click="prettifyJson">
+          <svg v-if="justPrettified" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 6h16M4 12h8m-8 6h16" />
+          </svg>
+          {{ justPrettified ? 'Prettified' : 'Prettify' }}
+        </button>
+        <div v-if="readonly" class="flex items-center gap-1">
+          <svg class="w-3 h-3 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span class="text-xs text-surface-500">Read only</span>
+        </div>
       </div>
+    </div>
+    <!-- JSON error banner -->
+    <div v-if="jsonError"
+         class="flex items-center gap-2 px-3 py-1.5 bg-danger-500/10 border-b border-danger-500/30 text-xs text-danger-400">
+      <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span class="truncate">{{ jsonError }}</span>
+      <button class="ml-auto text-danger-400 hover:text-white shrink-0" @click="jsonError = null">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
     <!-- Editor mount point -->
     <div ref="editorContainer" class="code-editor-container" />
