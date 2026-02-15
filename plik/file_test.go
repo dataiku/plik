@@ -15,7 +15,7 @@ func TestGetFileURL(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer ps.ShutdownNow()
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	data := "data data data"

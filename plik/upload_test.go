@@ -13,7 +13,7 @@ func TestGetUploadURL(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -33,7 +33,7 @@ func TestGetUploadAdminURL(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()

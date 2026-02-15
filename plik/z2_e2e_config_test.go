@@ -20,6 +20,9 @@ func TestPath(t *testing.T) {
 	err := start(ps)
 	require.NoError(t, err, "unable to start plik server")
 
+	// Set URL without path prefix - requests should fail with 404
+	pc.URL = fmt.Sprintf("http://127.0.0.1:%d", ps.GetConfig().ListenPort)
+
 	bi, err := pc.GetServerVersion()
 	require.Error(t, err, "missing error")
 	require.Contains(t, err.Error(), "404 page not found", "invalid error")
@@ -36,7 +39,7 @@ func TestMaxFileSize(t *testing.T) {
 
 	ps.GetConfig().MaxFileSize = 10
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	_, _, err = pc.UploadReader("filename", bytes.NewBufferString("data"))
@@ -54,7 +57,7 @@ func TestMaxFilePerUploadCreate(t *testing.T) {
 
 	ps.GetConfig().MaxFilePerUpload = 1
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -71,7 +74,7 @@ func TestMaxFilePerUploadAdd(t *testing.T) {
 
 	ps.GetConfig().MaxFilePerUpload = 1
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload, _, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
@@ -91,7 +94,7 @@ func TestAnonymousUploadDisabled(t *testing.T) {
 
 	ps.GetConfig().FeatureAuthentication = common.FeatureForced
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	user := common.NewUser("ovh", "id")
@@ -119,7 +122,7 @@ func TestDefaultTTL(t *testing.T) {
 
 	ps.GetConfig().DefaultTTL = 26
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -136,7 +139,7 @@ func TestTTLNoLimit(t *testing.T) {
 
 	ps.GetConfig().MaxTTL = -1
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -153,7 +156,7 @@ func TestTTLNoLimitDisabled(t *testing.T) {
 
 	ps.GetConfig().MaxTTL = 26
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -169,7 +172,7 @@ func TestPasswordDisabled(t *testing.T) {
 
 	ps.GetConfig().FeaturePassword = common.FeatureDisabled
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -186,7 +189,7 @@ func TestOneShotDisabled(t *testing.T) {
 
 	ps.GetConfig().FeatureOneShot = common.FeatureDisabled
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -202,7 +205,7 @@ func TestRemovableDisabled(t *testing.T) {
 
 	ps.GetConfig().FeatureRemovable = common.FeatureDisabled
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -216,12 +219,13 @@ func TestValidDownloadDomain(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	ps.GetConfig().DownloadDomain = fmt.Sprintf("http://%s:%d", ps.GetConfig().ListenAddress, ps.GetConfig().ListenPort)
-	err := ps.GetConfig().Initialize()
-	require.NoError(t, err, "unable to initialize config")
-
-	err = start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
+
+	// Set download domain after start so the ephemeral port is known
+	ps.GetConfig().DownloadDomain = fmt.Sprintf("http://%s:%d", ps.GetConfig().ListenAddress, ps.GetConfig().ListenPort)
+	err = ps.GetConfig().Initialize()
+	require.NoError(t, err, "unable to initialize config")
 
 	upload, file, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
 	require.NoError(t, err, "unable to create upload")
@@ -236,13 +240,14 @@ func TestDownloadDomainAlias(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	// Set download domain after start so the ephemeral port is known
 	ps.GetConfig().DownloadDomain = "https://plik.root.gg"
 	ps.GetConfig().DownloadDomainAlias = []string{fmt.Sprintf("http://%s:%d", ps.GetConfig().ListenAddress, ps.GetConfig().ListenPort)}
-	err := ps.GetConfig().Initialize()
+	err = ps.GetConfig().Initialize()
 	require.NoError(t, err, "unable to initialize config")
-
-	err = start(ps)
-	require.NoError(t, err, "unable to start plik server")
 
 	upload, file, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
 	require.NoError(t, err, "unable to create upload")
@@ -261,7 +266,7 @@ func TestInvalidDownloadDomain(t *testing.T) {
 	err := ps.GetConfig().Initialize()
 	require.NoError(t, err, "unable to initialize config")
 
-	err = start(ps)
+	err = startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload, file, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
@@ -282,7 +287,7 @@ func TestUploadWhitelistOK(t *testing.T) {
 	err := ps.GetConfig().Initialize()
 	require.NoError(t, err, "unable to initialize config")
 
-	err = start(ps)
+	err = startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -299,7 +304,7 @@ func TestUploadWhitelistKO(t *testing.T) {
 	err := ps.GetConfig().Initialize()
 	require.NoError(t, err, "unable to initialize config")
 
-	err = start(ps)
+	err = startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -317,7 +322,7 @@ func TestSourceIpHeader(t *testing.T) {
 	err := ps.GetConfig().Initialize()
 	require.NoError(t, err, "unable to initialize config")
 
-	err = start(ps)
+	err = startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	var req *http.Request
