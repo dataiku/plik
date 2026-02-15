@@ -2,8 +2,9 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { config, isFeatureForced, isFeatureDefaultOn } from '../config.js'
-import { createUpload, uploadFile } from '../api.js'
+import { createUpload } from '../api.js'
 import { setToken } from '../tokenStore.js'
+import { setPendingFiles } from '../pendingUploadStore.js'
 import { generateRef, ttlToSeconds, secondsToTTL, encodeBasicAuth, humanReadableSize } from '../utils.js'
 import { auth } from '../authStore.js'
 import { marked } from 'marked'
@@ -73,9 +74,6 @@ let dragCounter = 0
 
 // Whether the user has files selected and ready to upload
 const hasFiles = computed(() => files.value.length > 0)
-const allUploaded = computed(() =>
-  files.value.length > 0 && files.value.every(f => f.status === 'uploaded')
-)
 
 // Text paste mode
 const textMode = ref(false)
@@ -240,8 +238,6 @@ async function doUpload() {
 
   try {
     const params = buildUploadParams()
-
-    // Create the upload on the server
     const upload = await createUpload(params)
 
     // Prepare basic auth if password was set
@@ -249,44 +245,17 @@ async function doUpload() {
       ? encodeBasicAuth(settings.login, settings.password)
       : null
 
-    // Upload each file
-    for (const fileEntry of files.value) {
-      fileEntry.status = 'uploading'
+    // Stash files for DownloadView to pick up and upload
+    const pendingFiles = files.value.map((f, idx) => ({
+      ...f,
+      // Attach server-assigned file ID for initial upload (files were pre-created)
+      id: upload.files?.[idx]?.id,
+    }))
+    setPendingFiles(upload.id, pendingFiles, basicAuth)
 
-      try {
-        const idx = files.value.indexOf(fileEntry)
-        const serverFile = upload.files?.[idx]
-
-        const uploadPayload = {
-          id: serverFile?.id,
-          fileName: fileEntry.fileName,
-          file: fileEntry.file,
-        }
-
-        const result = await uploadFile(
-          upload,
-          uploadPayload,
-          (progress) => { fileEntry.progress = progress },
-          basicAuth,
-        )
-
-        fileEntry.status = 'uploaded'
-        fileEntry.id = result.id
-        fileEntry.fileSize = result.fileSize || fileEntry.size
-        fileEntry.fileMd5 = result.fileMd5
-        fileEntry.fileType = result.fileType
-      } catch (err) {
-        fileEntry.status = 'error'
-        fileEntry.error = err.message || 'Upload failed'
-        uploadError.value = err.message || 'Upload failed'
-      }
-    }
-
-    // Navigate to download view with uploadToken in memory
-    if (!uploadError.value) {
-      setToken(upload.id, upload.uploadToken)
-      router.push({ path: '/', query: { id: upload.id } })
-    }
+    // Navigate immediately — DownloadView will auto-start uploading
+    setToken(upload.id, upload.uploadToken)
+    router.push({ path: '/', query: { id: upload.id } })
   } catch (err) {
     uploadError.value = err.message || 'Failed to create upload'
   } finally {
@@ -478,13 +447,13 @@ async function doUpload() {
           <FileRow v-for="file in files"
                    :key="file.reference"
                    :file="file"
-                   :mode="isUploading ? 'uploading' : 'upload'"
+                   mode="upload"
                    @remove="removeLocalFile"
                    @update-name="(name) => updateFileName(file, name)" />
         </div>
 
         <!-- Upload Button -->
-        <div v-if="hasFiles && !isUploading && !allUploaded" class="flex justify-end">
+        <div v-if="hasFiles && !isUploading" class="flex justify-end">
           <button class="btn-success px-8 py-3 text-base" @click="doUpload">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -494,10 +463,10 @@ async function doUpload() {
           </button>
         </div>
 
-        <!-- Uploading Spinner -->
+        <!-- Uploading Spinner (while createUpload is in progress) -->
         <div v-if="isUploading" class="flex items-center justify-center py-4">
           <div class="animate-spin rounded-full h-6 w-6 border-2 border-accent-500 border-t-transparent" />
-          <span class="ml-3 text-sm text-surface-400">Uploading files...</span>
+          <span class="ml-3 text-sm text-surface-400">Creating upload...</span>
         </div>
       </div>
     </main>
