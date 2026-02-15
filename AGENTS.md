@@ -11,7 +11,7 @@ Plik is a temporary file upload system (WeTransfer-like) written in Go, with a V
 | Layer     | Tech |
 |-----------|------|
 | Server    | Go, gorilla/mux, GORM |
-| Webapp    | Vue 3, Vite, Tailwind CSS |
+| Webapp    | Vue 3, Vite, Tailwind CSS, CodeMirror 6 |
 | CLI       | Go, docopt-go |
 | Config    | TOML (server), TOML (client `.plikrc`) |
 | Data      | File, OpenStack Swift, S3, Google Cloud Storage |

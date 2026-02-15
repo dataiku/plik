@@ -1,9 +1,9 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap, placeholder as cmPlaceholder, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
-import { syntaxHighlighting, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
+import { bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { languages } from '@codemirror/language-data'
 
@@ -18,6 +18,7 @@ const emit = defineEmits(['update:modelValue', 'language-detected'])
 
 const editorContainer = ref(null)
 let view = null
+const languageCompartment = new Compartment()
 
 // Map file extension to language
 function getLanguageFromFilename(filename) {
@@ -25,9 +26,12 @@ function getLanguageFromFilename(filename) {
   const ext = filename.split('.').pop()?.toLowerCase()
   if (!ext) return null
 
+  // CodeMirror language-data stores extensions with a leading dot (e.g. ".xml")
+  const dotExt = `.${ext}`
+
   // Find matching language from CodeMirror's language-data
   for (const lang of languages) {
-    if (lang.extensions && lang.extensions.includes(ext)) {
+    if (lang.extensions && lang.extensions.includes(dotExt)) {
       return lang
     }
     // Also check alias-based matching
@@ -136,16 +140,17 @@ async function createEditor() {
     }))
   }
 
-  // Load language support if detected
+  // Load language support via compartment (allows dynamic reconfiguration)
   const langDesc = getLanguageFromFilename(props.filename)
+  let langExtension = []
   if (langDesc) {
     try {
-      const langSupport = await langDesc.load()
-      extensions.push(langSupport)
+      langExtension = await langDesc.load()
     } catch (e) {
       console.error('Failed to load language support:', e)
     }
   }
+  extensions.push(languageCompartment.of(langExtension))
 
   const state = EditorState.create({
     doc: props.modelValue || '',
@@ -165,49 +170,69 @@ function destroyEditor() {
   }
 }
 
-// Recreate editor when filename changes (language switch)
+// Reconfigure language when filename changes (without destroying the editor)
 watch(() => props.filename, async () => {
-  const currentContent = view ? view.state.doc.toString() : props.modelValue
-  destroyEditor()
-  // Use an intermediate to preserve content during rebuild
-  const savedContent = currentContent
-  emit('update:modelValue', savedContent)
-  await createEditor()
+  if (!view) return
+  const langDesc = getLanguageFromFilename(props.filename)
+  let langExtension = []
+  if (langDesc) {
+    try {
+      langExtension = await langDesc.load()
+    } catch (e) {
+      console.error('Failed to load language support:', e)
+    }
+  }
+  view.dispatch({
+    effects: languageCompartment.reconfigure(langExtension)
+  })
 })
-
-
 
 let detectionTimeout = null
 
-async function detectLanguage(content) {
+// Content-based language detection via highlight.js (lazy-loaded)
+let hljs = null
+
+// Restrict auto-detection to common languages to avoid false positives
+const DETECT_LANGUAGES = [
+  'json', 'xml', 'html', 'css',
+  'javascript', 'typescript',
+  'python', 'ruby', 'perl', 'php',
+  'java', 'c', 'cpp', 'csharp',
+  'go', 'rust', 'swift', 'kotlin',
+  'bash', 'shell', 'powershell',
+  'sql', 'yaml', 'markdown',
+  'dockerfile', 'ini', 'toml',
+]
+
+// Minimum relevance score to accept a detection (0–∞, higher = more confident)
+const MIN_RELEVANCE = 5
+
+async function detectLanguageFromContent(content) {
   if (!content || content.length < 10) return
 
-  try {
-    const hljs = (await import('highlight.js')).default
-    const result = hljs.highlightAuto(content)
-    const detected = result.language
-
-    if (detected && result.relevance > 5) { 
-      const lowerDetected = detected.toLowerCase()
-      const candidates = languages.filter(l => 
-        (l.name.toLowerCase() === lowerDetected) || 
-        (l.alias && l.alias.includes(lowerDetected))
-      )
-      
-      // Prefer exact name match to avoid aliases (e.g. Starlark aliasing python)
-      let cmLang = candidates.find(l => l.name.toLowerCase() === lowerDetected)
-      if (!cmLang && candidates.length > 0) cmLang = candidates[0]
-
-
-      if (cmLang && cmLang.extensions && cmLang.extensions.length > 0) {
-        emit('language-detected', {
-          language: cmLang.name,
-          extension: cmLang.extensions[0]
-        })
-      }
+  // Lazy-load highlight.js on first detection call
+  if (!hljs) {
+    try {
+      const mod = await import('highlight.js')
+      hljs = mod.default
+    } catch (e) {
+      console.error('Failed to load highlight.js:', e)
+      return
     }
-  } catch (e) {
-    console.warn('Language detection failed:', e)
+  }
+
+  // Cap detection input to avoid perf issues on very large files
+  const sample = content.length > 50000 ? content.slice(0, 50000) : content
+  const result = hljs.highlightAuto(sample, DETECT_LANGUAGES)
+  if (!result.language || result.relevance < MIN_RELEVANCE) return
+
+  // Map hljs language name to a CodeMirror language descriptor
+  const lang = languages.find(l =>
+    l.name.toLowerCase() === result.language ||
+    (l.alias && l.alias.includes(result.language))
+  )
+  if (lang?.extensions?.length) {
+    emit('language-detected', { language: lang.name, extension: lang.extensions[0].replace(/^\./, '') })
   }
 }
 
@@ -222,16 +247,23 @@ watch(() => props.modelValue, (newVal) => {
   // Debounce detection
   if (detectionTimeout) clearTimeout(detectionTimeout)
   detectionTimeout = setTimeout(() => {
-    detectLanguage(newVal)
+    detectLanguageFromContent(newVal)
   }, 1000)
 })
 
 
-onMounted(() => {
-  createEditor()
+onMounted(async () => {
+  await createEditor()
+  // Detect language for initial content (e.g. paste from main page opens editor pre-filled)
+  if (props.modelValue) {
+    detectionTimeout = setTimeout(() => {
+      detectLanguageFromContent(props.modelValue)
+    }, 500)
+  }
 })
 
 onBeforeUnmount(() => {
+  if (detectionTimeout) clearTimeout(detectionTimeout)
   destroyEditor()
 })
 </script>

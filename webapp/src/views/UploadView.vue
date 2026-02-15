@@ -9,7 +9,8 @@ import { auth } from '../authStore.js'
 import { marked } from 'marked'
 import UploadSidebar from '../components/UploadSidebar.vue'
 import FileRow from '../components/FileRow.vue'
-import CodeEditor from '../components/CodeEditor.vue'
+import { defineAsyncComponent } from 'vue'
+const CodeEditor = defineAsyncComponent(() => import('../components/CodeEditor.vue'))
 
 const router = useRouter()
 const fileInput = ref(null)
@@ -83,22 +84,13 @@ const textFilename = ref('paste.txt')
 
 function onLanguageDetected({ extension }) {
   if (!extension) return
-  
+
   const current = textFilename.value
-  // If empty or default, set default
-  if (!current || current === 'paste.txt') {
+  // Only auto-set extension when using the default name
+  if (!current || current.startsWith('paste.')) {
     textFilename.value = `paste.${extension}`
-    return
   }
-  
-  // Replace extension
-  const parts = current.split('.')
-  if (parts.length > 1) {
-    parts.pop()
-    textFilename.value = `${parts.join('.')}.${extension}`
-  } else {
-    textFilename.value = `${current}.${extension}`
-  }
+  // Don't overwrite user-chosen filenames
 }
 
 function addTextAsFile() {

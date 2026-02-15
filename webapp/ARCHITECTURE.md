@@ -11,6 +11,7 @@
 | Framework   | Vue 3 (Composition API, `<script setup>`) |
 | Router      | Vue Router 4, hash history (`#/`) |
 | Styling     | Tailwind CSS v4 (via `@import "tailwindcss"`) with custom `@utility` and `@theme` blocks |
+| Code Editor | CodeMirror 6 (`@codemirror/language-data` for syntax, `@codemirror/theme-one-dark`) |
 | Build       | Vite                          |
 | HTTP        | `fetch()` for JSON APIs, `XMLHttpRequest` for file uploads (progress tracking) |
 | Backend     | Go (Plik server, serves the SPA from `webapp/dist/` via `http.FileServer`) |
@@ -321,10 +322,12 @@ App.vue
 ├── RootView.vue           — switches between Upload/Download based on query.id
 │   ├── UploadView.vue     — file staging, settings, upload execution
 │   │   ├── UploadSidebar  — upload settings (one-shot, stream, TTL, etc.)
-│   │   └── FileRow        — individual file display
+│   │   ├── FileRow        — individual file display
+│   │   └── CodeEditor     — text paste mode with syntax highlighting
 │   └── DownloadView.vue   — file list, download links, admin actions
 │       ├── DownloadSidebar — upload info, admin URL, action buttons
-│       ├── FileRow         — download/QR/copy/remove per file
+│       ├── FileRow         — download/QR/copy/remove per file + View button
+│       ├── CodeEditor      — inline file viewer (read-only)
 │       ├── QrCodeDialog    — QR code modal
 │       ├── CopyButton      — clipboard copy with feedback
 │       └── ConfirmDialog   — confirmation modal
@@ -470,6 +473,34 @@ The `style.css` file defines custom utility classes via `@utility` (Tailwind v4 
 | `file-row`         | Glass-card styled file row with hover effect      |
 
 > **Gotcha**: These are `@utility` blocks, NOT traditional CSS classes or Tailwind `@apply`. They follow Tailwind v4's custom utility syntax and generate single utility classes.
+
+---
+
+## Code Editor & File Viewer
+
+### CodeEditor Component
+
+Reusable CodeMirror 6 wrapper (`CodeEditor.vue`) used in two contexts:
+
+| Context | View | Mode | Purpose |
+|---------|------|------|---------|
+| Text paste | UploadView | Read-write | Paste/edit text before uploading as a file |
+| File viewer | DownloadView | Read-only | Preview uploaded text files inline |
+
+**Props**: `modelValue` (v-model), `filename` (drives syntax highlighting), `readonly`, `placeholder`
+
+**Language switching**: Uses a `Compartment` to reconfigure the language extension dynamically when `filename` changes — no editor destruction/recreation needed, preserving cursor position and undo history.
+
+**Content-based language detection**: Uses `highlight.js` (lazy-loaded via dynamic `import()` on first detection call) for accurate auto-detection of ~190 languages. Detection fires via a 1s debounce on content changes. In UploadView, auto-detection only updates the filename when it still matches the default `paste.*` pattern.
+
+### Text-File Detection
+
+The `isTextFile()` utility in `utils.js` determines if a file can be viewed in the code editor based on:
+1. **Size**: Max 5 MB (`MAX_VIEWABLE_SIZE`)
+2. **MIME type**: `text/*` prefix or known application types (JSON, XML, YAML, etc.)
+3. **Extension**: ~60 common text/code extensions
+
+`FileRow.vue` uses this to conditionally show a "View" button on uploaded files in download mode.
 
 ---
 

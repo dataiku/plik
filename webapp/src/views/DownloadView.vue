@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { getUpload, removeUpload, removeFile as apiRemoveFile, uploadFile, getFileURL } from '../api.js'
 import { generateRef } from '../utils.js'
@@ -10,7 +10,8 @@ import FileRow from '../components/FileRow.vue'
 import CopyButton from '../components/CopyButton.vue'
 import QrCodeDialog from '../components/QrCodeDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
-import CodeEditor from '../components/CodeEditor.vue'
+import { defineAsyncComponent } from 'vue'
+const CodeEditor = defineAsyncComponent(() => import('../components/CodeEditor.vue'))
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -61,6 +62,9 @@ async function viewFile(file) {
     viewingError.value = err.message || 'Failed to load file content'
   } finally {
     viewingLoading.value = false
+    nextTick(() => {
+      document.getElementById('file-viewer-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
   }
 }
 
@@ -295,7 +299,7 @@ onMounted(() => {
           </div>
 
           <!-- File Viewer -->
-          <div v-if="viewingFile" class="glass-card overflow-hidden animate-fade-in">
+          <div v-if="viewingFile" id="file-viewer-panel" class="glass-card overflow-hidden animate-fade-in">
             <div class="flex items-center justify-between border-b border-surface-700/50 px-4 py-2">
               <div class="flex items-center gap-2">
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,12 +308,15 @@ onMounted(() => {
                 </svg>
                 <span class="text-sm font-medium text-surface-200">{{ viewingFile.fileName }}</span>
               </div>
-              <button class="text-surface-400 hover:text-white transition-colors"
-                      @click="closeViewer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div class="flex items-center gap-2">
+                <CopyButton v-if="viewingContent" :text="viewingContent" label="Copy" />
+                <button class="text-surface-400 hover:text-white transition-colors"
+                        @click="closeViewer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div v-if="viewingLoading" class="flex items-center justify-center py-8">
               <div class="animate-spin rounded-full h-6 w-6 border-2 border-accent-500 border-t-transparent" />
