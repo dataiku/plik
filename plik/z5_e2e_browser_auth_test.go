@@ -83,7 +83,6 @@ func TestLocalLoginBrowser(t *testing.T) {
 
 	ps.GetConfig().FeatureAuthentication = common.FeatureForced
 	_ = ps.GetConfig().Initialize()
-	baseURL := ps.GetConfig().GetServerURL().String()
 
 	// Create a local user with a hashed password
 	user := common.NewUser(common.ProviderLocal, "testuser")
@@ -97,6 +96,7 @@ func TestLocalLoginBrowser(t *testing.T) {
 	err = start(ps)
 	require.NoError(t, err, "unable to start Plik server")
 
+	baseURL := ps.GetConfig().GetServerURL().String()
 	err = ps.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create user")
 
@@ -159,7 +159,6 @@ func TestLocalLoginBrowserInvalidPassword(t *testing.T) {
 
 	ps.GetConfig().FeatureAuthentication = common.FeatureForced
 	_ = ps.GetConfig().Initialize()
-	baseURL := ps.GetConfig().GetServerURL().String()
 
 	// Create a local user
 	user := common.NewUser(common.ProviderLocal, "testuser2")
@@ -170,6 +169,7 @@ func TestLocalLoginBrowserInvalidPassword(t *testing.T) {
 	err = start(ps)
 	require.NoError(t, err, "unable to start Plik server")
 
+	baseURL := ps.GetConfig().GetServerURL().String()
 	err = ps.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create user")
 
@@ -194,7 +194,6 @@ func TestLocalLoginBrowserDisabled(t *testing.T) {
 
 	ps.GetConfig().FeatureAuthentication = common.FeatureForced
 	_ = ps.GetConfig().Initialize()
-	baseURL := ps.GetConfig().GetServerURL().String()
 
 	// Disable local login
 	ps.GetConfig().DisableLocalLogin = true
@@ -203,6 +202,7 @@ func TestLocalLoginBrowserDisabled(t *testing.T) {
 	err := start(ps)
 	require.NoError(t, err, "unable to start Plik server")
 
+	baseURL := ps.GetConfig().GetServerURL().String()
 	client := newBrowserClient()
 
 	loginBody := `{"login":"testuser","password":"testpassword"}`
@@ -226,11 +226,10 @@ func TestOIDCLoginBrowser(t *testing.T) {
 		t.Skip("OIDC provider not available, skipping OIDC test")
 	}
 
-	baseURL := ps.GetConfig().GetServerURL().String()
-
 	err := start(ps)
 	require.NoError(t, err, "unable to start Plik server")
 
+	baseURL := ps.GetConfig().GetServerURL().String()
 	// Create a shared cookie jar that strips Secure flag from Keycloak cookies
 	// (Keycloak hardcodes SameSite=None;Secure even over HTTP)
 	jar := newInsecureCookieJar()
@@ -335,11 +334,10 @@ func TestOIDCLoginRedirectURL(t *testing.T) {
 		t.Skip("OIDC provider not available, skipping OIDC test")
 	}
 
-	baseURL := ps.GetConfig().GetServerURL().String()
-
 	err := start(ps)
 	require.NoError(t, err, "unable to start Plik server")
 
+	baseURL := ps.GetConfig().GetServerURL().String()
 	client := newBrowserClient()
 	req, err := http.NewRequest("GET", baseURL+"/auth/oidc/login", nil)
 	require.NoError(t, err)
@@ -361,7 +359,7 @@ func TestOIDCLoginRedirectURL(t *testing.T) {
 	// URL-decode the auth URL to check the redirect_uri contains the test server port
 	decodedURL, err := url.QueryUnescape(authURL)
 	require.NoError(t, err)
-	require.Contains(t, decodedURL, fmt.Sprintf("127.0.0.1:%d", common.APIMockServerDefaultPort))
+	require.Contains(t, decodedURL, fmt.Sprintf("127.0.0.1:%d", ps.GetConfig().ListenPort))
 }
 
 // extractFormAction parses HTML to find the action attribute of the login form

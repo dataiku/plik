@@ -197,8 +197,10 @@ Each handler file contains one or more `http.Handler` functions.
 1. Initializes backends (metadata, data, stream) and authenticator
 2. Builds middleware chains (see root ARCHITECTURE.md for chain table)
 3. Configures gorilla/mux router with all routes
-4. Starts HTTP server (plain or TLS)
+4. Starts HTTP server via `net.Listen` + `httpServer.Serve` (supports ephemeral port allocation with `ListenPort: 0`)
 5. Starts cleaning routine (if auto-clean enabled)
 6. Starts metrics HTTP server (if configured)
+
+After start, call `GetListenPort()` to retrieve the actual listen port (useful when configured with port 0).
 
 Shutdown: graceful with configurable timeout, closes HTTP server + metadata backend.

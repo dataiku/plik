@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -41,6 +42,7 @@ type PlikServer struct {
 	authenticator *common.SessionAuthenticator
 
 	httpServer        *http.Server
+	httpListener      net.Listener
 	metricsHTTPServer *http.Server
 
 	metrics     *common.PlikMetrics
@@ -208,6 +210,9 @@ func (ps *PlikServer) start() (err error) {
 
 	var proto string
 	address := ps.config.ListenAddress + ":" + strconv.Itoa(ps.config.ListenPort)
+
+	// Bind the listener first so we know the actual port (supports port 0 for ephemeral allocation)
+	var listener net.Listener
 	if ps.config.SslEnabled {
 		proto = "https"
 		tlsConfig := &tls.Config{MinVersion: ps.config.GetTlsVersion()}
@@ -216,21 +221,39 @@ func (ps *PlikServer) start() (err error) {
 			return fmt.Errorf("unable to start plik server without ssl certificates")
 		}
 
-		ps.httpServer = &http.Server{Addr: address, Handler: handler, TLSConfig: tlsConfig}
+		cert, err := tls.LoadX509KeyPair(ps.config.SslCert, ps.config.SslKey)
+		if err != nil {
+			return fmt.Errorf("unable to load ssl certificate : %s", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+
+		listener, err = tls.Listen("tcp", address, tlsConfig)
+		if err != nil {
+			return fmt.Errorf("unable to listen on %s : %s", address, err)
+		}
+
+		ps.httpServer = &http.Server{Handler: handler, TLSConfig: tlsConfig}
 	} else {
 		proto = "http"
-		ps.httpServer = &http.Server{Addr: address, Handler: handler}
+		var err error
+		listener, err = net.Listen("tcp", address)
+		if err != nil {
+			return fmt.Errorf("unable to listen on %s : %s", address, err)
+		}
+
+		ps.httpServer = &http.Server{Handler: handler}
 	}
 
-	log.Infof("Starting server at %s://%s", proto, address)
+	ps.httpListener = listener
+
+	// Update the config with the actual port (important when ListenPort is 0)
+	ps.config.ListenPort = listener.Addr().(*net.TCPAddr).Port
+
+	log.Infof("Starting server at %s://%s", proto, listener.Addr().String())
 
 	// Start HTTP Server
 	go func() {
-		if ps.config.SslEnabled {
-			err = ps.httpServer.ListenAndServeTLS(ps.config.SslCert, ps.config.SslKey)
-		} else {
-			err = ps.httpServer.ListenAndServe()
-		}
+		err := ps.httpServer.Serve(listener)
 		if err != nil {
 			ps.mu.Lock()
 			defer ps.mu.Unlock()
