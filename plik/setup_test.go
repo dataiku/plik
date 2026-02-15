@@ -118,14 +118,21 @@ func newPlikServerAndClient() (ps *server.PlikServer, pc *Client) {
 	config.AutoClean(false)
 	//config.Debug = true
 
-	// Copy OIDC settings from test config if available
-	// Only OIDC-specific fields are copied here; FeatureAuthentication and
-	// DisableLocalLogin are intentionally left for each test to set as needed.
+	// Copy settings from test config (PLIKD_CONFIG) if available
 	if testConfig != nil {
+		// Copy OIDC settings; FeatureAuthentication and DisableLocalLogin
+		// are intentionally left for each test to set as needed.
 		config.OIDCClientID = testConfig.OIDCClientID
 		config.OIDCClientSecret = testConfig.OIDCClientSecret
 		config.OIDCProviderURL = testConfig.OIDCProviderURL
 		config.OIDCProviderName = testConfig.OIDCProviderName
+
+		// Use the configured listen port when running with an external
+		// config (e.g., test-backends with Keycloak) so the port matches
+		// Keycloak's allowed redirect URIs.
+		if testConfig.ListenPort != 0 {
+			config.ListenPort = testConfig.ListenPort
+		}
 	}
 
 	_ = config.Initialize()
