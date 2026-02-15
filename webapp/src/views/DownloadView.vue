@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getUpload, removeUpload, removeFile as apiRemoveFile, uploadFile, getFileURL } from '../api.js'
 import { generateRef } from '../utils.js'
 import { getToken, setToken } from '../tokenStore.js'
+import { consumePendingFiles } from '../pendingUploadStore.js'
 import { marked } from 'marked'
 import DownloadSidebar from '../components/DownloadSidebar.vue'
 import FileRow from '../components/FileRow.vue'
@@ -27,6 +28,12 @@ const fileInput = ref(null)
 // Staged files pending upload
 const pendingFiles = ref([])
 const isAddingFiles = ref(false)
+
+// BasicAuth for password-protected uploads (passed from UploadView via pending store)
+let pendingBasicAuth = null
+
+// Track whether uploads were cancelled
+let uploadsCancelled = false
 
 // QR code dialog
 const showQr = ref(false)
@@ -94,12 +101,6 @@ async function fetchUpload() {
   error.value = null
   try {
     upload.value = await getUpload(props.id, uploadToken.value)
-
-    // If no active files and user is not admin (can't add files), redirect to home
-    if (activeFiles.value.length === 0 && !isAdmin.value) {
-      router.push({ path: '/' })
-      return
-    }
   } catch (err) {
     error.value = err.message || 'Failed to load upload'
   } finally {
@@ -139,11 +140,6 @@ async function deleteFile(file) {
           file,
         )
         await fetchUpload()
-
-        // If no active files left after deletion, redirect to home
-        if (activeFiles.value.length === 0) {
-          router.push({ path: '/' })
-        }
       } catch (err) {
         error.value = err.message || 'Failed to delete file'
         confirmDialog.value = null
@@ -181,32 +177,79 @@ function removePendingFile(file) {
   pendingFiles.value = pendingFiles.value.filter(f => f.reference !== file.reference)
 }
 
+function cancelFileUpload(file) {
+  if (file.abort) {
+    file.abort()
+  }
+  pendingFiles.value = pendingFiles.value.filter(f => f.reference !== file.reference)
+}
+
+function cancelAllUploads() {
+  uploadsCancelled = true
+  for (const file of pendingFiles.value) {
+    if (file.abort) {
+      file.abort()
+    }
+  }
+  pendingFiles.value = []
+  isAddingFiles.value = false
+}
+
 async function uploadPendingFiles() {
   if (!pendingFiles.value.length || isAddingFiles.value) return
   isAddingFiles.value = true
+  uploadsCancelled = false
 
-  for (const fileEntry of pendingFiles.value) {
+  const basicAuth = pendingBasicAuth
+  pendingBasicAuth = null
+
+  // Process files one by one (copy the list in case it's modified during iteration)
+  const filesToUpload = [...pendingFiles.value]
+
+  for (const fileEntry of filesToUpload) {
+    // Check if uploads were cancelled
+    if (uploadsCancelled) break
+
+    // Skip if file was removed from pending (e.g. individual cancel)
+    if (!pendingFiles.value.includes(fileEntry)) continue
+
     fileEntry.status = 'uploading'
     try {
-      const result = await uploadFile(
+      const { promise, abort } = uploadFile(
         { id: props.id, stream: upload.value.stream, uploadToken: uploadToken.value },
-        { fileName: fileEntry.fileName, file: fileEntry.file },
+        { id: fileEntry.id, fileName: fileEntry.fileName, file: fileEntry.file },
         (progress) => { fileEntry.progress = progress },
-        null,
+        basicAuth,
       )
+
+      // Store abort handle so the cancel button can use it
+      fileEntry.abort = abort
+
+      const result = await promise
       fileEntry.status = 'uploaded'
       fileEntry.id = result.id
+
+      // Refresh upload to show the newly uploaded file in the file list
+      await fetchUpload()
     } catch (err) {
+      if (err.cancelled) {
+        // Clean cancellation — don't show error
+        continue
+      }
       fileEntry.status = 'error'
       fileEntry.error = err.message || 'Upload failed'
       error.value = err.message || `Failed to upload ${fileEntry.fileName}`
     }
   }
 
-  // Clear pending files and refresh the upload
-  pendingFiles.value = []
+  // Clear completed/errored pending files, keep only remaining toUpload files
+  pendingFiles.value = pendingFiles.value.filter(f => f.status === 'toUpload')
   isAddingFiles.value = false
-  await fetchUpload()
+
+  // Final refresh
+  if (!uploadsCancelled) {
+    await fetchUpload()
+  }
 }
 
 // File download links
@@ -233,14 +276,24 @@ function openQrFile(file) {
   showQr.value = true
 }
 
-onMounted(() => {
+onMounted(async () => {
   // If uploadToken is in the URL (from admin URL), save it to memory and strip from URL
   const queryToken = router.currentRoute.value.query.uploadToken
   if (queryToken) {
     setToken(props.id, queryToken)
     router.replace({ path: '/', query: { id: props.id } })
   }
-  fetchUpload()
+
+  await fetchUpload()
+
+  // Consume pending files from UploadView (if any)
+  const pending = consumePendingFiles(props.id)
+  if (pending) {
+    pendingBasicAuth = pending.basicAuth
+    pendingFiles.value = pending.files
+    // Auto-start uploading
+    uploadPendingFiles()
+  }
 })
 </script>
 
@@ -351,22 +404,29 @@ onMounted(() => {
                      @view="viewFile" />
           </div>
 
-          <!-- Pending Files (staged for upload) -->
+          <!-- Pending Files (staged for upload / uploading) -->
           <div v-if="pendingFiles.length" class="space-y-2">
             <div class="flex items-center justify-between px-1">
               <h3 class="text-sm font-medium text-surface-400">
-                {{ pendingFiles.length }} file{{ pendingFiles.length > 1 ? 's' : '' }} to add
+                {{ pendingFiles.length }} file{{ pendingFiles.length > 1 ? 's' : '' }}
+                {{ isAddingFiles ? 'uploading' : 'to add' }}
               </h3>
+              <button v-if="isAddingFiles"
+                      class="text-xs text-danger-500 hover:text-danger-400 transition-colors"
+                      @click="cancelAllUploads">
+                Cancel All
+              </button>
             </div>
 
             <FileRow v-for="file in pendingFiles"
                      :key="file.reference"
                      :file="file"
                      :mode="isAddingFiles ? 'uploading' : 'upload'"
-                     @remove="removePendingFile" />
+                     @remove="isAddingFiles ? cancelFileUpload(file) : removePendingFile(file)"
+                     @cancel="cancelFileUpload" />
           </div>
 
-          <!-- Upload Pending Files Button -->
+          <!-- Upload Pending Files Button (only shown when files are staged but not yet uploading) -->
           <div v-if="pendingFiles.length && !isAddingFiles" class="flex justify-end">
             <button class="btn-success px-8 py-3 text-base" @click="uploadPendingFiles">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,10 +437,10 @@ onMounted(() => {
             </button>
           </div>
 
-          <!-- Adding Files Spinner -->
-          <div v-if="isAddingFiles" class="flex items-center justify-center py-4">
-            <div class="animate-spin rounded-full h-6 w-6 border-2 border-accent-500 border-t-transparent" />
-            <span class="ml-3 text-sm text-surface-400">Uploading files...</span>
+          <!-- Upload progress indicator -->
+          <div v-if="isAddingFiles" class="flex items-center justify-center py-2">
+            <div class="animate-spin rounded-full h-4 w-4 border-2 border-accent-500 border-t-transparent" />
+            <span class="ml-2 text-xs text-surface-400">Uploading files...</span>
           </div>
 
           <!-- No files -->

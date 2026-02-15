@@ -110,7 +110,7 @@ const activeFiles = computed(() => {
 
 > **Gotcha**: After deleting a file via the API, the server returns `"ok"` (plain text, not JSON). The file's status changes to `removed` server-side but the API **does not return the updated file object**. You must call `fetchUpload()` again to refresh the list.
 
-> **Gotcha**: If `activeFiles.length === 0` after fetching, DownloadView **redirects to home** (`/`). This handles the case where all files have been deleted or consumed (one-shot).
+> **Note**: If `activeFiles.length === 0` after fetching, DownloadView shows a "No files in this upload" message. It does **not** redirect to home — this allows cancel-all and empty uploads to work cleanly.
 
 ---
 
@@ -178,11 +178,22 @@ The URL prefix changes based on whether the upload uses streaming:
 - Normal: `/file/...`
 - Streaming: `/stream/...`
 
-### Upload flow (UploadView)
+### Upload flow (UploadView → DownloadView)
 
 1. `createUpload(params)` → server returns upload with `id`, `uploadToken`, and pre-created file entries (with IDs)
-2. For each file: `uploadFile(upload, fileEntry, onProgress)` → sends FormData with the `file` field
-3. On success: `setToken(id, token)`, then `router.push({ path: '/', query: { id } })`
+2. `setPendingFiles(id, files, basicAuth)` stashes files in the in-memory `pendingUploadStore`
+3. `setToken(id, token)`, then `router.push({ path: '/', query: { id } })` — **navigates immediately**
+4. DownloadView mounts, calls `consumePendingFiles(id)` to retrieve the stashed files
+5. Auto-starts `uploadPendingFiles()` — uploads each file sequentially with progress tracking
+6. After each file: `fetchUpload()` refreshes the file list (incremental download links)
+
+> **Key design**: UploadView does NO file uploading — it only stages files and creates the upload. All upload logic lives in DownloadView, reusing the same `uploadPendingFiles()` used when adding files to an existing upload.
+
+### Pending Upload Store (`pendingUploadStore.js`)
+
+In-memory store (same pattern as `tokenStore.js`) to pass files from UploadView → DownloadView across navigation:
+- `setPendingFiles(uploadId, files, basicAuth)` — stash after `createUpload()`
+- `consumePendingFiles(uploadId)` — retrieve and clear (one-shot)
 
 ### Staged upload flow (DownloadView)
 
@@ -190,8 +201,17 @@ When adding files to an existing upload:
 1. `onFilesSelected` stages files in `pendingFiles` ref (NOT uploaded yet)
 2. User sees staged files with remove buttons, can review before uploading
 3. Clicking "Upload" runs `uploadPendingFiles()` which uploads each file with progress
-4. After all uploads: `pendingFiles` cleared, `fetchUpload()` refreshes the list
+4. After each upload: `fetchUpload()` refreshes the list (incremental download links)
 5. Files added to existing uploads have **no pre-created fileId** — server assigns one
+
+### Upload Cancellation
+
+The `uploadFile()` function in `api.js` returns `{ promise, abort }`:
+- `promise` — resolves to file metadata on success
+- `abort()` — calls `xhr.abort()`, rejecting with `{ cancelled: true }`
+
+Cancel buttons in `FileRow.vue` emit a `cancel` event for individual files.
+A "Cancel All" button in the pending files header aborts all in-progress uploads.
 
 ---
 
@@ -207,6 +227,7 @@ Files stored locally before upload use this shape (NOT the server shape):
   file: File,                      // The browser File object
   status: 'toUpload',             // 'toUpload' | 'uploading' | 'uploaded' | 'error'
   progress: 0,                    // 0-100 upload progress
+  abort: null,                    // Set during upload — calls xhr.abort()
 }
 ```
 

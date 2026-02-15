@@ -207,33 +207,33 @@ export function removeUpload(id, uploadToken) {
  * @param {Object} fileEntry - { id, fileName, file (File object) }
  * @param {Function} onProgress - callback(percent)
  * @param {string} basicAuth - optional base64 auth string
- * @returns {Promise<Object>} - resolved file metadata
+ * @returns {{ promise: Promise<Object>, abort: Function }} - promise resolves to file metadata, abort cancels the upload
  */
 export function uploadFile(upload, fileEntry, onProgress, basicAuth) {
-    return new Promise((resolve, reject) => {
-        const mode = upload.stream ? 'stream' : 'file'
-        let url
-        if (fileEntry.id) {
-            url = `${base}/${mode}/${upload.id}/${fileEntry.id}/${fileEntry.fileName}`
-        } else {
-            // Adding file to existing upload
-            url = `${base}/${mode}/${upload.id}`
-        }
+    const mode = upload.stream ? 'stream' : 'file'
+    let url
+    if (fileEntry.id) {
+        url = `${base}/${mode}/${upload.id}/${fileEntry.id}/${fileEntry.fileName}`
+    } else {
+        // Adding file to existing upload
+        url = `${base}/${mode}/${upload.id}`
+    }
 
-        const xhr = new XMLHttpRequest()
-        xhr.open('POST', url)
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
 
-        if (upload.uploadToken) {
-            xhr.setRequestHeader('X-UploadToken', upload.uploadToken)
-        }
-        if (basicAuth) {
-            xhr.setRequestHeader('Authorization', 'Basic ' + basicAuth)
-        }
+    if (upload.uploadToken) {
+        xhr.setRequestHeader('X-UploadToken', upload.uploadToken)
+    }
+    if (basicAuth) {
+        xhr.setRequestHeader('Authorization', 'Basic ' + basicAuth)
+    }
 
-        // XSRF token for mutating request
-        const xsrf = getXsrfToken()
-        if (xsrf) xhr.setRequestHeader('X-XSRFToken', xsrf)
+    // XSRF token for mutating request
+    const xsrf = getXsrfToken()
+    if (xsrf) xhr.setRequestHeader('X-XSRFToken', xsrf)
 
+    const promise = new Promise((resolve, reject) => {
         xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(Math.round((e.loaded / e.total) * 100))
@@ -261,11 +261,17 @@ export function uploadFile(upload, fileEntry, onProgress, basicAuth) {
             reject({ status: 0, message: 'Connection failed' })
         })
 
-        // Send the file as form data
-        const formData = new FormData()
-        formData.append('file', fileEntry.file, fileEntry.fileName)
-        xhr.send(formData)
+        xhr.addEventListener('abort', () => {
+            reject({ status: 0, message: 'Upload cancelled', cancelled: true })
+        })
     })
+
+    // Send the file as form data
+    const formData = new FormData()
+    formData.append('file', fileEntry.file, fileEntry.fileName)
+    xhr.send(formData)
+
+    return { promise, abort: () => xhr.abort() }
 }
 
 export function removeFile(upload, file) {
