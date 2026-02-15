@@ -23,6 +23,7 @@ const router = useRouter()
 const upload = ref(null)
 const loading = ref(true)
 const error = ref(null)
+const uploadError = ref(null)
 const fileInput = ref(null)
 
 // Staged files pending upload
@@ -242,7 +243,7 @@ async function uploadPendingFiles() {
       }
       fileEntry.status = 'error'
       fileEntry.error = err.message || 'Upload failed'
-      error.value = err.message || `Failed to upload ${fileEntry.fileName}`
+      uploadError.value = err.message || `Failed to upload ${fileEntry.fileName}`
     }
   }
 
@@ -343,6 +344,20 @@ onMounted(async () => {
 
         <!-- Upload Content -->
         <template v-else-if="upload">
+          <!-- Inline Error Banner (for errors during file upload) -->
+          <div v-if="uploadError"
+               class="glass-card border-danger-500/50 p-4 flex items-center gap-3 animate-fade-in">
+            <svg class="w-5 h-5 text-danger-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="text-sm text-danger-500">{{ uploadError }}</span>
+            <button class="ml-auto text-surface-400 hover:text-white" @click="uploadError = null">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <!-- Comment -->
           <div v-if="upload.comments" class="glass-card p-4 animate-fade-in">
             <div class="flex items-center gap-2 mb-2">
@@ -395,6 +410,11 @@ onMounted(async () => {
               <h3 class="text-sm font-medium text-surface-400">
                 {{ activeFiles.length }} file{{ activeFiles.length > 1 ? 's' : '' }}
               </h3>
+              <CopyButton
+                v-if="fileLinks().length > 1"
+                :text="fileLinks().map(f => f.url).join('\n')"
+                label="Copy All Links"
+                size="sm" />
             </div>
 
             <FileRow v-for="file in activeFiles"
@@ -452,35 +472,7 @@ onMounted(async () => {
             <p class="text-surface-400">No files in this upload</p>
           </div>
 
-          <!-- Download Links Panel -->
-          <div v-if="fileLinks().length" class="glass-card p-4 space-y-3">
-            <div class="flex items-center justify-between">
-              <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider">
-                Download Links
-              </h3>
-              <CopyButton
-                :text="fileLinks().map(f => f.url).join('\n')"
-                label="Copy All"
-                size="sm" />
-            </div>
-            <div v-for="fl in fileLinks()" :key="fl.id"
-                 class="flex items-center gap-2 group">
-              <a :href="fl.url"
-                 class="text-sm text-accent-400 hover:text-accent-300 transition-colors truncate flex-1">
-                {{ fl.fileName }}
-              </a>
-              <!-- QR code button -->
-              <button class="btn bg-surface-700/50 text-surface-400 hover:text-white px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Show QR code"
-                      @click="openQrFile(fl)">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM17 14v3h3M14 17h3v3" />
-                </svg>
-              </button>
-              <CopyButton :text="fl.url" size="sm" />
-            </div>
-          </div>
+
         </template>
       </div>
     </main>

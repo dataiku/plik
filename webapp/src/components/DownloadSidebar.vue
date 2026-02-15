@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { formatDate } from '../utils.js'
 import { getArchiveURL, getAdminURL } from '../api.js'
 import CopyButton from './CopyButton.vue'
@@ -28,6 +28,31 @@ const adminUrl = computed(() => {
   if (!props.upload.admin || !props.upload.uploadToken) return null
   return getAdminURL(props.upload.id, props.upload.uploadToken)
 })
+
+// Share URL (download page without upload token)
+const shareUrl = computed(() => {
+  return `${window.location.origin}${window.location.pathname}#/?id=${props.upload.id}`
+})
+
+// Native share support (mobile + Chrome/Edge desktop)
+const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share
+
+const shareSuccess = ref(false)
+let shareTimer = null
+
+async function nativeShare() {
+  try {
+    await navigator.share({ title: 'Plik Upload', url: shareUrl.value })
+    shareSuccess.value = true
+    clearTimeout(shareTimer)
+    shareTimer = setTimeout(() => { shareSuccess.value = false }, 2000)
+  } catch (err) {
+    // User cancelled or share failed — ignore
+    if (err.name !== 'AbortError') {
+      console.warn('Share failed', err)
+    }
+  }
+}
 
 // Admins can delete upload, or if upload is marked as removable
 const canDeleteUpload = computed(() => props.upload.admin || props.upload.removable)
@@ -69,6 +94,28 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
               class="text-xs px-2 py-0.5 rounded-full bg-surface-600/50 text-surface-300">
           🔒 Password
         </span>
+      </div>
+    </div>
+
+    <!-- Share -->
+    <div class="sidebar-section">
+      <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Share</h3>
+      <button v-if="canNativeShare"
+              class="btn-primary w-full"
+              :class="shareSuccess ? 'bg-success-500/20 text-success-500' : ''"
+              @click="nativeShare">
+        <svg v-if="shareSuccess" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+        </svg>
+        {{ shareSuccess ? 'Shared!' : 'Share' }}
+      </button>
+      <div v-else class="flex items-center gap-2 p-2 rounded bg-surface-800/50 min-w-0 overflow-hidden">
+        <span class="text-xs text-surface-300 truncate flex-1">{{ shareUrl }}</span>
+        <CopyButton :text="shareUrl" size="sm" />
       </div>
     </div>
 
