@@ -91,7 +91,7 @@ function configure_keycloak {
             "enabled": true,
             "publicClient": false,
             "secret": "plik-secret",
-            "redirectUris": ["http://localhost:8080/*", "http://127.0.0.1:44142/*"],
+            "redirectUris": ["http://localhost:8080/*", "http://127.0.0.1:8080/*"],
             "webOrigins": ["http://localhost:8080"],
             "protocol": "openid-connect",
             "standardFlowEnabled": true,
