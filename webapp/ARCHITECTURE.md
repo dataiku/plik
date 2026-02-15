@@ -213,6 +213,8 @@ The `uploadFile()` function in `api.js` returns `{ promise, abort }`:
 Cancel buttons in `FileRow.vue` emit a `cancel` event for individual files.
 A "Cancel All" button in the pending files header aborts all in-progress uploads.
 
+> **Gotcha**: When a file upload is aborted via `xhr.abort()`, the server needs time to detect the broken connection and clean up the file status (`uploading` → `removed` → `deleted`). The `cancelFileUpload()` function waits 200ms before calling `fetchUpload()` to avoid showing stale `uploading` status in `activeFiles`.
+
 ---
 
 ## Staged File Object Shape

@@ -121,6 +121,7 @@ stateDiagram-v2
     [*] --> missing : Upload created with file metadata
     missing --> uploading : File upload starts
     uploading --> uploaded : File upload completes
+    uploading --> removed : Upload aborted / error (server cleanup)
     uploaded --> removed : File removed (removable upload or admin)
     uploaded --> removed : OneShot download completed
     removed --> deleted : Cleaning routine deletes from data backend

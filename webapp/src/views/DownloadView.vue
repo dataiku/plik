@@ -177,11 +177,15 @@ function removePendingFile(file) {
   pendingFiles.value = pendingFiles.value.filter(f => f.reference !== file.reference)
 }
 
-function cancelFileUpload(file) {
+async function cancelFileUpload(file) {
   if (file.abort) {
     file.abort()
   }
   pendingFiles.value = pendingFiles.value.filter(f => f.reference !== file.reference)
+
+  // Give the server time to clean up the aborted file (uploading → removed → deleted)
+  await new Promise(resolve => setTimeout(resolve, 200))
+  await fetchUpload()
 }
 
 function cancelAllUploads() {
