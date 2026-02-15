@@ -79,16 +79,16 @@ Each test function calls `newPlikServerAndClient()` to get a fresh server + clie
 ```go
 ps, pc := newPlikServerAndClient()
 defer shutdown(ps)
-err := start(ps)
+err := startWithClient(ps, pc)
 ```
 
 This creates:
-- A new `PlikServer` with a fresh config listening on `127.0.0.1` (port from `APIMockServerDefaultPort`)
+- A new `PlikServer` with a fresh config listening on `127.0.0.1` with ephemeral port allocation (port 0 → OS assigns a free port)
 - Injects the shared data + metadata backends
-- A new `Client` pointed at the server's URL
+- A new `Client` whose URL is set by `startWithClient` to the actual listen address after boot
 - Auto-clean is disabled (`config.AutoClean(false)`) so TTL-based cleanup doesn't interfere with tests
 
-The `start()` helper starts the server and waits until the HTTP port is accepting connections. `shutdown()` calls `ShutdownNow()` (immediate, no graceful drain).
+The `start()` helper starts the server and waits until the HTTP port is accepting connections. `startWithClient()` additionally updates the client URL with the actual port. `shutdown()` calls `ShutdownNow()` (immediate, no graceful drain).
 
 Each test gets its own server instance with its own router/middleware stack, but they all share the same underlying data and metadata backends. This means tests can configure the server differently (e.g., enable/disable features, set limits) without affecting other tests' server config, while still sharing the same storage layer.
 

@@ -47,7 +47,7 @@ func TestOVHLogin(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -112,7 +112,7 @@ func TestOVHLoginInvalidOVHResponse(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -138,7 +138,7 @@ func TestOVHLoginInvalidOVHResponse2(t *testing.T) {
 		resp.Write([]byte("invalid json"))
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -254,7 +254,7 @@ func TestOVHCallback(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -336,7 +336,7 @@ func TestOVHCallbackCreateUser(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -422,7 +422,7 @@ func TestOVHCallbackCreateUserNotWhitelisted(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -633,7 +633,7 @@ func TestOVHCallbackInvalidOvhApiResponse(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -675,7 +675,7 @@ func TestOVHCallbackInvalidOvhApiResponseJson(t *testing.T) {
 		resp.Write([]byte("invalid json"))
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 

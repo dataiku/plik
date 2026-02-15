@@ -21,7 +21,7 @@ func TestUploadFileTwice(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := &common.Upload{}
@@ -47,7 +47,7 @@ func TestDownloadDuringUpload(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -98,7 +98,7 @@ func TestOneShot(t *testing.T) {
 
 	pc.OneShot = true
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	data := "data data data"
@@ -122,7 +122,7 @@ func TestDownloadOneShotBeforeUpload(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -158,7 +158,7 @@ func TestRemoveFileWithoutUploadToken(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	data := "data data data"
@@ -178,7 +178,7 @@ func TestRemovable(t *testing.T) {
 
 	pc.Removable = true
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	data := "data data data"
@@ -195,7 +195,7 @@ func TestUploadWithoutUploadToken(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -218,7 +218,7 @@ func TestStream(t *testing.T) {
 
 	pc.Stream = true
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	data := "data data data"
@@ -271,7 +271,7 @@ func TestTTL(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	upload := pc.NewUpload()
@@ -292,7 +292,7 @@ func TestQuickUpload(t *testing.T) {
 	ps.GetConfig().DownloadDomain = fmt.Sprintf("http://127.0.0.1:%d", ps.GetConfig().ListenPort)
 
 	defer shutdown(ps)
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	content := "data data data"
@@ -340,7 +340,7 @@ func TestCreateUploadWithForbidenOptions(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)
 
-	err := start(ps)
+	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
 	uploadToCreate := &common.Upload{}

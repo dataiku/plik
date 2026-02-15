@@ -97,7 +97,7 @@ func TestOIDCLogin(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 	setupOIDCConfig(ctx.GetConfig())
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUserInfo{}))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUserInfo{}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -315,7 +315,7 @@ func TestOIDCCallback(t *testing.T) {
 	err := ctx.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create test user")
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -356,7 +356,7 @@ func TestOIDCCallbackCreateUser(t *testing.T) {
 		Name:  "New User",
 	}
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -404,7 +404,7 @@ func TestOIDCCallbackCreateUserNotWhitelisted(t *testing.T) {
 		Name:  "Blocked User",
 	}
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -435,7 +435,7 @@ func TestOIDCCallbackUpdateUserFields(t *testing.T) {
 		PreferredUsername: "newlogin",
 	}
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -466,7 +466,7 @@ func TestOIDCCallbackInvalidDomain(t *testing.T) {
 		Name:  "Domain User",
 	}
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -497,7 +497,7 @@ func TestOIDCCallbackExistingUserInvalidDomain(t *testing.T) {
 	err := ctx.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create test user")
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -520,7 +520,7 @@ func TestOIDCCallbackDomainValidationNoEmail(t *testing.T) {
 		Name: "No Email User",
 	}
 
-	shutdown, err := common.StartAPIMockServer(oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -547,7 +547,7 @@ func TestDiscoverOIDCCache(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 

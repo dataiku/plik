@@ -181,7 +181,7 @@ func TestGoogleCallback(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -505,7 +505,7 @@ func TestGoogleCallbackCreateUser(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
@@ -599,7 +599,7 @@ func TestGoogleCallbackCreateUserNotWhitelisted(t *testing.T) {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
 
-	shutdown, err := common.StartAPIMockServer(http.HandlerFunc(handler))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
 	defer shutdown()
 	require.NoError(t, err, "unable to start OVH api mock server")
 
