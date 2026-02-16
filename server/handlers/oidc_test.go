@@ -965,10 +965,10 @@ func TestMergeClaimsBothNil(t *testing.T) {
 
 func TestOIDCClaimsUnmarshalJSON(t *testing.T) {
 	tests := []struct {
-		name          string
-		json          string
-		wantVerified  *bool
-		wantSub       string
+		name         string
+		json         string
+		wantVerified *bool
+		wantSub      string
 	}{
 		{
 			name:         "bool true",

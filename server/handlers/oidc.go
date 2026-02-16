@@ -19,15 +19,15 @@ import (
 )
 
 type oidcClaims struct {
-	Sub              string `json:"sub"`
-	Email            string `json:"email"`
-	EmailVerified    *bool  `json:"-"` // Populated exclusively by custom UnmarshalJSON to handle bool/string/numeric variants
-	Name             string `json:"name"`
-	GivenName        string `json:"given_name"`
-	FamilyName       string `json:"family_name"`
+	Sub               string `json:"sub"`
+	Email             string `json:"email"`
+	EmailVerified     *bool  `json:"-"` // Populated exclusively by custom UnmarshalJSON to handle bool/string/numeric variants
+	Name              string `json:"name"`
+	GivenName         string `json:"given_name"`
+	FamilyName        string `json:"family_name"`
 	PreferredUsername string `json:"preferred_username"`
-	Picture          string `json:"picture"`
-	Locale           string `json:"locale"`
+	Picture           string `json:"picture"`
+	Locale            string `json:"locale"`
 }
 
 // Some IdPs (AWS Cognito, some Entra configs) return email_verified as string "true"/"false"
