@@ -1,8 +1,8 @@
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getUpload, removeUpload, removeFile as apiRemoveFile, uploadFile, getFileURL } from '../api.js'
-import { generateRef } from '../utils.js'
+import { generateRef, isTextFile } from '../utils.js'
 import { getToken, setToken } from '../tokenStore.js'
 import { consumePendingFiles } from '../pendingUploadStore.js'
 import { marked } from 'marked'
@@ -49,6 +49,7 @@ const viewingFile = ref(null)
 const viewingContent = ref('')
 const viewingLoading = ref(false)
 const viewingError = ref(null)
+const lastAutoViewedId = ref(null)
 
 async function viewFile(file) {
   // If already viewing this file, close it
@@ -300,6 +301,20 @@ onMounted(async () => {
     uploadPendingFiles()
   }
 })
+
+// Auto-show view panel if there is exactly one text file
+watch(activeFiles, (files) => {
+  if (files.length === 1) {
+    const file = files[0]
+    if (file.status === 'uploaded' && isTextFile(file) && lastAutoViewedId.value !== file.id) {
+      lastAutoViewedId.value = file.id
+      viewFile(file)
+    }
+  } else if (files.length > 1) {
+    // If more files added, we might want to reset scroll but keep viewer if it was manually opened.
+    // However, the requirement is only for "if upload has only one file".
+  }
+}, { immediate: true })
 </script>
 
 <template>

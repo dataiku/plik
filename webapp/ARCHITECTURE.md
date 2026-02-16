@@ -545,6 +545,8 @@ Reusable CodeMirror 6 wrapper (`CodeEditor.vue`) used in two contexts:
 
 **JSON prettify / validate**: When the detected language is JSON, two action buttons appear in the editor header bar. **Validate** (`JSON.parse()` only) checks syntax and shows a brief green "Valid" flash on success or a dismissable red error banner on failure — it never changes the content. **Prettify** (`JSON.parse()` → `JSON.stringify(…, null, 2)`) validates *and* reformats the content with 2-space indentation. In read-only mode (DownloadView file viewer) prettify updates the displayed view only — it does not modify the file on the server.
 
+**Auto-display**: In `DownloadView.vue`, if an upload contains exactly one text file, the viewer panel opens automatically on mount (or when the file finishes uploading). A watcher on `activeFiles` triggers `viewFile()` for the first file if it's the only one and it's a text file.
+
 ### Text-File Detection
 
 The `isTextFile()` utility in `utils.js` determines if a file can be viewed in the code editor based on:
