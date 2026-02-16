@@ -36,7 +36,7 @@ const grouped = computed(() => {
 })
 
 function clientDownloadURL(client) {
-    return `/clients/${client.path}`
+    return `/${client.path}`
 }
 
 function osLabel(os) {
