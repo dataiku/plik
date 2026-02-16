@@ -47,7 +47,6 @@ func TestGetFile(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/file/"+upload.ID+"/"+file.ID+"/"+file.Name+"?dl=true", bytes.NewBuffer([]byte{}))
 	require.NoError(t, err, "unable to create new request")
-	req.URL.Query().Set("dl", "true")
 
 	rr := ctx.NewRecorder(req)
 	GetFile(ctx, rr, req)

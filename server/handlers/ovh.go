@@ -41,7 +41,7 @@ func decodeOVHResponse(resp *http.Response) ([]byte, error) {
 
 	if resp.StatusCode > 399 {
 		// Decode OVH error information from response
-		if body != nil && len(body) > 0 {
+		if len(body) > 0 {
 			var ovhErr ovhError
 			err := json.Unmarshal(body, &ovhErr)
 			if err == nil {
