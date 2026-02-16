@@ -77,6 +77,7 @@ Options:
   --secure-options OPTIONS  [openssl|pgp] Additional command line options
   --insecure                (TLS) Do not verify the server's certificate chain and hostname
   --update                  Update client
+  --login                   Authenticate with the Plik server via browser
   -q --quiet                Enable quiet mode
   -d --debug                Enable debug mode
   -v --version              Show client version
@@ -119,6 +120,46 @@ curl --form 'file=@/path/to/file' \
 ::: tip
 The `DownloadDomain` configuration option must be set for quick upload to work properly.
 :::
+
+## CLI Authentication
+
+When authentication is enabled on the server, you can authenticate the CLI client using `--login`:
+
+```bash
+plik --login
+```
+
+This starts a device authorization flow:
+1. The CLI displays a **verification code** and opens a URL in your browser
+2. In the browser, log in (if needed) and **approve** the CLI login by confirming the code
+3. The CLI automatically receives a token and saves it to `~/.plikrc`
+
+::: tip
+The token created via `--login` is identical to tokens created in the web UI. It appears in your token list and can be revoked from the web UI at any time.
+:::
+
+### First-run experience
+
+When running `plik` for the first time and the server has authentication enabled, the CLI will prompt you to authenticate via browser:
+- If authentication is **forced**: you'll be prompted with a default of **Yes**
+- If authentication is **enabled**: you'll be prompted with a default of **No**
+
+You can always authenticate later with `plik --login`.
+
+### Manual token configuration
+
+Alternatively, you can create a token manually in the web UI and add it to your configuration:
+
+```toml
+# ~/.plikrc
+Token = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+Or pass it on the command line:
+
+```bash
+plik --token xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx myfile.txt
+```
 
 ## Configuration (.plikrc)
 

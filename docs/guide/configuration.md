@@ -82,7 +82,8 @@ Features can be set to one of four states:
 | `FeatureClients` | `enabled` | Show CLI download button in UI |
 | `FeatureGithub` | `enabled` | Show source code link in UI |
 | `FeatureText` | `enabled` | Text upload dialog |
-| `DisableLocalLogin` | `false` | Hide login/password form |
+| `FeatureLocalLogin` | `enabled` | Local login form (enable/disable only) |
+| `FeatureDeleteAccount` | `enabled` | Allow users to delete their own account (enable/disable only) |
 
 ## Full Example
 

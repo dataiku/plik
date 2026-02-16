@@ -218,6 +218,9 @@ When processing a request, limits are resolved via the custom `Context`:
 | GET | `/auth/oidc/login` | `OIDCLogin` | Cookie | Get OIDC consent URL |
 | GET | `/auth/oidc/callback` | `OIDCCallback` | Open | OIDC callback |
 | POST | `/auth/local/login` | `LocalLogin` | Cookie | Login with login/password |
+| POST | `/auth/cli/init` | `CLIAuthInit` | Open | Initiate CLI device auth session |
+| POST | `/auth/cli/approve` | `CLIAuthApprove` | Session | Approve CLI login (browser-side) |
+| POST | `/auth/cli/poll` | `CLIAuthPoll` | Open | Poll for CLI auth result (secret required) |
 | GET | `/auth/logout` | `Logout` | Open | Invalidate session |
 
 ### User Endpoints (authenticated — session cookie required)
@@ -270,6 +273,13 @@ When processing a request, limits are resolved via the custom `Context`:
 1. Authenticated user creates a CLI token via `POST /me/token`
 2. Token (UUID) sent in `X-PlikToken` header or stored in `.plikrc` config
 3. Authenticates CLI clients on behalf of a user — uploads are linked to the user's account for quota tracking
+
+### CLI Device Auth Flow
+1. CLI calls `POST /auth/cli/init` with hostname → receives a code, secret, and verification URL
+2. User opens the verification URL in their browser and approves the login (requires session cookie)
+3. CLI polls `POST /auth/cli/poll` with code + secret → receives the generated token once approved
+4. Token is automatically saved to `~/.plikrc` — identical to tokens created via `POST /me/token`
+5. Sessions are ephemeral (5 min TTL), one-time use, and cleaned by the background routine
 
 ### Auth Providers
 
@@ -359,6 +369,7 @@ GORM-based with auto-migrations via gormigrate.
 | `users` | `User` | User accounts |
 | `tokens` | `Token` | Upload tokens, FK to users |
 | `settings` | `Setting` | Server settings (e.g., auth signing key) |
+| `cli_auth_sessions` | `CLIAuthSession` | Ephemeral CLI device auth sessions (auto-cleaned) |
 | `migrations` | (gormigrate) | Schema migration history |
 
 ---
@@ -386,7 +397,7 @@ docs/
 
 - **Build**: `make docs` (or `cd docs && npm run dev` for local dev server)
 - **Deploy**: Automated via `.github/workflows/deploy-docs.yml` on push to `master`
-- **CI**: Build is verified on every push/PR via `.github/workflows/tests.yaml`
+- **CI**: Build is verified on every push/PR via `.github/workflows/tests.yaml`. Automated docker build (`docker build` comment) and deploy (`docker deploy` comment) are available on PRs.
 
 **Build pipeline** (`make docs`):
 

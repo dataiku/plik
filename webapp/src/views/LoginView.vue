@@ -1,17 +1,24 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { config } from '../config.js'
+import { config, isFeatureEnabled } from '../config.js'
 import { auth, login } from '../authStore.js'
 import { oidcLogin as apiOidcLogin } from '../api.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-// Redirect authenticated users to the upload page
+// Redirect authenticated users to their intended destination.
 // This handles OAuth callbacks (server redirects to /#/login after success)
-// and direct navigation to /#/login while already logged in
+// and direct navigation to /#/login while already logged in.
+// The redirect destination is stored in sessionStorage by the router guard.
+function consumeRedirect() {
+  const redirect = sessionStorage.getItem('plik-auth-redirect') || '/'
+  sessionStorage.removeItem('plik-auth-redirect')
+  return redirect
+}
+
 onMounted(() => {
-  if (auth.user) router.replace('/')
+  if (auth.user) router.replace(consumeRedirect())
 })
 
 const loginName = ref('')
@@ -24,6 +31,7 @@ const hasOAuthProviders = computed(() =>
 )
 
 async function handleSubmit() {
+  if (loading.value) return
   error.value = null
   if (!loginName.value || !password.value) {
     error.value = 'Please enter login and password'
@@ -33,7 +41,7 @@ async function handleSubmit() {
   try {
     const ok = await login(loginName.value, password.value)
     if (ok) {
-      router.push('/')
+      router.push(consumeRedirect())
     } else {
       error.value = 'Invalid credentials'
     }
@@ -94,7 +102,7 @@ async function handleOidcLogin() {
         </div>
 
         <!-- Local Login Form (hidden when local auth is disabled) -->
-        <form v-if="config.localAuthentication" @submit.prevent="handleSubmit" class="space-y-4">
+        <form v-if="isFeatureEnabled('local_login')" @submit.prevent="handleSubmit" class="space-y-4">
           <div>
             <label class="text-xs text-surface-400 block mb-1.5">Login</label>
             <input type="text"
@@ -110,8 +118,7 @@ async function handleOidcLogin() {
                    v-model="password"
                    class="input-field w-full"
                    placeholder="Enter your password"
-                   autocomplete="current-password"
-                   @keyup.enter="handleSubmit" />
+                   autocomplete="current-password" />
           </div>
           <button type="submit"
                   class="btn-primary w-full py-2.5"
@@ -126,7 +133,7 @@ async function handleOidcLogin() {
         </form>
 
         <!-- OAuth Divider -->
-        <div v-if="config.localAuthentication && hasOAuthProviders"
+        <div v-if="isFeatureEnabled('local_login') && hasOAuthProviders"
              class="flex items-center gap-3">
           <div class="flex-1 border-t border-surface-700/50"></div>
           <span class="text-xs text-surface-500">or continue with</span>

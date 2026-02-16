@@ -329,6 +329,54 @@ func Test_initializeFeatureGithub(t *testing.T) {
 	RequireError(t, config.initializeFeatureClients(), "Invalid feature flag value")
 }
 
+func Test_initializeFeatureLocalLogin(t *testing.T) {
+	config := NewConfiguration()
+	config.FeatureLocalLogin = "invalid"
+	RequireError(t, config.initializeFeatureLocalLogin(), "Invalid feature flag value")
+
+	config = NewConfiguration()
+	config.FeatureLocalLogin = ""
+	require.NoError(t, config.initializeFeatureLocalLogin())
+	require.Equal(t, FeatureEnabled, config.FeatureLocalLogin)
+
+	config = NewConfiguration()
+	config.FeatureLocalLogin = FeatureDisabled
+	require.NoError(t, config.initializeFeatureLocalLogin())
+	require.Equal(t, FeatureDisabled, config.FeatureLocalLogin)
+
+	config = NewConfiguration()
+	config.FeatureLocalLogin = FeatureForced
+	RequireError(t, config.initializeFeatureLocalLogin(), "Invalid feature flag value")
+
+	config = NewConfiguration()
+	config.FeatureLocalLogin = FeatureDefault
+	RequireError(t, config.initializeFeatureLocalLogin(), "Invalid feature flag value")
+}
+
+func Test_initializeFeatureDeleteAccount(t *testing.T) {
+	config := NewConfiguration()
+	config.FeatureDeleteAccount = "invalid"
+	RequireError(t, config.initializeFeatureDeleteAccount(), "Invalid feature flag value")
+
+	config = NewConfiguration()
+	config.FeatureDeleteAccount = ""
+	require.NoError(t, config.initializeFeatureDeleteAccount())
+	require.Equal(t, FeatureEnabled, config.FeatureDeleteAccount)
+
+	config = NewConfiguration()
+	config.FeatureDeleteAccount = FeatureDisabled
+	require.NoError(t, config.initializeFeatureDeleteAccount())
+	require.Equal(t, FeatureDisabled, config.FeatureDeleteAccount)
+
+	config = NewConfiguration()
+	config.FeatureDeleteAccount = FeatureForced
+	RequireError(t, config.initializeFeatureDeleteAccount(), "Invalid feature flag value")
+
+	config = NewConfiguration()
+	config.FeatureDeleteAccount = FeatureDefault
+	RequireError(t, config.initializeFeatureDeleteAccount(), "Invalid feature flag value")
+}
+
 func Test_initializeFeatureText(t *testing.T) {
 	config := NewConfiguration()
 	config.FeatureText = "invalid"
@@ -360,6 +408,8 @@ func Test_initializeFeatureFlags(t *testing.T) {
 	require.NoError(t, config.initializeFeatureFlags())
 
 	require.NoError(t, ValidateFeatureFlag(config.FeatureAuthentication))
+	require.NoError(t, ValidateCustomFeatureFlag(config.FeatureLocalLogin, []string{FeatureDisabled, FeatureEnabled}))
+	require.NoError(t, ValidateCustomFeatureFlag(config.FeatureDeleteAccount, []string{FeatureDisabled, FeatureEnabled}))
 	require.NoError(t, ValidateFeatureFlag(config.FeatureOneShot))
 	require.NoError(t, ValidateFeatureFlag(config.FeatureRemovable))
 	require.NoError(t, ValidateFeatureFlag(config.FeatureStream))

@@ -120,7 +120,7 @@ func newPlikServerAndClient() (ps *server.PlikServer, pc *Client) {
 
 	// Copy settings from test config (PLIKD_CONFIG) if available
 	if testConfig != nil {
-		// Copy OIDC settings; FeatureAuthentication and DisableLocalLogin
+		// Copy OIDC settings; FeatureAuthentication and FeatureLocalLogin
 		// are intentionally left for each test to set as needed.
 		config.OIDCClientID = testConfig.OIDCClientID
 		config.OIDCClientSecret = testConfig.OIDCClientSecret

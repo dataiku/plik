@@ -45,6 +45,8 @@ func IsFeatureDefault(value string) bool {
 func (config *Configuration) initializeFeatureFlags() error {
 	initializations := []func() error{
 		config.initializeFeatureAuthentication,
+		config.initializeFeatureLocalLogin,
+		config.initializeFeatureDeleteAccount,
 		config.initializeFeatureOneShot,
 		config.initializeFeatureRemovable,
 		config.initializeFeatureStream,
@@ -89,6 +91,32 @@ func (config *Configuration) initializeFeatureAuthentication() error {
 	// Set legacy feature flag for backward compatibility
 	config.Authentication = IsFeatureAvailable(config.FeatureAuthentication)
 	config.NoAnonymousUploads = config.FeatureAuthentication == FeatureForced
+
+	return nil
+}
+
+func (config *Configuration) initializeFeatureLocalLogin() error {
+	if config.FeatureLocalLogin == "" {
+		config.FeatureLocalLogin = FeatureEnabled
+	}
+
+	err := ValidateCustomFeatureFlag(config.FeatureLocalLogin, []string{FeatureDisabled, FeatureEnabled})
+	if err != nil {
+		return fmt.Errorf("Invalid value for FeatureLocalLogin : %s", err)
+	}
+
+	return nil
+}
+
+func (config *Configuration) initializeFeatureDeleteAccount() error {
+	if config.FeatureDeleteAccount == "" {
+		config.FeatureDeleteAccount = FeatureEnabled
+	}
+
+	err := ValidateCustomFeatureFlag(config.FeatureDeleteAccount, []string{FeatureDisabled, FeatureEnabled})
+	if err != nil {
+		return fmt.Errorf("Invalid value for FeatureDeleteAccount : %s", err)
+	}
 
 	return nil
 }

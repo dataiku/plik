@@ -29,6 +29,7 @@ All routes use hash-history (`#/`):
 | `/#/home`      | `HomeView`      | User dashboard (uploads, tokens, account) |
 | `/#/admin`     | `AdminView`     | Admin panel (stats, users, all uploads)   |
 | `/#/clients`   | `ClientsView`   | CLI client downloads                      |
+| `/#/cli-auth`  | `CLIAuthView`   | Approve CLI device auth login             |
 | `/#/upload/:id`| (redirect)      | Legacy URL → `/?id=:id`                   |
 
 Admin link (upload-level): `/#/?id=<uploadId>&uploadToken=<token>`
@@ -43,6 +44,10 @@ When `config.feature_authentication` is `"forced"`, a `router.beforeEach` guard 
 - The login page itself (`to.name === 'login'`)
 - CLI client downloads (`to.name === 'clients'`) — so users can get the CLI without logging in
 - Download pages (`to.name === 'root' && to.query.id`) — so shared links still work
+
+CLI auth approval (`to.name === 'cli-auth'`) always requires authentication regardless of auth mode.
+
+**Redirect preservation**: When the guard redirects to login, it saves the intended destination to `sessionStorage` (`plik-auth-redirect` key) instead of a URL query parameter. This is necessary because OAuth flows do a full-page round-trip through an external provider (Google, OIDC, OVH), and the server callback redirects back to `/#/login` — any hash-fragment query params would be lost during this round-trip. Using sessionStorage solves this uniformly for all auth methods (local login and OAuth).
 
 ---
 
@@ -292,7 +297,7 @@ The `GET /config` response also includes:
 | `maxTTL` | Max TTL in seconds |
 | `googleAuthentication` | `true` if Google OAuth is configured → shows Google login button |
 | `ovhAuthentication` | `true` if OVH OAuth is configured → shows OVH login button |
-| `localAuthentication` | `true` if local login is enabled (auth enabled AND `DisableLocalLogin` is `false`) |
+| `feature_local_login` | `"enabled"` or `"disabled"` — controls local login form visibility (replaces old `localAuthentication` boolean) |
 | `oidcAuthentication` | `true` if OIDC is configured → shows OIDC login button |
 | `oidcProviderName` | Display name for OIDC button (e.g. `"Keycloak"`, defaults to `"OpenID"`) |
 | `downloadDomain` | Alternate domain for download URLs (set in `api.js` via `setDownloadDomain`) |
@@ -385,7 +390,8 @@ App.vue
 ├── HomeView.vue           — user dashboard (uploads/tokens/account)
 │   └── CopyButton         — clipboard copy for tokens
 ├── AdminView.vue          — admin panel (stats/users/uploads)
-└── ClientsView.vue        — CLI client downloads (from embedded build info)
+├── ClientsView.vue        — CLI client downloads (from embedded build info)
+└── CLIAuthView.vue        — CLI device auth approval (displays code, approves session)
 ```
 
 ---
@@ -398,11 +404,12 @@ Reactive singleton holding `auth.user` (set on login, cleared on logout). Checke
 
 ### LoginView (`/#/login`)
 
-- Local login form (username + password → `POST /auth/local/login`) — **hidden** when `config.localAuthentication` is `false` (i.e. `DisableLocalLogin = true` on the server)
+- Local login form (username + password → `POST /auth/local/login`) — **hidden** when `isFeatureEnabled('local_login')` returns `false` (i.e. `FeatureLocalLogin = "disabled"` on the server)
 - Conditional OAuth buttons (Google, OVH) based on `config.googleAuthentication` / `config.ovhAuthentication`
 - OIDC button (label from `config.oidcProviderName`) → calls `GET /auth/oidc/login` to get the authorization URL, then `window.location.href` redirects to the OIDC provider
 - "or continue with" divider only shown when both local login and at least one OAuth/OIDC provider are enabled
-- Redirects to `/#/home` on success
+- Redirects to the stored `sessionStorage` destination on success via `consumeRedirect()`, or `/` if none
+
 
 ### HomeView (`/#/home`)
 
@@ -544,6 +551,8 @@ Reusable CodeMirror 6 wrapper (`CodeEditor.vue`) used in two contexts:
 **Content-based language detection**: Uses `highlight.js` (lazy-loaded via dynamic `import()` on first detection call) for accurate auto-detection of ~190 languages. Detection fires via a 1s debounce on content changes. In UploadView, auto-detection only updates the filename when it still matches the default `paste.*` pattern.
 
 **JSON prettify / validate**: When the detected language is JSON, two action buttons appear in the editor header bar. **Validate** (`JSON.parse()` only) checks syntax and shows a brief green "Valid" flash on success or a dismissable red error banner on failure — it never changes the content. **Prettify** (`JSON.parse()` → `JSON.stringify(…, null, 2)`) validates *and* reformats the content with 2-space indentation. In read-only mode (DownloadView file viewer) prettify updates the displayed view only — it does not modify the file on the server.
+
+**Auto-display**: In `DownloadView.vue`, if an upload contains exactly one text file, the viewer panel opens automatically on mount (or when the file finishes uploading). A watcher on `activeFiles` triggers `viewFile()` for the first file if it's the only one and it's a text file.
 
 ### Text-File Detection
 

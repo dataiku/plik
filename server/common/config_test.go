@@ -1,10 +1,11 @@
 package common
 
 import (
-	"github.com/root-gg/logger"
 	"net"
 	"os"
 	"testing"
+
+	"github.com/root-gg/logger"
 
 	"github.com/iancoleman/strcase"
 
@@ -75,6 +76,7 @@ func TestIsWhitelisted(t *testing.T) {
 
 func TestInitializeConfigAuthentication(t *testing.T) {
 	config := NewConfiguration()
+	config.FeatureAuthentication = FeatureEnabled
 	config.GoogleAPIClientID = "google_api_client_id"
 	config.GoogleAPISecret = "google_api_secret"
 	config.OvhAPIKey = "ovh_api_key"
@@ -82,6 +84,40 @@ func TestInitializeConfigAuthentication(t *testing.T) {
 
 	err := config.Initialize()
 	require.NoError(t, err, "unable to initialize config")
+}
+
+func TestInitializeConfigAuthenticationNoMethod(t *testing.T) {
+	// Auth enabled but local login disabled and no OAuth configured → should fail
+	config := NewConfiguration()
+	config.FeatureAuthentication = FeatureEnabled
+	config.FeatureLocalLogin = FeatureDisabled
+
+	err := config.Initialize()
+	RequireError(t, err, "no authentication method is available")
+
+	// Auth forced but local login disabled and no OAuth configured → should fail
+	config = NewConfiguration()
+	config.FeatureAuthentication = FeatureForced
+	config.FeatureLocalLogin = FeatureDisabled
+
+	err = config.Initialize()
+	RequireError(t, err, "no authentication method is available")
+
+	// Auth disabled → should be fine regardless
+	config = NewConfiguration()
+	config.FeatureAuthentication = FeatureDisabled
+	config.FeatureLocalLogin = FeatureDisabled
+
+	err = config.Initialize()
+	require.NoError(t, err, "should be able to initialize with auth disabled")
+
+	// Auth enabled + local login enabled → should be fine
+	config = NewConfiguration()
+	config.FeatureAuthentication = FeatureEnabled
+	config.FeatureLocalLogin = FeatureEnabled
+
+	err = config.Initialize()
+	require.NoError(t, err, "should be able to initialize with local login")
 }
 
 func TestInitializeConfigDownloadDomain(t *testing.T) {

@@ -60,14 +60,28 @@ OIDCValidDomains = ["company.com"]      # Optional: restrict by email domain
 When using an external provider exclusively:
 
 ```toml
-DisableLocalLogin = true
+FeatureLocalLogin = "disabled"
 ```
 
 This hides the login/password form and rejects local login attempts.
 
 ## CLI Tokens
 
-Authenticated users can generate CLI tokens in the web UI or via the API. These tokens authenticate the CLI client, linking uploads to the user's account for quota tracking and management. They are sent via the `X-PlikToken` header or configured in `.plikrc`:
+Authenticated users can generate CLI tokens to authenticate the CLI client, linking uploads to the user's account for quota tracking and management.
+
+### Browser login (recommended)
+
+The easiest way to authenticate the CLI is via the built-in device auth flow:
+
+```bash
+plik --login
+```
+
+This opens your browser, lets you approve the login, and automatically saves the token to `~/.plikrc`. See the [CLI client documentation](/features/cli-client#cli-authentication) for details.
+
+### Manual token
+
+You can also create tokens manually in the web UI or via the API. Tokens are sent via the `X-PlikToken` header or configured in `.plikrc`:
 
 ```toml
 Token = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
