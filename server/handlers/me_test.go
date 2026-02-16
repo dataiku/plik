@@ -102,6 +102,26 @@ func TestDeleteUserNoUser(t *testing.T) {
 	context.TestUnauthorized(t, rr, "missing user, please login first")
 }
 
+func TestDeleteUserDisabled(t *testing.T) {
+	config := common.NewConfiguration()
+	config.FeatureDeleteAccount = common.FeatureDisabled
+	ctx := newTestingContext(config)
+
+	user := common.NewUser(common.ProviderLocal, "user1")
+
+	err := ctx.GetMetadataBackend().CreateUser(user)
+	require.NoError(t, err, "unable to create test user")
+	ctx.SetUser(user)
+
+	req, err := http.NewRequest("DELETE", "/me", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	rr := ctx.NewRecorder(req)
+	DeleteAccount(ctx, rr, req)
+
+	context.TestBadRequest(t, rr, "delete account is not enabled")
+}
+
 func TestGetUserUploads(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 

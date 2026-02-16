@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { config } from '../config.js'
+import { config, isFeatureEnabled } from '../config.js'
 import { auth, login } from '../authStore.js'
 import { oidcLogin as apiOidcLogin } from '../api.js'
 import { useRouter } from 'vue-router'
@@ -102,7 +102,7 @@ async function handleOidcLogin() {
         </div>
 
         <!-- Local Login Form (hidden when local auth is disabled) -->
-        <form v-if="config.localAuthentication" @submit.prevent="handleSubmit" class="space-y-4">
+        <form v-if="isFeatureEnabled('local_login')" @submit.prevent="handleSubmit" class="space-y-4">
           <div>
             <label class="text-xs text-surface-400 block mb-1.5">Login</label>
             <input type="text"
@@ -133,7 +133,7 @@ async function handleOidcLogin() {
         </form>
 
         <!-- OAuth Divider -->
-        <div v-if="config.localAuthentication && hasOAuthProviders"
+        <div v-if="isFeatureEnabled('local_login') && hasOAuthProviders"
              class="flex items-center gap-3">
           <div class="flex-1 border-t border-surface-700/50"></div>
           <span class="text-xs text-surface-500">or continue with</span>

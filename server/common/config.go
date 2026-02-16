@@ -65,6 +65,8 @@ type Configuration struct {
 
 	// Feature Flags
 	FeatureAuthentication string `json:"feature_authentication"`
+	FeatureLocalLogin     string `json:"feature_local_login"`
+	FeatureDeleteAccount  string `json:"feature_delete_account"`
 	FeatureOneShot        string `json:"feature_one_shot"`
 	FeatureRemovable      string `json:"feature_removable"`
 	FeatureStream         string `json:"feature_stream"`
@@ -93,8 +95,7 @@ type Configuration struct {
 	OvhAPIKey            string   `json:"-"`
 	OvhAPISecret         string   `json:"-"`
 
-	LocalAuthentication bool `json:"localAuthentication"`
-	DisableLocalLogin   bool `json:"-"`
+	LocalAuthentication bool `json:"-"`
 
 	OIDCAuthentication bool     `json:"oidcAuthentication"`
 	OIDCClientID       string   `json:"-"`
@@ -221,7 +222,13 @@ func (config *Configuration) Initialize() (err error) {
 	config.GoogleAuthentication = config.FeatureAuthentication != FeatureDisabled && config.GoogleAPIClientID != "" && config.GoogleAPISecret != ""
 	config.OvhAuthentication = config.FeatureAuthentication != FeatureDisabled && config.OvhAPIKey != "" && config.OvhAPISecret != ""
 	config.OIDCAuthentication = config.FeatureAuthentication != FeatureDisabled && config.OIDCClientID != "" && config.OIDCClientSecret != "" && config.OIDCProviderURL != ""
-	config.LocalAuthentication = config.FeatureAuthentication != FeatureDisabled && !config.DisableLocalLogin
+	config.LocalAuthentication = config.FeatureAuthentication != FeatureDisabled && config.FeatureLocalLogin != FeatureDisabled
+
+	// Validate that at least one authentication method is available when authentication is enabled
+	if config.FeatureAuthentication != FeatureDisabled &&
+		!config.LocalAuthentication && !config.GoogleAuthentication && !config.OvhAuthentication && !config.OIDCAuthentication {
+		return fmt.Errorf("authentication is enabled but no authentication method is available, enable at least one of : FeatureLocalLogin, Google, OVH, or OIDC")
+	}
 
 	if config.DownloadDomain != "" {
 		strings.Trim(config.DownloadDomain, "/ ")
@@ -440,6 +447,7 @@ func (config *Configuration) String() string {
 	str += fmt.Sprintf("Upload comments : %s\n", config.FeatureComments)
 	str += fmt.Sprintf("Upload set TTL : %s\n", config.FeatureSetTTL)
 	str += fmt.Sprintf("Upload extend TTL : %s\n", config.FeatureExtendTTL)
+	str += fmt.Sprintf("Delete account : %s\n", config.FeatureDeleteAccount)
 
 	str += fmt.Sprintf("Authentication : %s\n", config.FeatureAuthentication)
 	if config.FeatureAuthentication != FeatureDisabled {
@@ -465,11 +473,7 @@ func (config *Configuration) String() string {
 			str += "OIDC authentication : disabled\n"
 		}
 
-		if config.LocalAuthentication {
-			str += "Local authentication : enabled\n"
-		} else {
-			str += "Local authentication : disabled\n"
-		}
+		str += fmt.Sprintf("Local login : %s\n", config.FeatureLocalLogin)
 	}
 
 	return str

@@ -99,7 +99,7 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
         </router-link>
 
         <!-- Not logged in: Login link -->
-        <router-link v-else-if="isFeatureEnabled('authentication')"
+        <router-link v-if="!auth.user && isFeatureEnabled('authentication')"
                      to="/login"
                      class="btn-ghost text-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +198,7 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
           Admin
         </router-link>
 
-        <router-link v-else-if="isFeatureEnabled('authentication')"
+        <router-link v-if="!auth.user && isFeatureEnabled('authentication')"
                      to="/login"
                      class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-surface-200
                             hover:bg-surface-700/50 hover:text-white transition-colors">

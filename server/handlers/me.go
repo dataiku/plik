@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
 )
@@ -124,6 +125,17 @@ func GetUserStatistics(ctx *context.Context, resp http.ResponseWriter, req *http
 
 // DeleteAccount remove a user account
 func DeleteAccount(ctx *context.Context, resp http.ResponseWriter, req *http.Request) {
+	// Feature flag check : only gate the self-delete endpoint (DELETE /me)
+	// The admin route (DELETE /user/{userID}) always has a userID mux variable
+	vars := mux.Vars(req)
+	if _, isAdminRoute := vars["userID"]; !isAdminRoute {
+		config := ctx.GetConfig()
+		if config.FeatureDeleteAccount == common.FeatureDisabled {
+			ctx.BadRequest("delete account is not enabled")
+			return
+		}
+	}
+
 	// Get user from context
 	user := ctx.GetUser()
 	if user == nil {

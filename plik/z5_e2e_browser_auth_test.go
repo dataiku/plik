@@ -196,7 +196,7 @@ func TestLocalLoginBrowserDisabled(t *testing.T) {
 	_ = ps.GetConfig().Initialize()
 
 	// Disable local login
-	ps.GetConfig().DisableLocalLogin = true
+	ps.GetConfig().FeatureLocalLogin = common.FeatureDisabled
 	_ = ps.GetConfig().Initialize()
 
 	err := start(ps)
