@@ -24,6 +24,7 @@ export default withMermaid(defineConfig({
                         { text: 'Docker Deployment', link: '/guide/docker' },
                         { text: 'Configuration', link: '/guide/configuration' },
                         { text: 'Security', link: '/guide/security' },
+                        { text: 'Windows "Send to Plik"', link: '/guide/windows-send-to' },
                     ],
                 },
                 {
