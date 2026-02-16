@@ -386,7 +386,7 @@ docs/
 
 - **Build**: `make docs` (or `cd docs && npm run dev` for local dev server)
 - **Deploy**: Automated via `.github/workflows/deploy-docs.yml` on push to `master`
-- **CI**: Build is verified on every push/PR via `.github/workflows/tests.yaml`
+- **CI**: Build is verified on every push/PR via `.github/workflows/tests.yaml`. Automated docker build (`docker build` comment) and deploy (`docker deploy` comment) are available on PRs.
 
 **Build pipeline** (`make docs`):
 
