@@ -33,8 +33,8 @@ The server binary `plikd` uses [cobra](https://github.com/spf13/cobra) for CLI m
 | `token.go` | `plikd token create/list/delete` | Manage user tokens |
 | `file.go` | `plikd file list/delete` | Manage uploads/files |
 | `clean.go` | `plikd clean` | Run metadata cleanup |
-| `import.go` | `plikd import` | Import metadata from JSON |
-| `export.go` | `plikd export` | Export metadata to JSON |
+| `import.go` | `plikd import` | Import metadata from gob + Snappy binary |
+| `export.go` | `plikd export` | Export metadata to gob + Snappy binary |
 
 Config loading order: `--config` flag → `PLIKD_CONFIG` env → `./plikd.cfg` → `/etc/plikd.cfg`.
 
@@ -141,8 +141,19 @@ Uses GORM with gormigrate for schema management across SQLite3, PostgreSQL, and 
 | `cli_auth_session.go` | CLI auth session CRUD (create, get by code, update, delete expired) |
 | `setting.go` | Server settings key/value store |
 | `stats.go` | Aggregate statistics queries |
-| `exporter.go` | JSON export of all data |
-| `importer.go` | JSON import |
+| `exporter.go` | gob + Snappy export of all metadata |
+| `importer.go` | gob + Snappy import |
+
+### Import / Export
+
+The `plikd export` and `plikd import` commands dump and restore all metadata (users, tokens, uploads, files, settings) to/from a single binary file.
+
+- **Format**: Go [gob](https://pkg.go.dev/encoding/gob) encoding compressed with [Snappy](https://github.com/golang/snappy). Architecture-independent (portable across `amd64`/`arm64`), streaming (constant memory), Go-specific (not human-readable).
+- **Export order**: users → tokens → uploads (including soft-deleted) → files → settings. CLI auth sessions are intentionally excluded (ephemeral).
+- **Import**: decodes sequentially, calls `Create*` on the metadata backend. Supports `--ignore-errors` to skip problematic records.
+- **Use cases**: backend migration (e.g. SQLite → PostgreSQL), backups, disaster recovery.
+
+> **Note**: Only metadata is exported — file data in the data backend must be migrated separately.
 
 ### Migration Dump Tests
 
