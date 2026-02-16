@@ -33,28 +33,78 @@ var oidcTestDiscovery = oidcDiscovery{
 	UserinfoEndpoint:      "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort) + "/userinfo",
 }
 
-var oidcTestOAuthToken = struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int32  `json:"expires_in"`
-}{
-	AccessToken:  "access_token",
-	TokenType:    "token_type",
-	RefreshToken: "refresh_token",
-	ExpiresIn:    300,
+func makeTestIDToken(claims oidcClaims) string {
+	token := jwt.New(jwt.SigningMethodHS256)
+	mc := token.Claims.(jwt.MapClaims)
+	if claims.Sub != "" {
+		mc["sub"] = claims.Sub
+	}
+	if claims.Email != "" {
+		mc["email"] = claims.Email
+	}
+	if claims.EmailVerified != nil {
+		mc["email_verified"] = *claims.EmailVerified
+	}
+	if claims.Name != "" {
+		mc["name"] = claims.Name
+	}
+	if claims.GivenName != "" {
+		mc["given_name"] = claims.GivenName
+	}
+	if claims.FamilyName != "" {
+		mc["family_name"] = claims.FamilyName
+	}
+	if claims.PreferredUsername != "" {
+		mc["preferred_username"] = claims.PreferredUsername
+	}
+	if claims.Picture != "" {
+		mc["picture"] = claims.Picture
+	}
+	if claims.Locale != "" {
+		mc["locale"] = claims.Locale
+	}
+	// Sign with a dummy key — parseIDTokenClaims skips verification
+	signed, _ := token.SignedString([]byte("test-signing-key"))
+	return signed
 }
 
-func oidcMockHandler(user oidcUserInfo) http.HandlerFunc {
+// marshalOIDCClaimsForTest produces JSON that includes email_verified,
+// which standard json.Marshal skips due to the json:"-" tag.
+func marshalOIDCClaimsForTest(claims oidcClaims) []byte {
+	data, _ := json.Marshal(claims)
+	var m map[string]interface{}
+	_ = json.Unmarshal(data, &m)
+	if claims.EmailVerified != nil {
+		m["email_verified"] = *claims.EmailVerified
+	}
+	data, _ = json.Marshal(m)
+	return data
+}
+
+type oidcMockOptions struct {
+	userinfo oidcClaims
+	idToken  *oidcClaims
+}
+
+func oidcMockHandler(opts oidcMockOptions) http.HandlerFunc {
 	return func(resp http.ResponseWriter, req *http.Request) {
 		var responseBody []byte
 		switch req.URL.Path {
 		case "/.well-known/openid-configuration":
 			responseBody, _ = json.Marshal(oidcTestDiscovery)
 		case "/token":
-			responseBody, _ = json.Marshal(oidcTestOAuthToken)
+			tokenResp := map[string]interface{}{
+				"access_token":  "access_token",
+				"token_type":    "Bearer",
+				"refresh_token": "refresh_token",
+				"expires_in":    300,
+			}
+			if opts.idToken != nil {
+				tokenResp["id_token"] = makeTestIDToken(*opts.idToken)
+			}
+			responseBody, _ = json.Marshal(tokenResp)
 		case "/userinfo":
-			responseBody, _ = json.Marshal(user)
+			responseBody = marshalOIDCClaimsForTest(opts.userinfo)
 		default:
 			resp.WriteHeader(http.StatusInternalServerError)
 			return
@@ -97,7 +147,7 @@ func TestOIDCLogin(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 	setupOIDCConfig(ctx.GetConfig())
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUserInfo{}))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -302,7 +352,7 @@ func TestOIDCCallback(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 	setupOIDCConfig(ctx.GetConfig())
 
-	oidcUser := oidcUserInfo{
+	oidcUser := oidcClaims{
 		Sub:   "user123",
 		Email: "plik@root.gg",
 		Name:  "plik.root.gg",
@@ -315,7 +365,7 @@ func TestOIDCCallback(t *testing.T) {
 	err := ctx.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create test user")
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -350,13 +400,13 @@ func TestOIDCCallbackCreateUser(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 	setupOIDCConfig(ctx.GetConfig())
 
-	oidcUser := oidcUserInfo{
+	oidcUser := oidcClaims{
 		Sub:   "user456",
 		Email: "newuser@root.gg",
 		Name:  "New User",
 	}
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -398,13 +448,13 @@ func TestOIDCCallbackCreateUserNotWhitelisted(t *testing.T) {
 	ctx.SetWhitelisted(false)
 	setupOIDCConfig(ctx.GetConfig())
 
-	oidcUser := oidcUserInfo{
+	oidcUser := oidcClaims{
 		Sub:   "user789",
 		Email: "blocked@root.gg",
 		Name:  "Blocked User",
 	}
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -428,14 +478,14 @@ func TestOIDCCallbackUpdateUserFields(t *testing.T) {
 	err := ctx.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create test user")
 
-	oidcUser := oidcUserInfo{
+	oidcUser := oidcClaims{
 		Sub:               "updateuser",
 		Email:             "new@root.gg",
 		Name:              "New Name",
 		PreferredUsername: "newlogin",
 	}
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -460,13 +510,13 @@ func TestOIDCCallbackInvalidDomain(t *testing.T) {
 	setupOIDCConfig(ctx.GetConfig())
 	ctx.GetConfig().OIDCValidDomains = []string{"allowed.com"}
 
-	oidcUser := oidcUserInfo{
+	oidcUser := oidcClaims{
 		Sub:   "domainuser",
 		Email: "user@forbidden.com",
 		Name:  "Domain User",
 	}
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -484,7 +534,7 @@ func TestOIDCCallbackExistingUserInvalidDomain(t *testing.T) {
 	setupOIDCConfig(ctx.GetConfig())
 	ctx.GetConfig().OIDCValidDomains = []string{"allowed.com"}
 
-	oidcUser := oidcUserInfo{
+	oidcUser := oidcClaims{
 		Sub:   "existinguser",
 		Email: "user@revoked.com",
 		Name:  "Existing User",
@@ -497,7 +547,7 @@ func TestOIDCCallbackExistingUserInvalidDomain(t *testing.T) {
 	err := ctx.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create test user")
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -515,12 +565,12 @@ func TestOIDCCallbackDomainValidationNoEmail(t *testing.T) {
 	setupOIDCConfig(ctx.GetConfig())
 	ctx.GetConfig().OIDCValidDomains = []string{"allowed.com"}
 
-	oidcUser := oidcUserInfo{
+	oidcUser := oidcClaims{
 		Sub:  "noemail_user",
 		Name: "No Email User",
 	}
 
-	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcUser))
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
 	defer shutdown()
 	require.NoError(t, err, "unable to start mock server")
 
@@ -530,6 +580,510 @@ func TestOIDCCallbackDomainValidationNoEmail(t *testing.T) {
 	OIDCCallback(ctx, rr, req)
 
 	context.TestForbidden(t, rr, "email is required when domain validation is enabled")
+}
+
+func boolPtr(b bool) *bool { return &b }
+
+func TestParseIDTokenClaims(t *testing.T) {
+	idClaims := oidcClaims{
+		Sub:               "id-sub",
+		Email:             "id@example.com",
+		EmailVerified:     boolPtr(true),
+		Name:              "ID Name",
+		GivenName:         "ID",
+		FamilyName:        "Name",
+		PreferredUsername: "iduser",
+		Picture:           "https://example.com/pic.jpg",
+		Locale:            "en",
+	}
+
+	idToken := makeTestIDToken(idClaims)
+
+	token := &oauth2.Token{
+		AccessToken: "access",
+		TokenType:   "Bearer",
+	}
+	token = token.WithExtra(map[string]interface{}{
+		"id_token": idToken,
+	})
+
+	parsed, err := parseIDTokenClaims(token)
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.Equal(t, "id-sub", parsed.Sub)
+	require.Equal(t, "id@example.com", parsed.Email)
+	require.NotNil(t, parsed.EmailVerified)
+	require.True(t, *parsed.EmailVerified)
+	require.Equal(t, "ID Name", parsed.Name)
+	require.Equal(t, "ID", parsed.GivenName)
+	require.Equal(t, "Name", parsed.FamilyName)
+	require.Equal(t, "iduser", parsed.PreferredUsername)
+	require.Equal(t, "https://example.com/pic.jpg", parsed.Picture)
+	require.Equal(t, "en", parsed.Locale)
+}
+
+func TestParseIDTokenClaimsMissing(t *testing.T) {
+	token := &oauth2.Token{
+		AccessToken: "access",
+		TokenType:   "Bearer",
+	}
+
+	parsed, err := parseIDTokenClaims(token)
+	require.NoError(t, err)
+	require.Nil(t, parsed)
+}
+
+func TestMergeClaims(t *testing.T) {
+	idToken := &oidcClaims{
+		Sub:       "id-sub",
+		Email:     "id@example.com",
+		Name:      "ID Name",
+		GivenName: "ID",
+		Picture:   "https://example.com/id-pic.jpg",
+	}
+	userinfo := &oidcClaims{
+		Sub:               "userinfo-sub",
+		Email:             "userinfo@example.com",
+		PreferredUsername: "uiuser",
+	}
+
+	merged := mergeClaims(idToken, userinfo)
+	require.Equal(t, "userinfo-sub", merged.Sub, "userinfo sub should override")
+	require.Equal(t, "userinfo@example.com", merged.Email, "userinfo email should override")
+	require.Equal(t, "ID Name", merged.Name, "id_token name should be preserved")
+	require.Equal(t, "ID", merged.GivenName, "id_token given_name should be preserved")
+	require.Equal(t, "uiuser", merged.PreferredUsername, "userinfo preferred_username should override")
+	require.Equal(t, "https://example.com/id-pic.jpg", merged.Picture, "id_token picture should be preserved")
+}
+
+func TestMergeClaimsNilIDToken(t *testing.T) {
+	userinfo := &oidcClaims{Sub: "sub", Email: "e@e.com"}
+	merged := mergeClaims(nil, userinfo)
+	require.Equal(t, "sub", merged.Sub)
+	require.Equal(t, "e@e.com", merged.Email)
+}
+
+func TestMergeClaimsNilUserinfo(t *testing.T) {
+	idToken := &oidcClaims{Sub: "sub", Name: "name"}
+	merged := mergeClaims(idToken, nil)
+	require.Equal(t, "sub", merged.Sub)
+	require.Equal(t, "name", merged.Name)
+}
+
+func TestMergeClaimsEmailVerifiedOverride(t *testing.T) {
+	idToken := &oidcClaims{Sub: "sub", EmailVerified: boolPtr(true)}
+	userinfo := &oidcClaims{Sub: "sub", EmailVerified: boolPtr(false)}
+	merged := mergeClaims(idToken, userinfo)
+	require.NotNil(t, merged.EmailVerified)
+	require.False(t, *merged.EmailVerified, "userinfo email_verified=false should override id_token's true")
+}
+
+func TestMergeClaimsNoCopy(t *testing.T) {
+	userinfo := &oidcClaims{Sub: "sub", Name: "original", EmailVerified: boolPtr(true)}
+	merged := mergeClaims(nil, userinfo)
+	merged.Name = "mutated"
+	require.Equal(t, "original", userinfo.Name, "merge must return a copy, not alias the input")
+	*merged.EmailVerified = false
+	require.True(t, *userinfo.EmailVerified, "merge must deep-copy EmailVerified pointer")
+}
+
+func TestMergeClaimsNoCopyBothPresent(t *testing.T) {
+	idToken := &oidcClaims{Sub: "sub", EmailVerified: boolPtr(true)}
+	userinfo := &oidcClaims{Sub: "sub"}
+	merged := mergeClaims(idToken, userinfo)
+	require.NotNil(t, merged.EmailVerified)
+	require.True(t, *merged.EmailVerified)
+	*merged.EmailVerified = false
+	require.True(t, *idToken.EmailVerified, "merge must deep-copy EmailVerified from idToken when userinfo has nil")
+}
+
+func TestParseIDTokenClaimsEmailVerifiedString(t *testing.T) {
+	// Some IdPs (AWS Cognito) return email_verified as string "true"
+	token := &oauth2.Token{AccessToken: "access", TokenType: "Bearer"}
+	rawJWT := jwt.New(jwt.SigningMethodHS256)
+	mc := rawJWT.Claims.(jwt.MapClaims)
+	mc["sub"] = "string-ev-user"
+	mc["email_verified"] = "true"
+	signed, _ := rawJWT.SignedString([]byte("key"))
+	token = token.WithExtra(map[string]interface{}{"id_token": signed})
+
+	parsed, err := parseIDTokenClaims(token)
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.NotNil(t, parsed.EmailVerified)
+	require.True(t, *parsed.EmailVerified, "string 'true' should be parsed as bool true")
+}
+
+func TestParseIDTokenClaimsEmailVerifiedNumeric(t *testing.T) {
+	token := &oauth2.Token{AccessToken: "access", TokenType: "Bearer"}
+	rawJWT := jwt.New(jwt.SigningMethodHS256)
+	mc := rawJWT.Claims.(jwt.MapClaims)
+	mc["sub"] = "numeric-ev-user"
+	mc["email_verified"] = float64(1)
+	signed, _ := rawJWT.SignedString([]byte("key"))
+	token = token.WithExtra(map[string]interface{}{"id_token": signed})
+
+	parsed, err := parseIDTokenClaims(token)
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.NotNil(t, parsed.EmailVerified)
+	require.True(t, *parsed.EmailVerified, "numeric 1 should be parsed as true")
+}
+
+func TestParseIDTokenClaimsMalformed(t *testing.T) {
+	token := &oauth2.Token{AccessToken: "access", TokenType: "Bearer"}
+	token = token.WithExtra(map[string]interface{}{"id_token": "not.a.valid-jwt"})
+
+	parsed, err := parseIDTokenClaims(token)
+	require.Error(t, err)
+	require.Nil(t, parsed)
+}
+
+func TestOIDCCallbackIDTokenOnly(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+
+	idTokenClaims := oidcClaims{
+		Sub:               "idtoken-user",
+		Email:             "idtoken@root.gg",
+		Name:              "ID Token User",
+		PreferredUsername: "idtokenlogin",
+	}
+
+	// Userinfo returns only sub (minimal)
+	userinfoClaims := oidcClaims{
+		Sub: "idtoken-user",
+	}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{
+		userinfo: userinfoClaims,
+		idToken:  &idTokenClaims,
+	}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+
+	user, err := ctx.GetMetadataBackend().GetUser("oidc:idtoken-user")
+	require.NoError(t, err)
+	require.NotNil(t, user, "missing user")
+	require.Equal(t, "idtoken@root.gg", user.Email, "email should come from id_token")
+	require.Equal(t, "ID Token User", user.Name, "name should come from id_token")
+	require.Equal(t, "idtokenlogin", user.Login, "login should come from id_token preferred_username")
+}
+
+func TestOIDCCallbackNameFromGivenFamily(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+
+	idTokenClaims := oidcClaims{
+		Sub:        "givenfamily-user",
+		Email:      "gf@root.gg",
+		GivenName:  "Jean",
+		FamilyName: "Dupont",
+	}
+
+	// Userinfo returns only sub
+	userinfoClaims := oidcClaims{
+		Sub: "givenfamily-user",
+	}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{
+		userinfo: userinfoClaims,
+		idToken:  &idTokenClaims,
+	}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+
+	user, err := ctx.GetMetadataBackend().GetUser("oidc:givenfamily-user")
+	require.NoError(t, err)
+	require.NotNil(t, user, "missing user")
+	require.Equal(t, "Jean Dupont", user.Name, "name should be synthesized from given_name + family_name")
+	require.Equal(t, "gf@root.gg", user.Email)
+}
+
+func TestOIDCCallbackRequireVerifiedEmail(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+	ctx.GetConfig().OIDCRequireVerifiedEmail = true
+
+	idTokenClaims := oidcClaims{
+		Sub:           "verified-user",
+		Email:         "verified@root.gg",
+		EmailVerified: boolPtr(true),
+		Name:          "Verified User",
+	}
+
+	userinfoClaims := oidcClaims{Sub: "verified-user"}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{
+		userinfo: userinfoClaims,
+		idToken:  &idTokenClaims,
+	}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	require.Equal(t, 301, rr.Code, "verified email should allow login")
+
+	user, err := ctx.GetMetadataBackend().GetUser("oidc:verified-user")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.Equal(t, "verified@root.gg", user.Email)
+}
+
+func TestOIDCCallbackRequireVerifiedEmailFalse(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+	ctx.GetConfig().OIDCRequireVerifiedEmail = true
+
+	idTokenClaims := oidcClaims{
+		Sub:           "unverified-user",
+		Email:         "unverified@root.gg",
+		EmailVerified: boolPtr(false),
+		Name:          "Unverified User",
+	}
+
+	userinfoClaims := oidcClaims{Sub: "unverified-user"}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{
+		userinfo: userinfoClaims,
+		idToken:  &idTokenClaims,
+	}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	context.TestForbidden(t, rr, "email is not verified")
+}
+
+func TestOIDCCallbackRequireVerifiedEmailMissing(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+	ctx.GetConfig().OIDCRequireVerifiedEmail = true
+
+	oidcUser := oidcClaims{
+		Sub:   "noverify-user",
+		Email: "noverify@root.gg",
+		Name:  "No Verify User",
+	}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	context.TestForbidden(t, rr, "email is not verified")
+}
+
+func TestOIDCCallbackRequireVerifiedEmailDisabled(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+	// OIDCRequireVerifiedEmail defaults to false
+
+	oidcUser := oidcClaims{
+		Sub:   "anyuser",
+		Email: "any@root.gg",
+		Name:  "Any User",
+	}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	require.Equal(t, 301, rr.Code, "login should succeed when email verification is not required")
+}
+
+func TestOIDCCallbackSubMismatch(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+
+	idTokenClaims := oidcClaims{
+		Sub:   "idtoken-sub",
+		Email: "user@root.gg",
+		Name:  "User",
+	}
+
+	userinfoClaims := oidcClaims{
+		Sub:   "different-sub",
+		Email: "user@root.gg",
+	}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{
+		userinfo: userinfoClaims,
+		idToken:  &idTokenClaims,
+	}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	context.TestForbidden(t, rr, "OIDC authentication error")
+}
+
+func TestMergeClaimsBothNil(t *testing.T) {
+	merged := mergeClaims(nil, nil)
+	require.NotNil(t, merged)
+	require.Equal(t, "", merged.Sub)
+	require.Equal(t, "", merged.Email)
+	require.Nil(t, merged.EmailVerified)
+}
+
+func TestOIDCClaimsUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name         string
+		json         string
+		wantVerified *bool
+		wantSub      string
+	}{
+		{
+			name:         "bool true",
+			json:         `{"sub":"s","email_verified":true}`,
+			wantVerified: boolPtr(true),
+			wantSub:      "s",
+		},
+		{
+			name:         "bool false",
+			json:         `{"sub":"s","email_verified":false}`,
+			wantVerified: boolPtr(false),
+			wantSub:      "s",
+		},
+		{
+			name:         "string true",
+			json:         `{"sub":"s","email_verified":"true"}`,
+			wantVerified: boolPtr(true),
+			wantSub:      "s",
+		},
+		{
+			name:         "string True (case insensitive)",
+			json:         `{"sub":"s","email_verified":"True"}`,
+			wantVerified: boolPtr(true),
+			wantSub:      "s",
+		},
+		{
+			name:         "string false",
+			json:         `{"sub":"s","email_verified":"false"}`,
+			wantVerified: boolPtr(false),
+			wantSub:      "s",
+		},
+		{
+			name:         "numeric 1",
+			json:         `{"sub":"s","email_verified":1}`,
+			wantVerified: boolPtr(true),
+			wantSub:      "s",
+		},
+		{
+			name:         "numeric 0",
+			json:         `{"sub":"s","email_verified":0}`,
+			wantVerified: boolPtr(false),
+			wantSub:      "s",
+		},
+		{
+			name:         "null",
+			json:         `{"sub":"s","email_verified":null}`,
+			wantVerified: nil,
+			wantSub:      "s",
+		},
+		{
+			name:         "absent",
+			json:         `{"sub":"s"}`,
+			wantVerified: nil,
+			wantSub:      "s",
+		},
+		{
+			name:         "unexpected type (array)",
+			json:         `{"sub":"s","email_verified":[]}`,
+			wantVerified: nil,
+			wantSub:      "s",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var claims oidcClaims
+			err := json.Unmarshal([]byte(tt.json), &claims)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantSub, claims.Sub)
+			if tt.wantVerified == nil {
+				require.Nil(t, claims.EmailVerified)
+			} else {
+				require.NotNil(t, claims.EmailVerified)
+				require.Equal(t, *tt.wantVerified, *claims.EmailVerified)
+			}
+		})
+	}
+}
+
+func TestOIDCCallbackEmailVerifiedFromUserinfo(t *testing.T) {
+	ResetOIDCDiscoveryCache()
+	ctx := newTestingContext(common.NewConfiguration())
+	setupOIDCConfig(ctx.GetConfig())
+	ctx.GetConfig().OIDCRequireVerifiedEmail = true
+
+	// id_token has NO email_verified
+	idTokenClaims := oidcClaims{
+		Sub:   "userinfo-ev-user",
+		Email: "ev@root.gg",
+		Name:  "EV User",
+	}
+
+	// email_verified comes exclusively from userinfo
+	userinfoClaims := oidcClaims{
+		Sub:           "userinfo-ev-user",
+		EmailVerified: boolPtr(true),
+	}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{
+		userinfo: userinfoClaims,
+		idToken:  &idTokenClaims,
+	}))
+	defer shutdown()
+	require.NoError(t, err, "unable to start mock server")
+
+	req := oidcCallbackRequest(t, oidcTestState(t, ctx.GetConfig().OIDCClientSecret))
+	rr := ctx.NewRecorder(req)
+	OIDCCallback(ctx, rr, req)
+
+	require.Equal(t, 301, rr.Code, "login should succeed when email_verified comes from userinfo")
+
+	user, err := ctx.GetMetadataBackend().GetUser("oidc:userinfo-ev-user")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.Equal(t, "ev@root.gg", user.Email)
 }
 
 func TestDiscoverOIDCCache(t *testing.T) {

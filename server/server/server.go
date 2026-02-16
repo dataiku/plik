@@ -194,7 +194,7 @@ func (ps *PlikServer) start() (err error) {
 	}
 
 	if ps.config.OIDCAuthentication {
-		err = handlers.InitOIDCDiscovery(ps.config.OIDCProviderURL)
+		err = handlers.InitOIDCDiscovery(ps.config.OIDCProviderURL, log)
 		if err != nil {
 			return fmt.Errorf("unable to initialize OIDC provider : %s", err)
 		}
