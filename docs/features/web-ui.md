@@ -29,3 +29,12 @@ docker run -p 8080:8080 \
   -v my_background.jpg:/home/plik/webapp/dist/img/background.jpg \
   rootgg/plik
 ```
+
+## Features
+
+### Inline File Viewer
+
+The web interface includes an inline file viewer for text files (code, logs, markdown, etc.). 
+- **Auto-display**: If an upload contains only one text file, the viewer is displayed by default.
+- **Syntax Highlighting**: Automatic detection of hundreds of languages.
+- **JSON Formatting**: Pretty-print and validation buttons for JSON files.
