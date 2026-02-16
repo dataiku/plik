@@ -99,3 +99,37 @@ make docker
 ```
 
 This creates a `rootgg/plik:dev` image with the current codebase.
+
+## Redeploying with a Custom Image
+
+You can redeploy your instance with a custom image built from a Pull Request.
+
+### Automated Deployment (GitHub Actions)
+
+If you have configured the necessary secrets in your repository, you can trigger an automated deployment by commenting on a PR:
+
+1. Comment `docker build` to build and push the PR image (`rootgg/plik:pr-{PR_NUMBER}`).
+2. Comment `docker deploy` to deploy this image to your production server.
+
+**Required GitHub Secrets:**
+- `DEPLOY_HOST`: Production server IP/hostname.
+- `DEPLOY_USER`: SSH user.
+- `DEPLOY_SSH_KEY`: SSH private key.
+- `DEPLOY_PATH`: Absolute path to the directory containing `docker-compose.yml` on the server.
+
+### Manual Deployment
+
+To manually redeploy with a specific image:
+
+1. SSH into your server.
+2. Update the image tag in your `docker-compose.yml`:
+   ```yaml
+   services:
+     plik:
+       image: rootgg/plik:pr-123  # Target PR number
+   ```
+3. Pull and restart:
+   ```bash
+   docker-compose pull plik
+   docker-compose up -d plik
+   ```

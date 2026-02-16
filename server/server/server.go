@@ -381,6 +381,9 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 	router.Handle("/auth/oidc/login", authChain.Then(handlers.OIDCLogin)).Methods("GET")
 	router.Handle("/auth/oidc/callback", stdChainWithRedirect.Then(handlers.OIDCCallback)).Methods("GET")
 	router.Handle("/auth/local/login", authChain.Then(handlers.LocalLogin)).Methods("POST")
+	router.Handle("/auth/cli/init", stdChain.Then(handlers.CLIAuthInit)).Methods("POST")
+	router.Handle("/auth/cli/approve", authenticatedChain.Then(handlers.CLIAuthApprove)).Methods("POST")
+	router.Handle("/auth/cli/poll", stdChain.Then(handlers.CLIAuthPoll)).Methods("POST")
 	router.Handle("/auth/logout", stdChain.Then(handlers.Logout)).Methods("GET")
 
 	router.Handle("/me", authenticatedChain.Then(handlers.UserInfo)).Methods("GET")

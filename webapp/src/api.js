@@ -96,6 +96,10 @@ export function logout() {
     return apiCall(`${base}/auth/logout`, 'GET')
 }
 
+export function approveCLIAuth(code, comment) {
+    return apiCall(`${base}/auth/cli/approve`, 'POST', { code, comment })
+}
+
 export function getUser() {
     return apiCall(`${base}/me`)
 }
