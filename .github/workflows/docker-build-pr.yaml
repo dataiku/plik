@@ -71,6 +71,7 @@ jobs:
       - name: Build and push
         env:
           TAG: pr-${{ github.event.issue.number }}
+          RELEASE: "false"
           PUSH_TO_DOCKER_HUB: "true"
         run: make release-and-push-to-docker-hub
 
