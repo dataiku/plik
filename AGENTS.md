@@ -16,7 +16,7 @@ Plik is a temporary file upload system (WeTransfer-like) written in Go, with a V
 | Config    | TOML (server), TOML (client `.plikrc`) |
 | Data      | File, OpenStack Swift, S3, Google Cloud Storage |
 | Metadata  | SQLite3, PostgreSQL, MySQL (via GORM) |
-| CI        | GitHub Actions |
+| CI        | GitHub Actions (tests, docker build/deploy on PR comment) |
 
 ## Repo Layout
 
@@ -57,6 +57,10 @@ make client                 # Build CLI client only → client/plik
 make frontend               # Build Vue webapp → webapp/dist
 make docker                 # Build Docker image (rootgg/plik:dev)
 cd server && ./plikd        # Run server on http://127.0.0.1:8080
+
+#### Pull Request Deployments (GitHub Actions)
+- `docker build` (comment on PR): Builds and pushes image `rootgg/plik:pr-{PR_NUMBER}`
+- `docker deploy` (comment on PR): Deploy PR image to `plik.root.gg` (requires secrets)
 ```
 
 ## Test

@@ -1,0 +1,75 @@
+name: docker-deploy-pr
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  docker-deploy:
+    name: Docker Deploy to Production
+    # Trigger only on pull request comments and when the comment contains "docker deploy"
+    if: github.event.issue.pull_request && contains(github.event.comment.body, 'docker deploy')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check permissions
+        id: check_perms
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.payload.comment.user.login,
+            });
+            const allowed = ['admin', 'write'].includes(permission.permission);
+            if (!allowed) {
+              core.setFailed(`User ${context.payload.comment.user.login} does not have permission to trigger this workflow.`);
+            }
+
+      - name: Add reaction
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket',
+            });
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            sed -i "s|image: rootgg/plik:.*|image: rootgg/plik:pr-${{ github.event.issue.number }}|" docker-compose.yml
+            docker compose pull plik
+            docker compose up -d plik
+            docker image prune -f
+
+      - name: Post success comment
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🚀 **Deployment Successful!**\n\nThe instance at [plik.root.gg](https://plik.root.gg) has been redeployed with image \`rootgg/plik:pr-${context.issue.number}\`.`
+            });
+
+      - name: Post failure comment
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ **Deployment Failed!**\n\nCheck the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details. Ensure that GitHub Secrets are correctly configured.`
+            });
