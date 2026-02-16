@@ -17,10 +17,12 @@ if ! make build-info | grep "mint=true" >/dev/null ; then
   git status
 fi
 
-if make build-info | grep "release=true" >/dev/null ; then
-  RELEASE=true
-else
-  echo "!!! Release is not tagged !!!"
+if [[ -z "$RELEASE" ]]; then
+  if make build-info | grep "release=true" >/dev/null ; then
+    RELEASE=true
+  else
+    echo "!!! Release is not tagged !!!"
+  fi
 fi
 
 DOCKER_IMAGE=${DOCKER_IMAGE:-rootgg/plik}

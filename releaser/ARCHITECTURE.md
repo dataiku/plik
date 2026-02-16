@@ -59,6 +59,7 @@ Runs on the **host machine**. Orchestrates the entire release from the project r
 | `CLIENT_TARGETS` | *(from build_clients.sh default)* | Override client cross-compilation targets |
 | `CC` | *(auto-detected)* | Override cross compiler |
 | `PUSH_TO_DOCKER_HUB` | *(unset)* | If set, push images to Docker Hub |
+| `RELEASE` | *(auto)* | Set to `false` to explicitly disable release tagging (e.g. in PR builds) |
 
 ### Dockerfile — Multi-Stage Build
 
