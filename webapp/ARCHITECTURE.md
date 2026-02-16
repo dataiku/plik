@@ -390,7 +390,7 @@ App.vue
 ├── HomeView.vue           — user dashboard (uploads/tokens/account)
 │   └── CopyButton         — clipboard copy for tokens
 ├── AdminView.vue          — admin panel (stats/users/uploads)
-└── ClientsView.vue        — CLI client downloads (from embedded build info)
+├── ClientsView.vue        — CLI client downloads (from embedded build info)
 └── CLIAuthView.vue        — CLI device auth approval (displays code, approves session)
 ```
 
