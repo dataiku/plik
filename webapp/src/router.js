@@ -6,6 +6,7 @@ import LoginView from './views/LoginView.vue'
 import HomeView from './views/HomeView.vue'
 import AdminView from './views/AdminView.vue'
 import ClientsView from './views/ClientsView.vue'
+import CLIAuthView from './views/CLIAuthView.vue'
 
 const routes = [
     {
@@ -34,6 +35,11 @@ const routes = [
         component: ClientsView,
     },
     {
+        path: '/cli-auth',
+        name: 'cli-auth',
+        component: CLIAuthView,
+    },
+    {
         path: '/upload/:id',
         redirect: to => {
             // Redirect old URLs to new format
@@ -47,12 +53,21 @@ const router = createRouter({
     routes,
 })
 
-// Redirect authenticated users away from the login page
-// Redirect to login when authentication is forced and user is not logged in
-// Allow download pages (/?id=...) and the login page itself
+// Redirect to login when authentication is required and user is not logged in.
+// The intended destination is saved in sessionStorage so it survives OAuth round-trips.
 router.beforeEach((to) => {
-    // If already authenticated, skip the login page
-    if (to.name === 'login' && auth.user) return { name: 'root' }
+    // If already authenticated and visiting login, redirect to the intended destination
+    if (to.name === 'login' && auth.user) {
+        const redirect = sessionStorage.getItem('plik-auth-redirect') || '/'
+        sessionStorage.removeItem('plik-auth-redirect')
+        return redirect
+    }
+
+    // CLI auth approval always requires authentication (regardless of auth mode)
+    if (to.name === 'cli-auth' && !auth.user) {
+        sessionStorage.setItem('plik-auth-redirect', to.fullPath)
+        return { name: 'login' }
+    }
 
     if (config.feature_authentication !== 'forced') return true
     if (auth.user) return true
@@ -61,6 +76,7 @@ router.beforeEach((to) => {
     if (to.name === 'clients') return true
     // Allow download pages — they have ?id= query
     if (to.name === 'root' && to.query.id) return true
+    sessionStorage.setItem('plik-auth-redirect', to.fullPath)
     return { name: 'login' }
 })
 

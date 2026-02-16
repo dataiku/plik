@@ -156,6 +156,25 @@ func (b *Backend) getMigrations() []*gormigrate.Migration {
 				b.log.Criticalf("Something went wrong. Please check database status manually")
 				return nil
 			},
+		}, {
+			ID: "0005-cli-auth-sessions",
+			Migrate: func(tx *gorm.DB) error {
+				type CLIAuthSession struct {
+					Code      string `gorm:"primaryKey;size:16"`
+					Secret    string `gorm:"size:64"`
+					Status    string `gorm:"size:16;default:pending"`
+					Token     string `gorm:"size:64"`
+					CreatedAt time.Time
+					ExpiresAt time.Time `gorm:"index"`
+				}
+
+				b.log.Warning("Applying database migration 0005-cli-auth-sessions")
+				return b.setupTxForMigration(tx).AutoMigrate(&CLIAuthSession{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				b.log.Criticalf("Something went wrong. Please check database status manually")
+				return nil
+			},
 		},
 	}
 

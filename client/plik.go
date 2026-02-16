@@ -65,6 +65,7 @@ Options:
   --secure-options OPTIONS  [openssl|pgp] Additional command line options
   --insecure                (TLS) Do not verify the server's certificate chain and hostname
   --update                  Update client
+  --login                   Authenticate CLI with the server (opens browser)
   -q --quiet                Enable quiet mode
   -d --debug                Enable debug mode
   -v --version              Show client version
@@ -132,6 +133,20 @@ Options:
 		if updateFlag {
 			os.Exit(1)
 		}
+	}
+
+	// Login
+	if arguments["--login"].(bool) {
+		if arguments["--server"] != nil && arguments["--server"].(string) != "" {
+			fmt.Fprintf(os.Stderr, "Cannot use --login with --server: the login flow saves the token to ~/.plikrc and must use the server URL configured there.\n")
+			os.Exit(1)
+		}
+		err = login(config, client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Login failed: %s\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	// Detect STDIN type

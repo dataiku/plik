@@ -7,11 +7,18 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-// Redirect authenticated users to the upload page
+// Redirect authenticated users to their intended destination.
 // This handles OAuth callbacks (server redirects to /#/login after success)
-// and direct navigation to /#/login while already logged in
+// and direct navigation to /#/login while already logged in.
+// The redirect destination is stored in sessionStorage by the router guard.
+function consumeRedirect() {
+  const redirect = sessionStorage.getItem('plik-auth-redirect') || '/'
+  sessionStorage.removeItem('plik-auth-redirect')
+  return redirect
+}
+
 onMounted(() => {
-  if (auth.user) router.replace('/')
+  if (auth.user) router.replace(consumeRedirect())
 })
 
 const loginName = ref('')
@@ -24,6 +31,7 @@ const hasOAuthProviders = computed(() =>
 )
 
 async function handleSubmit() {
+  if (loading.value) return
   error.value = null
   if (!loginName.value || !password.value) {
     error.value = 'Please enter login and password'
@@ -33,7 +41,7 @@ async function handleSubmit() {
   try {
     const ok = await login(loginName.value, password.value)
     if (ok) {
-      router.push('/')
+      router.push(consumeRedirect())
     } else {
       error.value = 'Invalid credentials'
     }
@@ -110,8 +118,7 @@ async function handleOidcLogin() {
                    v-model="password"
                    class="input-field w-full"
                    placeholder="Enter your password"
-                   autocomplete="current-password"
-                   @keyup.enter="handleSubmit" />
+                   autocomplete="current-password" />
           </div>
           <button type="submit"
                   class="btn-primary w-full py-2.5"
