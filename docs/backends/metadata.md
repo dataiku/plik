@@ -59,3 +59,7 @@ Enable slow query detection:
 ## Schema Migrations
 
 Plik uses [gormigrate](https://github.com/go-gormigrate/gormigrate) for automatic schema migrations. The database schema is created or updated automatically on server start.
+
+## Migrating Between Backends
+
+To migrate data between different metadata backends (e.g. SQLite → PostgreSQL), use the `plikd export` and `plikd import` commands. See the [Import / Export](/operations/import-export) guide for details.
