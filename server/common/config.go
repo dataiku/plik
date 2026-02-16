@@ -96,12 +96,13 @@ type Configuration struct {
 	LocalAuthentication bool `json:"localAuthentication"`
 	DisableLocalLogin   bool `json:"-"`
 
-	OIDCAuthentication bool     `json:"oidcAuthentication"`
-	OIDCClientID       string   `json:"-"`
-	OIDCClientSecret   string   `json:"-"`
-	OIDCProviderURL    string   `json:"-"`
-	OIDCProviderName   string   `json:"oidcProviderName"`
-	OIDCValidDomains   []string `json:"-"`
+	OIDCAuthentication       bool     `json:"oidcAuthentication"`
+	OIDCClientID             string   `json:"-"`
+	OIDCClientSecret         string   `json:"-"`
+	OIDCProviderURL          string   `json:"-"`
+	OIDCProviderName         string   `json:"oidcProviderName"`
+	OIDCValidDomains         []string `json:"-"`
+	OIDCRequireVerifiedEmail bool     `json:"-"`
 
 	MetadataBackendConfig map[string]interface{} `json:"-"`
 
