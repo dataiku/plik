@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { auth, logout } from '../authStore.js'
-import { config } from '../config.js'
+import { config, isFeatureEnabled } from '../config.js'
 import {
     getUserUploads, deleteUserUploads, removeUpload,
     getUserTokens, createToken, revokeToken,
@@ -371,7 +371,8 @@ onMounted(() => {
             Delete uploads
           </button>
 
-          <button @click="handleDeleteAccount"
+          <button v-if="isFeatureEnabled('delete_account')"
+                  @click="handleDeleteAccount"
                   class="w-full py-2.5 rounded-lg flex items-center gap-3 px-3 text-sm
                          text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

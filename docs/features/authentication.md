@@ -60,7 +60,7 @@ OIDCValidDomains = ["company.com"]      # Optional: restrict by email domain
 When using an external provider exclusively:
 
 ```toml
-DisableLocalLogin = true
+FeatureLocalLogin = "disabled"
 ```
 
 This hides the login/password form and rejects local login attempts.

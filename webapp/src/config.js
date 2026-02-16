@@ -17,6 +17,8 @@ export const config = reactive({
 
     // Feature flags (values: "enabled", "disabled", "forced", "default")
     feature_authentication: 'disabled',
+    feature_local_login: 'enabled',
+    feature_delete_account: 'enabled',
     feature_one_shot: 'default',
     feature_removable: 'default',
     feature_stream: 'default',
@@ -34,7 +36,6 @@ export const config = reactive({
     // OAuth providers (set by server config)
     googleAuthentication: false,
     ovhAuthentication: false,
-    localAuthentication: true,
     oidcAuthentication: false,
     oidcProviderName: 'OpenID',
 

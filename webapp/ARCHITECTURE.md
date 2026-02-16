@@ -292,7 +292,7 @@ The `GET /config` response also includes:
 | `maxTTL` | Max TTL in seconds |
 | `googleAuthentication` | `true` if Google OAuth is configured → shows Google login button |
 | `ovhAuthentication` | `true` if OVH OAuth is configured → shows OVH login button |
-| `localAuthentication` | `true` if local login is enabled (auth enabled AND `DisableLocalLogin` is `false`) |
+| `feature_local_login` | `"enabled"` or `"disabled"` — controls local login form visibility (replaces old `localAuthentication` boolean) |
 | `oidcAuthentication` | `true` if OIDC is configured → shows OIDC login button |
 | `oidcProviderName` | Display name for OIDC button (e.g. `"Keycloak"`, defaults to `"OpenID"`) |
 | `downloadDomain` | Alternate domain for download URLs (set in `api.js` via `setDownloadDomain`) |
@@ -398,7 +398,7 @@ Reactive singleton holding `auth.user` (set on login, cleared on logout). Checke
 
 ### LoginView (`/#/login`)
 
-- Local login form (username + password → `POST /auth/local/login`) — **hidden** when `config.localAuthentication` is `false` (i.e. `DisableLocalLogin = true` on the server)
+- Local login form (username + password → `POST /auth/local/login`) — **hidden** when `isFeatureEnabled('local_login')` returns `false` (i.e. `FeatureLocalLogin = "disabled"` on the server)
 - Conditional OAuth buttons (Google, OVH) based on `config.googleAuthentication` / `config.ovhAuthentication`
 - OIDC button (label from `config.oidcProviderName`) → calls `GET /auth/oidc/login` to get the authorization URL, then `window.location.href` redirects to the OIDC provider
 - "or continue with" divider only shown when both local login and at least one OAuth/OIDC provider are enabled

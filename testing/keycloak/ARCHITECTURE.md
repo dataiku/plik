@@ -69,5 +69,5 @@ Keycloak is included in `make test-backends`, which runs all backend tests inclu
 
 ## Notes
 - The realm configuration is fully automated via REST API on startup
-- DisableLocalLogin is enabled, so only OIDC login is available
+- FeatureLocalLogin is set to "disabled", so only OIDC login is available
 - Domain validation is disabled by default (OIDCValidDomains is commented out)
