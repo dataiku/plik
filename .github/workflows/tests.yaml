@@ -24,6 +24,9 @@ jobs:
     - name: Run tests
       run: make test
 
+    - name: Check for uncommitted changes
+      run: git diff --exit-code && test -z "$(git ls-files --others --exclude-standard)"
+
     - name: Install govulncheck
       run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
@@ -47,6 +50,9 @@ jobs:
 
     - name: Run backend tests
       run: make test-backends
+
+    - name: Check for uncommitted changes
+      run: git diff --exit-code && test -z "$(git ls-files --others --exclude-standard)"
 
   release:
     runs-on: ubuntu-latest

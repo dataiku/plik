@@ -176,18 +176,47 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 		config.ExtendTTL = common.IsFeatureDefault(serverConfig.FeatureExtendTTL)
 
 		if serverConfig.FeatureAuthentication == common.FeatureForced {
-			fmt.Printf("Anonymous uploads are disabled on this server")
-			fmt.Printf("Do you want to provide a user authentication token ? [Y/n] ")
+			fmt.Printf("\nAuthentication is required on this server.\n")
+			fmt.Printf("Would you like to authenticate with your browser? [Y/n] ")
 			ok, err := common.AskConfirmation(true)
 			if err != nil {
 				return nil, fmt.Errorf("Unable to ask for confirmation : %s", err)
 			}
 			if ok {
+				loginClient := plik.NewClient(config.URL)
+				loginClient.Insecure()
+				err = login(config, loginClient)
+				if err != nil {
+					fmt.Printf("Login failed: %s\n", err)
+					fmt.Printf("You can provide a token manually instead.\n")
+					fmt.Printf("Please enter a valid user token : \n")
+					var token string
+					_, err = fmt.Scanf("%s", &token)
+					if err == nil {
+						config.Token = token
+					}
+				}
+			} else {
+				fmt.Printf("Please enter a valid user token : \n")
 				var token string
-				fmt.Println("Please enter a valid user token : ")
 				_, err = fmt.Scanf("%s", &token)
 				if err == nil {
 					config.Token = token
+				}
+			}
+		} else if serverConfig.FeatureAuthentication == common.FeatureEnabled {
+			fmt.Printf("\nAuthentication is available on this server.\n")
+			fmt.Printf("Would you like to authenticate with your browser? [y/N] ")
+			ok, err := common.AskConfirmation(false)
+			if err != nil {
+				return nil, fmt.Errorf("Unable to ask for confirmation : %s", err)
+			}
+			if ok {
+				loginClient := plik.NewClient(config.URL)
+				loginClient.Insecure()
+				err = login(config, loginClient)
+				if err != nil {
+					fmt.Printf("Login failed: %s\n", err)
 				}
 			}
 		}
@@ -210,7 +239,7 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 	}
 
 	// Write file
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0700)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to save ~/.plickrc : %s", err)
 	}

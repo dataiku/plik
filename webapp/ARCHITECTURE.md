@@ -29,6 +29,7 @@ All routes use hash-history (`#/`):
 | `/#/home`      | `HomeView`      | User dashboard (uploads, tokens, account) |
 | `/#/admin`     | `AdminView`     | Admin panel (stats, users, all uploads)   |
 | `/#/clients`   | `ClientsView`   | CLI client downloads                      |
+| `/#/cli-auth`  | `CLIAuthView`   | Approve CLI device auth login             |
 | `/#/upload/:id`| (redirect)      | Legacy URL → `/?id=:id`                   |
 
 Admin link (upload-level): `/#/?id=<uploadId>&uploadToken=<token>`
@@ -43,6 +44,10 @@ When `config.feature_authentication` is `"forced"`, a `router.beforeEach` guard 
 - The login page itself (`to.name === 'login'`)
 - CLI client downloads (`to.name === 'clients'`) — so users can get the CLI without logging in
 - Download pages (`to.name === 'root' && to.query.id`) — so shared links still work
+
+CLI auth approval (`to.name === 'cli-auth'`) always requires authentication regardless of auth mode.
+
+**Redirect preservation**: When the guard redirects to login, it saves the intended destination to `sessionStorage` (`plik-auth-redirect` key) instead of a URL query parameter. This is necessary because OAuth flows do a full-page round-trip through an external provider (Google, OIDC, OVH), and the server callback redirects back to `/#/login` — any hash-fragment query params would be lost during this round-trip. Using sessionStorage solves this uniformly for all auth methods (local login and OAuth).
 
 ---
 
@@ -385,7 +390,8 @@ App.vue
 ├── HomeView.vue           — user dashboard (uploads/tokens/account)
 │   └── CopyButton         — clipboard copy for tokens
 ├── AdminView.vue          — admin panel (stats/users/uploads)
-└── ClientsView.vue        — CLI client downloads (from embedded build info)
+├── ClientsView.vue        — CLI client downloads (from embedded build info)
+└── CLIAuthView.vue        — CLI device auth approval (displays code, approves session)
 ```
 
 ---
@@ -402,7 +408,8 @@ Reactive singleton holding `auth.user` (set on login, cleared on logout). Checke
 - Conditional OAuth buttons (Google, OVH) based on `config.googleAuthentication` / `config.ovhAuthentication`
 - OIDC button (label from `config.oidcProviderName`) → calls `GET /auth/oidc/login` to get the authorization URL, then `window.location.href` redirects to the OIDC provider
 - "or continue with" divider only shown when both local login and at least one OAuth/OIDC provider are enabled
-- Redirects to `/#/home` on success
+- Redirects to the stored `sessionStorage` destination on success via `consumeRedirect()`, or `/` if none
+
 
 ### HomeView (`/#/home`)
 
