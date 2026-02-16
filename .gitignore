@@ -17,7 +17,7 @@ plikd_*.cfg
 *.log
 *.key
 *.crt
-# IntelliJ IDEA
 .idea
+.vscode
 plik.iml
 coverage.out
