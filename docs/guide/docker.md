@@ -24,37 +24,17 @@ docker run -p 8080:8080 \
   rootgg/plik
 ```
 
+> [!IMPORTANT]
+> All paths in `plikd.cfg` must reference locations **inside the container**, not on the host.
+
 See the [Configuration Guide](./configuration.md) for all available options.
 
 ## Persistent Storage
 
-Mount a data directory for file storage:
+By default, data is stored inside the container and lost when it is removed. To persist data you need two things:
 
-```bash
-docker run -p 8080:8080 \
-  -v /data:/home/plik/server/files \
-  rootgg/plik
-```
-
-## Docker Compose
-
-Create a `docker-compose.yml`:
-
-```yaml
-version: "2"
-services:
-  plik:
-    image: rootgg/plik:latest
-    container_name: plik
-    volumes:
-      - ./plikd.cfg:/home/plik/server/plikd.cfg
-      - ./data:/data
-    ports:
-      - 8080:8080
-    restart: "unless-stopped"
-```
-
-Configure `plikd.cfg` to use the mounted volume:
+1. **A volume** mounted to a path like `/data`
+2. **A custom `plikd.cfg`** that points to that path (the default config writes to the container's local filesystem)
 
 ```toml
 DataBackend = "file"
@@ -66,10 +46,52 @@ DataBackend = "file"
     ConnectionString = "/data/plik.db"
 ```
 
-Start the container:
+### Using a Named Volume (recommended)
+
+Named volumes are managed by Docker. File ownership is set automatically — no extra steps needed.
 
 ```bash
-docker-compose up -d
+docker run -p 8080:8080 \
+  -v /path/to/plikd.cfg:/home/plik/server/plikd.cfg \
+  -v plik-data:/data \
+  rootgg/plik
+```
+
+### Using a Bind Mount
+
+Bind mounts map a specific host path into the container, which is useful when you need direct access to the files (backups, NFS, etc.).
+
+Because the Plik image runs as a non-root user **`plik`** (UID=1000 / GID=1000), the host directory must be writable by that UID:
+
+```bash
+mkdir -p /data/plik
+chown -R 1000:1000 /data/plik
+
+docker run -p 8080:8080 \
+  -v /data/plik:/data \
+  rootgg/plik
+```
+
+## Docker Compose
+
+```yaml
+services:
+  plik:
+    image: rootgg/plik:latest
+    container_name: plik
+    volumes:
+      - ./plikd.cfg:/home/plik/server/plikd.cfg
+      - plik-data:/data
+    ports:
+      - 8080:8080
+    restart: "unless-stopped"
+
+volumes:
+  plik-data:
+```
+
+```bash
+docker compose up -d
 ```
 
 ## Environment Variables
@@ -85,52 +107,24 @@ docker run -p 8080:8080 \
 
 ## Health Check
 
-The Docker image includes a health check endpoint at `/health`:
-
 ```bash
 curl http://localhost:8080/health
 ```
 
-## Building Custom Images
+## Verify Your Setup
 
-To build from source:
+After deploying, confirm that your data persists across container restarts:
+
+1. Upload a file through the web UI.
+2. Restart the container (`docker compose restart plik`).
+3. Confirm the file is still accessible.
+
+This catches misconfigured volume mounts or permission issues before they matter in production.
+
+## Building Custom Images
 
 ```bash
 make docker
 ```
 
 This creates a `rootgg/plik:dev` image with the current codebase.
-
-## Redeploying with a Custom Image
-
-You can redeploy your instance with a custom image built from a Pull Request.
-
-### Automated Deployment (GitHub Actions)
-
-If you have configured the necessary secrets in your repository, you can trigger an automated deployment by commenting on a PR:
-
-1. Comment `docker build` to build and push the PR image (`rootgg/plik:pr-{PR_NUMBER}`).
-2. Comment `docker deploy` to deploy this image to your production server.
-
-**Required GitHub Secrets:**
-- `DEPLOY_HOST`: Production server IP/hostname.
-- `DEPLOY_USER`: SSH user.
-- `DEPLOY_SSH_KEY`: SSH private key.
-- `DEPLOY_PATH`: Absolute path to the directory containing `docker-compose.yml` on the server.
-
-### Manual Deployment
-
-To manually redeploy with a specific image:
-
-1. SSH into your server.
-2. Update the image tag in your `docker-compose.yml`:
-   ```yaml
-   services:
-     plik:
-       image: rootgg/plik:pr-123  # Target PR number
-   ```
-3. Pull and restart:
-   ```bash
-   docker-compose pull plik
-   docker-compose up -d plik
-   ```
