@@ -47,6 +47,7 @@ Runs on the **host machine**. Orchestrates the entire release from the project r
 7. **Docker push** (optional): If `PUSH_TO_DOCKER_HUB` is set, builds the final Docker image stage and pushes with tags:
    - `rootgg/plik:dev` (always)
    - `rootgg/plik:{version}` (only if `release=true`)
+   - `rootgg/plik:preview` (only if `release=true` — tracks the latest release including pre-releases)
    - `rootgg/plik:latest` (only if `release=true` **and** version contains no `-` suffix, e.g. `-RC1`, `-alpha`, `-test` all prevent tagging as latest)
 
 #### Environment Variables
@@ -160,7 +161,7 @@ This script generates build metadata consumed by the server at startup and expos
 ```
 
 Key fields:
-- **`isRelease`**: `true` if HEAD commit matches the version tag — controls whether Docker Hub gets `:{version}` tag (and `:latest` for stable releases, i.e. versions without a `-` suffix)
+- **`isRelease`**: `true` if HEAD commit matches the version tag — controls whether Docker Hub gets `:{version}` + `:preview` tags (and `:latest` for stable releases, i.e. versions without a `-` suffix)
 - **`isMint`**: `true` if the working tree is clean (no uncommitted changes) — release.sh warns if dirty
 - **`clients`**: Enumerated from `clients/` directory, used by the web UI to display download links
 - **`releases`**: Built from `changelog/` directory entries matched against git tags

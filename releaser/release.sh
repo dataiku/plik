@@ -42,6 +42,7 @@ if [[ -n "$PUSH_TO_DOCKER_HUB" ]]; then
   EXTRA_ARGS="-t $DOCKER_IMAGE:$DOCKER_TAG"
   if [[ "$RELEASE" == "true" ]]; then
     EXTRA_ARGS="$EXTRA_ARGS -t $DOCKER_IMAGE:$VERSION"
+    EXTRA_ARGS="$EXTRA_ARGS -t $DOCKER_IMAGE:preview"
     # Only tag as latest for stable releases (no suffix like -RC1, -alpha, -test, etc.)
     if [[ ! "$VERSION" =~ - ]]; then
       EXTRA_ARGS="$EXTRA_ARGS -t $DOCKER_IMAGE:latest"
