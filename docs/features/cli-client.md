@@ -189,10 +189,15 @@ See the [full .plikrc template](https://github.com/root-gg/plik/blob/master/clie
 
 ## Tips & Tricks
 
-### Screenshot Upload
+### Screenshot Upload (Linux)
 
 Upload screenshots directly to clipboard (requires `scrot` and `xclip`):
 
 ```bash
 alias pshot="scrot -s -e 'plik -q \$f | xclip ; xclip -o ; rm \$f'"
 ```
+
+### Windows "Send to Plik"
+
+Upload files to Plik directly from the Windows Explorer right-click menu. See the [dedicated guide](/guide/windows-send-to) for step-by-step instructions.
+
