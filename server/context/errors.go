@@ -32,37 +32,37 @@ func (ctx *Context) InternalServerError(message string, err error) {
 }
 
 // BadRequest is a helper to generate http.BadRequest responses
-func (ctx *Context) BadRequest(message string, params ...interface{}) {
+func (ctx *Context) BadRequest(message string, params ...any) {
 	message = fmt.Sprintf(message, params...)
 	ctx.Fail(message, nil, http.StatusBadRequest)
 }
 
 // NotFound is a helper to generate http.NotFound responses
-func (ctx *Context) NotFound(message string, params ...interface{}) {
+func (ctx *Context) NotFound(message string, params ...any) {
 	message = fmt.Sprintf(message, params...)
 	ctx.Fail(message, nil, http.StatusNotFound)
 }
 
 // Forbidden is a helper to generate http.Forbidden responses
-func (ctx *Context) Forbidden(message string, params ...interface{}) {
+func (ctx *Context) Forbidden(message string, params ...any) {
 	message = fmt.Sprintf(message, params...)
 	ctx.Fail(message, nil, http.StatusForbidden)
 }
 
 // Unauthorized is a helper to generate http.Unauthorized responses
-func (ctx *Context) Unauthorized(message string, params ...interface{}) {
+func (ctx *Context) Unauthorized(message string, params ...any) {
 	message = fmt.Sprintf(message, params...)
 	ctx.Fail(message, nil, http.StatusUnauthorized)
 }
 
 // MissingParameter is a helper to generate http.BadRequest responses
-func (ctx *Context) MissingParameter(message string, params ...interface{}) {
+func (ctx *Context) MissingParameter(message string, params ...any) {
 	message = fmt.Sprintf(message, params...)
 	ctx.BadRequest(fmt.Sprintf("missing %s", message))
 }
 
 // InvalidParameter is a helper to generate http.BadRequest responses
-func (ctx *Context) InvalidParameter(message string, params ...interface{}) {
+func (ctx *Context) InvalidParameter(message string, params ...any) {
 	message = fmt.Sprintf(message, params...)
 	ctx.BadRequest(fmt.Sprintf("invalid %s", message))
 }

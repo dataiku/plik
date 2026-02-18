@@ -23,7 +23,7 @@ const (
 
 type object struct {
 	Type   metadataType
-	Object interface{}
+	Object any
 }
 
 type exporter struct {

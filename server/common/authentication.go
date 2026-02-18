@@ -82,7 +82,7 @@ func (sa *SessionAuthenticator) GenAuthCookies(user *User) (sessionCookie *http.
 
 // ParseSessionCookie parse and validate the session cookie
 func (sa *SessionAuthenticator) ParseSessionCookie(value string) (uid string, xsrf string, err error) {
-	session, err := jwt.Parse(value, func(t *jwt.Token) (interface{}, error) {
+	session, err := jwt.Parse(value, func(t *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected siging method : %v", t.Header["alg"])

@@ -55,7 +55,7 @@ func shutdownTestMetadataBackend(b *Backend) {
 }
 
 func TestNewConfig(t *testing.T) {
-	params := make(map[string]interface{})
+	params := make(map[string]any)
 	params["Driver"] = "driver"
 	params["ConnectionString"] = "connection string"
 	params["EraseFirst"] = true
@@ -160,7 +160,7 @@ func TestGormConcurrent(t *testing.T) {
 	count := 30
 	var wg sync.WaitGroup
 	errors := make(chan error, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -189,7 +189,7 @@ func TestMetadataConcurrent(t *testing.T) {
 	count := 30
 	var wg sync.WaitGroup
 	errors := make(chan error, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

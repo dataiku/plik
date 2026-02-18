@@ -105,10 +105,10 @@ type Configuration struct {
 	OIDCValidDomains         []string `json:"-"`
 	OIDCRequireVerifiedEmail bool     `json:"-"`
 
-	MetadataBackendConfig map[string]interface{} `json:"-"`
+	MetadataBackendConfig map[string]any `json:"-"`
 
-	DataBackend       string                 `json:"-"`
-	DataBackendConfig map[string]interface{} `json:"-"`
+	DataBackend       string         `json:"-"`
+	DataBackendConfig map[string]any `json:"-"`
 
 	downloadDomainURL      *url.URL
 	downloadDomainURLAlias []*url.URL

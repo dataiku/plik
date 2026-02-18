@@ -17,14 +17,14 @@ type Backend struct {
 
 // NewOpenSSLBackend instantiate a new PGP Crypto Backend
 // and configure it from config map
-func NewOpenSSLBackend(config map[string]interface{}) (ob *Backend) {
+func NewOpenSSLBackend(config map[string]any) (ob *Backend) {
 	ob = new(Backend)
 	ob.Config = NewOpenSSLBackendConfig(config)
 	return
 }
 
 // Configure implementation for OpenSSL Crypto Backend
-func (ob *Backend) Configure(arguments map[string]interface{}) (err error) {
+func (ob *Backend) Configure(arguments map[string]any) (err error) {
 	if arguments["--openssl"] != nil && arguments["--openssl"].(string) != "" {
 		ob.Config.Openssl = arguments["--openssl"].(string)
 	}
@@ -110,6 +110,6 @@ func (ob *Backend) Comments() string {
 }
 
 // GetConfiguration implementation for OpenSSL Crypto Backend
-func (ob *Backend) GetConfiguration() interface{} {
+func (ob *Backend) GetConfiguration() any {
 	return ob.Config
 }

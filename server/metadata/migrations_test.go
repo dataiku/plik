@@ -161,7 +161,7 @@ func loadSQLDump(t *testing.T, path string) {
 	// Filter out psql meta-commands (lines starting with \) that are not valid SQL.
 	// PostgreSQL 18+ pg_dump emits \restrict/\unrestrict for sandboxing.
 	var filteredLines []string
-	for _, line := range strings.Split(string(sqldump), "\n") {
+	for line := range strings.SplitSeq(string(sqldump), "\n") {
 		if !strings.HasPrefix(line, `\`) {
 			filteredLines = append(filteredLines, line)
 		}

@@ -314,7 +314,7 @@ func TestAddFileTooManyFiles(t *testing.T) {
 
 	upload := &common.Upload{IsAdmin: true}
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		upload.NewFile()
 	}
 	createTestUpload(t, ctx, upload)

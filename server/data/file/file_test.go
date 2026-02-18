@@ -29,7 +29,7 @@ func newBackend(t *testing.T) (backend *Backend, cleanup func()) {
 }
 
 func TestNewFileBackendConfig(t *testing.T) {
-	config := NewConfig(make(map[string]interface{}))
+	config := NewConfig(make(map[string]any))
 	require.NotNil(t, config, "invalid nil config")
 }
 

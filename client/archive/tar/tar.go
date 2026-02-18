@@ -17,7 +17,7 @@ type Backend struct {
 
 // NewTarBackend instantiate a new Tar Archive Backend
 // and configure it from config map
-func NewTarBackend(config map[string]interface{}) (tb *Backend, err error) {
+func NewTarBackend(config map[string]any) (tb *Backend, err error) {
 	tb = new(Backend)
 	tb.Config = NewTarBackendConfig(config)
 	if _, err = os.Stat(tb.Config.Tar); os.IsNotExist(err) || os.IsPermission(err) {
@@ -29,7 +29,7 @@ func NewTarBackend(config map[string]interface{}) (tb *Backend, err error) {
 }
 
 // Configure implementation for TAR Archive Backend
-func (tb *Backend) Configure(arguments map[string]interface{}) (err error) {
+func (tb *Backend) Configure(arguments map[string]any) (err error) {
 	if arguments["--compress"] != nil && arguments["--compress"].(string) != "" {
 		tb.Config.Compress = arguments["--compress"].(string)
 	}
@@ -96,7 +96,7 @@ func (tb *Backend) Comments() string {
 }
 
 // GetConfiguration implementation for TAR Archive Backend
-func (tb *Backend) GetConfiguration() interface{} {
+func (tb *Backend) GetConfiguration() any {
 	return tb.Config
 }
 

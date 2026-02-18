@@ -74,7 +74,7 @@ func TestOVHLogin(t *testing.T) {
 	}
 	require.NotEqual(t, "", stateString, "context.TestPanic(t, rr,")
 
-	ovhAuthCookie, err := jwt.Parse(stateString, func(t *jwt.Token) (interface{}, error) {
+	ovhAuthCookie, err := jwt.Parse(stateString, func(t *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected siging method : %v", t.Header["alg"])

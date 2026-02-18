@@ -14,7 +14,7 @@ type Config struct {
 
 // NewOpenSSLBackendConfig instantiate a new Backend Configuration
 // from config map passed as argument
-func NewOpenSSLBackendConfig(params map[string]interface{}) (config *Config) {
+func NewOpenSSLBackendConfig(params map[string]any) (config *Config) {
 	config = new(Config)
 	config.Openssl = "/usr/bin/openssl"
 	config.Cipher = "aes-256-cbc"

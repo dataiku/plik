@@ -20,14 +20,12 @@ func TestAddGetFile(t *testing.T) {
 	upload.InitializeForTests()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		time.Sleep(10 * time.Millisecond)
 		err := backend.AddFile(file, bytes.NewBufferString("data"))
 		require.NoError(t, err, "unable to add file")
 		require.NotNil(t, file.BackendDetails, "invalid nil details")
-		wg.Done()
-	}()
+	})
 
 	f := func() {
 		for {

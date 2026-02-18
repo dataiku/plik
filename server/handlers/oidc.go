@@ -34,7 +34,7 @@ type oidcClaims struct {
 func (c *oidcClaims) UnmarshalJSON(data []byte) error {
 	type alias oidcClaims
 	aux := &struct {
-		EmailVerified interface{} `json:"email_verified"`
+		EmailVerified any `json:"email_verified"`
 		*alias
 	}{
 		alias: (*alias)(c),
@@ -361,7 +361,7 @@ func OIDCCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	state, err := jwt.Parse(b64state, func(token *jwt.Token) (interface{}, error) {
+	state, err := jwt.Parse(b64state, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}

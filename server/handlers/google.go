@@ -103,7 +103,7 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 	}
 
 	/* Parse state */
-	state, err := jwt.Parse(b64state, func(token *jwt.Token) (interface{}, error) {
+	state, err := jwt.Parse(b64state, func(token *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected siging method : %v", token.Header["alg"])

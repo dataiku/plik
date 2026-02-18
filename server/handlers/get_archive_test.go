@@ -120,7 +120,7 @@ func TestGetArchiveFileNameTooLong(t *testing.T) {
 	ctx.SetUpload(upload)
 
 	archiveName := ""
-	for i := 0; i < 10240; i++ {
+	for range 10240 {
 		archiveName += "x"
 	}
 	archiveName += ".zip"

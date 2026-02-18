@@ -23,7 +23,7 @@ type Config struct {
 
 // NewConfig instantiate a new default configuration
 // and override it with configuration passed as argument
-func NewConfig(params map[string]interface{}) (config *Config) {
+func NewConfig(params map[string]any) (config *Config) {
 	config = new(Config)
 	utils.Assign(config, params)
 	return config
