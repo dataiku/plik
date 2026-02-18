@@ -97,7 +97,7 @@ func RemoveUserUploads(ctx *context.Context, resp http.ResponseWriter, req *http
 		return
 	}
 
-	_, _ = resp.Write([]byte(fmt.Sprintf("%d uploads removed", deleted)))
+	_, _ = resp.Write(fmt.Appendf(nil, "%d uploads removed", deleted))
 }
 
 // GetUserStatistics return the user statistics

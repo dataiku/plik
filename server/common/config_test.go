@@ -288,7 +288,7 @@ func TestConfiguration_EnvironmentOverride(t *testing.T) {
 	require.Equal(t, "1.2.3.4", config.ListenAddress)
 	require.Equal(t, int64(42), config.MaxFileSize)
 	require.EqualValues(t, []string{"127.0.0.1"}, config.UploadWhitelist)
-	require.EqualValues(t, map[string]interface{}{"path": "files"}, config.MetadataBackendConfig)
+	require.EqualValues(t, map[string]any{"path": "files"}, config.MetadataBackendConfig)
 }
 
 func TestConfiguration_NewLogger(t *testing.T) {

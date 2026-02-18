@@ -26,10 +26,10 @@ type CliConfig struct {
 	Stream         bool
 	Secure         bool
 	SecureMethod   string
-	SecureOptions  map[string]interface{}
+	SecureOptions  map[string]any
 	Archive        bool
 	ArchiveMethod  string
-	ArchiveOptions map[string]interface{}
+	ArchiveOptions map[string]any
 	DownloadBinary string
 	Comments       string
 	Login          string
@@ -50,12 +50,12 @@ func NewUploadConfig() (config *CliConfig) {
 	config = new(CliConfig)
 	config.URL = "http://127.0.0.1:8080"
 	config.ArchiveMethod = "tar"
-	config.ArchiveOptions = make(map[string]interface{})
+	config.ArchiveOptions = make(map[string]any)
 	config.ArchiveOptions["Tar"] = "/bin/tar"
 	config.ArchiveOptions["Compress"] = "gzip"
 	config.ArchiveOptions["Options"] = ""
 	config.SecureMethod = "openssl"
-	config.SecureOptions = make(map[string]interface{})
+	config.SecureOptions = make(map[string]any)
 	config.SecureOptions["Openssl"] = "/usr/bin/openssl"
 	config.SecureOptions["Cipher"] = "aes-256-cbc"
 	config.SecureOptions["Options"] = "-md sha512 -pbkdf2 -iter 120000"

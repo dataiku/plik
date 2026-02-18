@@ -93,12 +93,12 @@ func TestBackend_GetUsers(t *testing.T) {
 	b := newTestMetadataBackend()
 	defer shutdownTestMetadataBackend(b)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		user := common.NewUser(common.ProviderLocal, fmt.Sprintf("user_%d", i))
 		createUser(t, b, user)
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		user := common.NewUser(common.ProviderGoogle, fmt.Sprintf("user_%d", i))
 		createUser(t, b, user)
 	}
@@ -146,20 +146,20 @@ func TestBackend_ForEachUserUploads(t *testing.T) {
 	token := user.NewToken()
 	createUser(t, b, user)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		upload := &common.Upload{}
 		upload.User = user.ID
 		createUpload(t, b, upload)
 	}
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		upload := &common.Upload{}
 		upload.User = user.ID
 		upload.Token = token.Token
 		createUpload(t, b, upload)
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		upload := &common.Upload{}
 		upload.User = "blah"
 		createUpload(t, b, upload)
@@ -201,20 +201,20 @@ func TestBackend_DeleteUserUploads(t *testing.T) {
 	token := user.NewToken()
 	createUser(t, b, user)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		upload := &common.Upload{}
 		upload.User = user.ID
 		createUpload(t, b, upload)
 	}
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		upload := &common.Upload{}
 		upload.User = user.ID
 		upload.Token = token.Token
 		createUpload(t, b, upload)
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		upload := &common.Upload{}
 		upload.User = "blah"
 		createUpload(t, b, upload)

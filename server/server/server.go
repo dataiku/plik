@@ -166,7 +166,7 @@ func (ps *PlikServer) start() (err error) {
 	log.Infof("Starting plikd server v%s", common.GetBuildInfo().Version)
 
 	log.Debug("Configuration :")
-	for _, line := range strings.Split(ps.config.String(), "\n") {
+	for line := range strings.SplitSeq(ps.config.String(), "\n") {
 		if line != "" {
 			log.Debug(line)
 		}
@@ -429,7 +429,7 @@ func (ps *PlikServer) WithMetadataBackend(backend *metadata.Backend) *PlikServer
 }
 
 // NewMetadataBackend Initialize metadata backend from metadata backend configuration
-func NewMetadataBackend(params map[string]interface{}, log *logger.Logger) (backend *metadata.Backend, err error) {
+func NewMetadataBackend(params map[string]any, log *logger.Logger) (backend *metadata.Backend, err error) {
 	return metadata.NewBackend(metadata.NewConfig(params), log)
 }
 
@@ -456,7 +456,7 @@ func (ps *PlikServer) WithDataBackend(backend data.Backend) *PlikServer {
 }
 
 // NewDataBackend Initialize data backend from type and data backend configuration
-func NewDataBackend(impl string, params map[string]interface{}) (backend data.Backend, err error) {
+func NewDataBackend(impl string, params map[string]any) (backend data.Backend, err error) {
 	switch impl {
 	case "file":
 		backend = file.NewBackend(file.NewConfig(params))
@@ -525,7 +525,7 @@ func (ps *PlikServer) initializeAuthenticator() (err error) {
 			return fmt.Errorf("metadata backend must be initialized before the authenticator")
 		}
 
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			setting, err := ps.metadataBackend.GetSetting(common.AuthenticationSignatureKeySettingKey)
 			if err != nil {
 				return fmt.Errorf("unable to get authentication signature key : %s", err)

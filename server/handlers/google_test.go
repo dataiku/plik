@@ -52,7 +52,7 @@ func TestGoogleLogin(t *testing.T) {
 	URL, err := url.Parse(string(respBody))
 	require.NoError(t, err, "unable to parse google auth url")
 
-	state, err := jwt.Parse(URL.Query().Get("state"), func(token *jwt.Token) (interface{}, error) {
+	state, err := jwt.Parse(URL.Query().Get("state"), func(token *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			t.Fatalf("Unexpected siging method : %v", token.Header["alg"])

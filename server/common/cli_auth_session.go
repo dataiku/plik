@@ -43,7 +43,7 @@ func (s *CLIAuthSession) IsExpired() bool {
 func generateCode() string {
 	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // No 0/O/1/I to avoid confusion
 	var b strings.Builder
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		if i == 4 {
 			b.WriteByte('-')
 		}

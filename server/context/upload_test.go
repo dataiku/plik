@@ -561,7 +561,7 @@ func TestCreateWithFilenameTooLong(t *testing.T) {
 
 	file := &common.File{}
 	params.Files = append(params.Files, file)
-	for i := 0; i < 2048; i++ {
+	for range 2048 {
 		file.Name += "x"
 	}
 
@@ -621,7 +621,7 @@ func TestCheckUserFreeSpaceForUploadNoUser(t *testing.T) {
 	ctx := newTestContext()
 
 	params := &common.Upload{}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		file := &common.File{Name: "foo", Size: 10 * 1e9}
 		params.Files = append(params.Files, file)
 	}
@@ -645,7 +645,7 @@ func TestCheckUserFreeSpaceForUploadUploadTooBig(t *testing.T) {
 	ctx.user = &common.User{MaxUserSize: 1024}
 
 	params := &common.Upload{}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		file := &common.File{Name: "foo", Size: 10 * 1e9}
 		params.Files = append(params.Files, file)
 	}
@@ -683,7 +683,7 @@ func testUploadSize(t *testing.T, ok bool) {
 	require.NoError(t, err)
 
 	params := &common.Upload{User: ctx.user.ID}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		file := &common.File{Name: "foo", Size: 10}
 		params.Files = append(params.Files, file)
 	}

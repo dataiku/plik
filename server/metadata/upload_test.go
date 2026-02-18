@@ -103,7 +103,7 @@ func TestBackend_GetUploads(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", 100-i), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -115,7 +115,7 @@ func TestBackend_GetUploads(t *testing.T) {
 	require.NotNil(t, cursor.Before, "invalid nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", 100-limit-i), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -127,7 +127,7 @@ func TestBackend_GetUploads(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", 100-i), uploads[i].Comments, "invalid upload sequence")
 	}
 }
@@ -173,7 +173,7 @@ func TestBackend_GetUploads_User(t *testing.T) {
 	require.Len(t, uploads, limit, "invalid upload count")
 	require.NotNil(t, cursor, "invalid nil cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		expected := 100 - i*10
 		require.Equal(t, fmt.Sprintf("%d", expected), uploads[i].Comments, "invalid upload sequence")
 	}
@@ -229,7 +229,7 @@ func TestBackend_GetUploadsAsc(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", i+1), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -241,7 +241,7 @@ func TestBackend_GetUploadsAsc(t *testing.T) {
 	require.NotNil(t, cursor.Before, "invalid nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", i+limit+1), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -253,7 +253,7 @@ func TestBackend_GetUploadsAsc(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", i+1), uploads[i].Comments, "invalid upload sequence")
 	}
 }
@@ -278,7 +278,7 @@ func TestBackend_GetUploadsSortedBySize(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", 100-i), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -290,7 +290,7 @@ func TestBackend_GetUploadsSortedBySize(t *testing.T) {
 	require.NotNil(t, cursor.Before, "invalid nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", 100-limit-i), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -302,7 +302,7 @@ func TestBackend_GetUploadsSortedBySize(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", 100-i), uploads[i].Comments, "invalid upload sequence")
 	}
 }
@@ -349,7 +349,7 @@ func TestBackend_GetUploadsSortedBySizeAsc(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", i+1), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -361,7 +361,7 @@ func TestBackend_GetUploadsSortedBySizeAsc(t *testing.T) {
 	require.NotNil(t, cursor.Before, "invalid nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", i+limit+1), uploads[i].Comments, "invalid upload sequence")
 	}
 
@@ -373,7 +373,7 @@ func TestBackend_GetUploadsSortedBySizeAsc(t *testing.T) {
 	require.Nil(t, cursor.Before, "invalid non nil before cursor")
 	require.NotNil(t, cursor.After, "invalid nil after cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		require.Equal(t, fmt.Sprintf("%d", i+1), uploads[i].Comments, "invalid upload sequence")
 	}
 }
@@ -401,7 +401,7 @@ func TestBackend_GetUploadsSortedBySize_User(t *testing.T) {
 	require.Len(t, uploads, limit, "invalid upload count")
 	require.NotNil(t, cursor, "invalid nil cursor")
 
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		expected := 100 - i*10
 		require.Equal(t, fmt.Sprintf("%d", expected), uploads[i].Comments, "invalid upload sequence")
 	}

@@ -171,7 +171,7 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 	}
 
 	// Parse session cookie
-	ovhAuthCookie, err := jwt.Parse(ovhSessionCookie.Value, func(t *jwt.Token) (interface{}, error) {
+	ovhAuthCookie, err := jwt.Parse(ovhSessionCookie.Value, func(t *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected siging method : %v", t.Header["alg"])
@@ -214,14 +214,14 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 
 	// Sign request
 	h := sha1.New()
-	h.Write([]byte(fmt.Sprintf("%s+%s+%s+%s+%s+%d",
+	h.Write(fmt.Appendf(nil, "%s+%s+%s+%s+%s+%d",
 		config.OvhAPISecret,
 		ovhConsumerKey.(string),
 		"GET",
 		url,
 		"",
 		timestamp,
-	)))
+	))
 	ovhReq.Header.Add("X-Ovh-Signature", fmt.Sprintf("$1$%x", h.Sum(nil)))
 
 	// Do request

@@ -17,7 +17,7 @@ type Backend struct {
 
 // NewZipBackend instantiate a new ZIP Archive Backend
 // and configure it from config map
-func NewZipBackend(config map[string]interface{}) (zb *Backend, err error) {
+func NewZipBackend(config map[string]any) (zb *Backend, err error) {
 	zb = new(Backend)
 	zb.Config = NewZipBackendConfig(config)
 	if _, err = os.Stat(zb.Config.Zip); os.IsNotExist(err) || os.IsPermission(err) {
@@ -29,7 +29,7 @@ func NewZipBackend(config map[string]interface{}) (zb *Backend, err error) {
 }
 
 // Configure implementation for ZIP Archive Backend
-func (zb *Backend) Configure(arguments map[string]interface{}) (err error) {
+func (zb *Backend) Configure(arguments map[string]any) (err error) {
 	if arguments["--archive-options"] != nil && arguments["--archive-options"].(string) != "" {
 		zb.Config.Options = arguments["--archive-options"].(string)
 	}
@@ -94,6 +94,6 @@ func (zb *Backend) GetFileName(files []string) (name string) {
 }
 
 // GetConfiguration implementation for ZIP Archive Backend
-func (zb *Backend) GetConfiguration() interface{} {
+func (zb *Backend) GetConfiguration() any {
 	return zb.Config
 }

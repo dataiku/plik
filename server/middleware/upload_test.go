@@ -117,7 +117,7 @@ func TestUploadExtendTTL(t *testing.T) {
 		"uploadID": upload.ID,
 	}
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		req = mux.SetURLVars(req, vars)
 		rr := ctx.NewRecorder(req)
 		Upload(ctx, common.DummyHandler).ServeHTTP(rr, req)

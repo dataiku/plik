@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -24,10 +25,8 @@ func ValidateFeatureFlag(value string) (err error) {
 
 // ValidateCustomFeatureFlag validates a feature flag string value against a list of possible values
 func ValidateCustomFeatureFlag(value string, possibleValues []string) (err error) {
-	for _, possibleValue := range possibleValues {
-		if value == possibleValue {
-			return nil
-		}
+	if slices.Contains(possibleValues, value) {
+		return nil
 	}
 	return fmt.Errorf("Invalid feature flag value. Expecting : %s", strings.Join(possibleValues, "|"))
 }

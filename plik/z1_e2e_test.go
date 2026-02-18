@@ -67,12 +67,10 @@ func TestDownloadDuringUpload(t *testing.T) {
 	require.Contains(t, err.Error(), fmt.Sprintf("file %s (%s) is not available : missing", file.Name, file.metadata.ID), "invalid error")
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		err = upload.Upload()
 		require.NoError(t, err, "unable to upload file")
-		wg.Done()
-	}()
+	})
 
 	time.Sleep(time.Second)
 
@@ -232,12 +230,10 @@ func TestStream(t *testing.T) {
 
 	errors := make(chan error, 1)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		time.Sleep(50 * time.Millisecond)
 		errors <- upload.Upload()
-	}()
+	})
 
 	f := func() {
 		for {

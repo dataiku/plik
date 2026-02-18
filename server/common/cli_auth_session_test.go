@@ -41,7 +41,7 @@ func TestGenerateCode_Format(t *testing.T) {
 
 func TestGenerateCode_NoConfusingCharacters(t *testing.T) {
 	// Generate many codes and make sure none contain 0, O, 1, or I
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		code := generateCode()
 		require.NotContains(t, code, "0", "code should not contain 0")
 		require.NotContains(t, code, "O", "code should not contain O")

@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 		if os.Getenv("data_backend") != "" {
 			testConfig.DataBackend = os.Getenv("data_backend")
 			if os.Getenv("data_backend_config") != "" {
-				var dataBackendConfig = make(map[string]interface{})
+				var dataBackendConfig = make(map[string]any)
 				err = json.Unmarshal([]byte(os.Getenv("data_backend_config")), &dataBackendConfig)
 				if err != nil {
 					fmt.Printf("Unable to deserialize data_backend_config : %s\n", err)

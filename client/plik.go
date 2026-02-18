@@ -20,7 +20,7 @@ import (
 )
 
 // Vars
-var arguments map[string]interface{}
+var arguments map[string]any
 var config *CliConfig
 var archiveBackend archive.Backend
 var cryptoBackend crypto.Backend
@@ -393,7 +393,7 @@ func getFileCommand(file *plik.File) (command string, err error) {
 	return
 }
 
-func printf(format string, args ...interface{}) {
+func printf(format string, args ...any) {
 	if !config.Quiet {
 		fmt.Printf(format, args...)
 	}

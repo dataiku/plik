@@ -69,7 +69,7 @@ func EncodeAuthBasicHeader(login string, password string) (value string) {
 }
 
 // WriteJSONResponse serialize the response to json and write it to the HTTP response body
-func WriteJSONResponse(resp http.ResponseWriter, obj interface{}) {
+func WriteJSONResponse(resp http.ResponseWriter, obj any) {
 	json, err := utils.ToJson(obj)
 	if err != nil {
 		panic(fmt.Errorf("unable to serialize json response : %s", err))

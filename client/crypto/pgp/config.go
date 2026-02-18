@@ -18,7 +18,7 @@ type Config struct {
 
 // NewPgpBackendConfig instantiate a new Backend Configuration
 // from config map passed as argument
-func NewPgpBackendConfig(params map[string]interface{}) (config *Config) {
+func NewPgpBackendConfig(params map[string]any) (config *Config) {
 	config = new(Config)
 	config.Gpg = "/usr/bin/gpg"
 	config.Keyring = os.Getenv("HOME") + "/.gnupg/pubring.gpg"

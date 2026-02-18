@@ -141,7 +141,7 @@ func createTestUploads(t *testing.T, ctx *context.Context) {
 func getOrder(t *testing.T, response common.PagingResponse) []int {
 	order := make([]int, len(response.Results))
 	for idx, u := range response.Results {
-		upload := u.(map[string]interface{})
+		upload := u.(map[string]any)
 		i, err := strconv.Atoi(upload["comments"].(string))
 		require.NoError(t, err)
 		order[idx] = i
@@ -318,7 +318,7 @@ func TestGetServerStatistics(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 	createAdminUser(t, ctx)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		upload := &common.Upload{}
 		file := upload.NewFile()
 		file.Size = 2
@@ -328,7 +328,7 @@ func TestGetServerStatistics(t *testing.T) {
 		require.NoError(t, err, "create error")
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		upload := &common.Upload{}
 		upload.User = ctx.GetUser().ID
 		file := upload.NewFile()

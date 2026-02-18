@@ -72,7 +72,7 @@ func makeTestIDToken(claims oidcClaims) string {
 // which standard json.Marshal skips due to the json:"-" tag.
 func marshalOIDCClaimsForTest(claims oidcClaims) []byte {
 	data, _ := json.Marshal(claims)
-	var m map[string]interface{}
+	var m map[string]any
 	_ = json.Unmarshal(data, &m)
 	if claims.EmailVerified != nil {
 		m["email_verified"] = *claims.EmailVerified
@@ -93,7 +93,7 @@ func oidcMockHandler(opts oidcMockOptions) http.HandlerFunc {
 		case "/.well-known/openid-configuration":
 			responseBody, _ = json.Marshal(oidcTestDiscovery)
 		case "/token":
-			tokenResp := map[string]interface{}{
+			tokenResp := map[string]any{
 				"access_token":  "access_token",
 				"token_type":    "Bearer",
 				"refresh_token": "refresh_token",
@@ -169,7 +169,7 @@ func TestOIDCLogin(t *testing.T) {
 	URL, err := url.Parse(string(respBody))
 	require.NoError(t, err, "unable to parse OIDC auth url")
 
-	state, err := jwt.Parse(URL.Query().Get("state"), func(token *jwt.Token) (interface{}, error) {
+	state, err := jwt.Parse(URL.Query().Get("state"), func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			t.Fatalf("Unexpected signing method: %v", token.Header["alg"])
 		}
@@ -582,13 +582,14 @@ func TestOIDCCallbackDomainValidationNoEmail(t *testing.T) {
 	context.TestForbidden(t, rr, "email is required when domain validation is enabled")
 }
 
-func boolPtr(b bool) *bool { return &b }
+//go:fix inline
+func boolPtr(b bool) *bool { return new(b) }
 
 func TestParseIDTokenClaims(t *testing.T) {
 	idClaims := oidcClaims{
 		Sub:               "id-sub",
 		Email:             "id@example.com",
-		EmailVerified:     boolPtr(true),
+		EmailVerified:     new(true),
 		Name:              "ID Name",
 		GivenName:         "ID",
 		FamilyName:        "Name",
@@ -603,7 +604,7 @@ func TestParseIDTokenClaims(t *testing.T) {
 		AccessToken: "access",
 		TokenType:   "Bearer",
 	}
-	token = token.WithExtra(map[string]interface{}{
+	token = token.WithExtra(map[string]any{
 		"id_token": idToken,
 	})
 
@@ -671,15 +672,15 @@ func TestMergeClaimsNilUserinfo(t *testing.T) {
 }
 
 func TestMergeClaimsEmailVerifiedOverride(t *testing.T) {
-	idToken := &oidcClaims{Sub: "sub", EmailVerified: boolPtr(true)}
-	userinfo := &oidcClaims{Sub: "sub", EmailVerified: boolPtr(false)}
+	idToken := &oidcClaims{Sub: "sub", EmailVerified: new(true)}
+	userinfo := &oidcClaims{Sub: "sub", EmailVerified: new(false)}
 	merged := mergeClaims(idToken, userinfo)
 	require.NotNil(t, merged.EmailVerified)
 	require.False(t, *merged.EmailVerified, "userinfo email_verified=false should override id_token's true")
 }
 
 func TestMergeClaimsNoCopy(t *testing.T) {
-	userinfo := &oidcClaims{Sub: "sub", Name: "original", EmailVerified: boolPtr(true)}
+	userinfo := &oidcClaims{Sub: "sub", Name: "original", EmailVerified: new(true)}
 	merged := mergeClaims(nil, userinfo)
 	merged.Name = "mutated"
 	require.Equal(t, "original", userinfo.Name, "merge must return a copy, not alias the input")
@@ -688,7 +689,7 @@ func TestMergeClaimsNoCopy(t *testing.T) {
 }
 
 func TestMergeClaimsNoCopyBothPresent(t *testing.T) {
-	idToken := &oidcClaims{Sub: "sub", EmailVerified: boolPtr(true)}
+	idToken := &oidcClaims{Sub: "sub", EmailVerified: new(true)}
 	userinfo := &oidcClaims{Sub: "sub"}
 	merged := mergeClaims(idToken, userinfo)
 	require.NotNil(t, merged.EmailVerified)
@@ -705,7 +706,7 @@ func TestParseIDTokenClaimsEmailVerifiedString(t *testing.T) {
 	mc["sub"] = "string-ev-user"
 	mc["email_verified"] = "true"
 	signed, _ := rawJWT.SignedString([]byte("key"))
-	token = token.WithExtra(map[string]interface{}{"id_token": signed})
+	token = token.WithExtra(map[string]any{"id_token": signed})
 
 	parsed, err := parseIDTokenClaims(token)
 	require.NoError(t, err)
@@ -721,7 +722,7 @@ func TestParseIDTokenClaimsEmailVerifiedNumeric(t *testing.T) {
 	mc["sub"] = "numeric-ev-user"
 	mc["email_verified"] = float64(1)
 	signed, _ := rawJWT.SignedString([]byte("key"))
-	token = token.WithExtra(map[string]interface{}{"id_token": signed})
+	token = token.WithExtra(map[string]any{"id_token": signed})
 
 	parsed, err := parseIDTokenClaims(token)
 	require.NoError(t, err)
@@ -732,7 +733,7 @@ func TestParseIDTokenClaimsEmailVerifiedNumeric(t *testing.T) {
 
 func TestParseIDTokenClaimsMalformed(t *testing.T) {
 	token := &oauth2.Token{AccessToken: "access", TokenType: "Bearer"}
-	token = token.WithExtra(map[string]interface{}{"id_token": "not.a.valid-jwt"})
+	token = token.WithExtra(map[string]any{"id_token": "not.a.valid-jwt"})
 
 	parsed, err := parseIDTokenClaims(token)
 	require.Error(t, err)
@@ -825,7 +826,7 @@ func TestOIDCCallbackRequireVerifiedEmail(t *testing.T) {
 	idTokenClaims := oidcClaims{
 		Sub:           "verified-user",
 		Email:         "verified@root.gg",
-		EmailVerified: boolPtr(true),
+		EmailVerified: new(true),
 		Name:          "Verified User",
 	}
 
@@ -859,7 +860,7 @@ func TestOIDCCallbackRequireVerifiedEmailFalse(t *testing.T) {
 	idTokenClaims := oidcClaims{
 		Sub:           "unverified-user",
 		Email:         "unverified@root.gg",
-		EmailVerified: boolPtr(false),
+		EmailVerified: new(false),
 		Name:          "Unverified User",
 	}
 
@@ -973,43 +974,43 @@ func TestOIDCClaimsUnmarshalJSON(t *testing.T) {
 		{
 			name:         "bool true",
 			json:         `{"sub":"s","email_verified":true}`,
-			wantVerified: boolPtr(true),
+			wantVerified: new(true),
 			wantSub:      "s",
 		},
 		{
 			name:         "bool false",
 			json:         `{"sub":"s","email_verified":false}`,
-			wantVerified: boolPtr(false),
+			wantVerified: new(false),
 			wantSub:      "s",
 		},
 		{
 			name:         "string true",
 			json:         `{"sub":"s","email_verified":"true"}`,
-			wantVerified: boolPtr(true),
+			wantVerified: new(true),
 			wantSub:      "s",
 		},
 		{
 			name:         "string True (case insensitive)",
 			json:         `{"sub":"s","email_verified":"True"}`,
-			wantVerified: boolPtr(true),
+			wantVerified: new(true),
 			wantSub:      "s",
 		},
 		{
 			name:         "string false",
 			json:         `{"sub":"s","email_verified":"false"}`,
-			wantVerified: boolPtr(false),
+			wantVerified: new(false),
 			wantSub:      "s",
 		},
 		{
 			name:         "numeric 1",
 			json:         `{"sub":"s","email_verified":1}`,
-			wantVerified: boolPtr(true),
+			wantVerified: new(true),
 			wantSub:      "s",
 		},
 		{
 			name:         "numeric 0",
 			json:         `{"sub":"s","email_verified":0}`,
-			wantVerified: boolPtr(false),
+			wantVerified: new(false),
 			wantSub:      "s",
 		},
 		{
@@ -1064,7 +1065,7 @@ func TestOIDCCallbackEmailVerifiedFromUserinfo(t *testing.T) {
 	// email_verified comes exclusively from userinfo
 	userinfoClaims := oidcClaims{
 		Sub:           "userinfo-ev-user",
-		EmailVerified: boolPtr(true),
+		EmailVerified: new(true),
 	}
 
 	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{

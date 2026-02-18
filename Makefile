@@ -78,6 +78,8 @@ lint:
 	if [[ -z "$$OUT" ]]; then echo " OK" ; else echo " FAIL"; echo "$$OUT"; FAIL=1 ; fi ;\
 	echo -n " - go vet :" ; OUT=`go vet ./... 2>&1` ; \
 	if [[ -z "$$OUT" ]]; then echo " OK" ; else echo " FAIL"; echo "$$OUT"; FAIL=1 ; fi ;\
+	echo -n " - go fix :" ; OUT=`go fix ./... 2>&1` ; \
+	if [[ -z "$$OUT" ]]; then echo " OK" ; else echo " FAIL"; echo "$$OUT"; FAIL=1 ; fi ;\
 	test $$FAIL -eq 0
 
 ###
@@ -92,6 +94,12 @@ vuln:
 ###
 fmt:
 	@gofmt -w -s client server plik
+
+###
+# Run go fix
+###
+gofix:
+	@go fix -v ./...
 
 ###
 # Run tests

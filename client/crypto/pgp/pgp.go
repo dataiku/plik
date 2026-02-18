@@ -18,14 +18,14 @@ type Backend struct {
 
 // NewPgpBackend instantiate a new PGP Crypto Backend
 // and configure it from config map
-func NewPgpBackend(config map[string]interface{}) (pb *Backend) {
+func NewPgpBackend(config map[string]any) (pb *Backend) {
 	pb = new(Backend)
 	pb.Config = NewPgpBackendConfig(config)
 	return
 }
 
 // Configure implementation for PGP Crypto Backend
-func (pb *Backend) Configure(arguments map[string]interface{}) (err error) {
+func (pb *Backend) Configure(arguments map[string]any) (err error) {
 
 	// Parse options
 	if arguments["--recipient"] != nil && arguments["--recipient"].(string) != "" {
@@ -81,12 +81,13 @@ func (pb *Backend) Configure(arguments map[string]interface{}) (err error) {
 		pb.Config.Entity = entitiesFound[intToEntity[0]]
 		pb.Config.Email = emailsFound[0]
 	} else {
-		errorMessage := fmt.Sprintf("There are %d keys that match your search :\n", countEntitiesFound)
+		var errorMessage strings.Builder
+		errorMessage.WriteString(fmt.Sprintf("There are %d keys that match your search :\n", countEntitiesFound))
 		for _, email := range emailsFound {
-			errorMessage += fmt.Sprintf("\t-%s\n", email)
+			errorMessage.WriteString(fmt.Sprintf("\t-%s\n", email))
 		}
 
-		return errors.New(errorMessage)
+		return errors.New(errorMessage.String())
 	}
 
 	return nil
@@ -132,6 +133,6 @@ func (pb *Backend) Comments() string {
 }
 
 // GetConfiguration implementation for PGP Crypto Backend
-func (pb *Backend) GetConfiguration() interface{} {
+func (pb *Backend) GetConfiguration() any {
 	return pb.Config
 }
