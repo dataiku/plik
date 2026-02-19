@@ -13,18 +13,18 @@ import (
 // UploadParams store the different options available when uploading file to a Plik server
 // One should add files to the upload before calling Create or Upload
 type UploadParams struct {
-	Stream    bool // Don't store the file on the server
-	OneShot   bool // Force deletion of the file from the server after the first download
-	Removable bool // Allow upload and upload files to be removed from the server at any time
+	Stream    bool `json:"stream,omitempty" jsonschema:"Don't store the file on the server, stream directly to downloader"`
+	OneShot   bool `json:"one_shot,omitempty" jsonschema:"Delete file after first download"`
+	Removable bool `json:"removable,omitempty" jsonschema:"Allow anyone to delete the file"`
 
-	TTL       int    // Time in second before automatic deletion of the file from the server
-	ExtendTTL bool   // Extend upload expiration date by TTL when accessed
-	Comments  string // Arbitrary comment to attach to the upload ( the web interface support markdown language )
+	TTL       int    `json:"ttl,omitempty" jsonschema:"Time to live in seconds (0 = server default)"`
+	ExtendTTL bool   `json:"extend_ttl,omitempty" jsonschema:"Extend upload expiration date by TTL when accessed"`
+	Comments  string `json:"comments,omitempty" jsonschema:"Arbitrary comment to attach to the upload (supports markdown)"`
 
-	Token string // Authentication token to link an upload to a Plik user
+	Token string `json:"token,omitempty" jsonschema:"Authentication token to link an upload to a Plik user"`
 
-	Login    string // HttpBasic protection for the upload
-	Password string // Login and Password
+	Login    string `json:"login,omitempty" jsonschema:"HTTP basic auth username for the upload"`
+	Password string `json:"password,omitempty" jsonschema:"HTTP basic auth password for the upload"`
 }
 
 // Upload store the necessary data to upload files to a Plik server
@@ -38,6 +38,38 @@ type Upload struct {
 
 	done chan struct{} // Used to synchronize Create() calls
 	err  error         // If an error occurs during a Create() call this will be set
+}
+
+// Apply merges non-zero UploadParams values onto an existing upload,
+// preserving any defaults already set (e.g. token from the client config).
+func (p UploadParams) Apply(upload *Upload) {
+	if p.Stream {
+		upload.Stream = true
+	}
+	if p.OneShot {
+		upload.OneShot = true
+	}
+	if p.Removable {
+		upload.Removable = true
+	}
+	if p.TTL != 0 {
+		upload.TTL = p.TTL
+	}
+	if p.ExtendTTL {
+		upload.ExtendTTL = true
+	}
+	if p.Comments != "" {
+		upload.Comments = p.Comments
+	}
+	if p.Token != "" {
+		upload.Token = p.Token
+	}
+	if p.Login != "" {
+		upload.Login = p.Login
+	}
+	if p.Password != "" {
+		upload.Password = p.Password
+	}
 }
 
 // newUpload create and initialize a new Upload object
@@ -303,6 +335,34 @@ func (upload *Upload) GetURL() (u *url.URL, err error) {
 
 	// Parse to get a nice escaped url
 	return url.Parse(fileURL)
+}
+
+// UploadWithURL wraps common.Upload with computed URLs for the upload page and each file
+type UploadWithURL struct {
+	*common.Upload
+	URL   string         `json:"url"`
+	Files []*FileWithURL `json:"files"`
+}
+
+// WithURL returns the upload metadata enriched with its page URL and file download URLs
+func (upload *Upload) WithURL() *UploadWithURL {
+	result := &UploadWithURL{
+		Upload: upload.Metadata(),
+	}
+
+	u, err := upload.GetURL()
+	if err == nil {
+		result.URL = u.String()
+	}
+
+	for _, file := range upload.Files() {
+		if file.Error() != nil {
+			continue
+		}
+		result.Files = append(result.Files, file.WithURL())
+	}
+
+	return result
 }
 
 // GetAdminURL return the URL page of the upload with upload admin rights

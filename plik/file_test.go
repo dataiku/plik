@@ -54,3 +54,33 @@ func TestNotUploadedGetFileURL(t *testing.T) {
 	_, err = file.GetURL()
 	common.RequireError(t, err, "file has not been uploaded yet")
 }
+
+func TestFileWithURL(t *testing.T) {
+	ps, pc := newPlikServerAndClient()
+	defer ps.ShutdownNow()
+
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	data := "data data data"
+	upload, file, err := pc.UploadReader("filename", bytes.NewBufferString(data))
+	require.NoError(t, err, "unable to upload file")
+	require.Len(t, upload.Files(), 1, "invalid files count")
+
+	result := file.WithURL()
+	require.NotNil(t, result, "WithURL should not return nil")
+	require.Equal(t, file.Name, result.Name, "file name should match")
+	require.NotEmpty(t, result.URL, "file URL should not be empty")
+	require.Contains(t, result.URL, file.Metadata().ID, "file URL should contain file ID")
+}
+
+func TestFileWithURLBeforeUpload(t *testing.T) {
+	_, pc := newPlikServerAndClient()
+
+	upload := pc.NewUpload()
+	file := upload.AddFileFromReader("test.txt", bytes.NewBufferString("data"))
+
+	result := file.WithURL()
+	require.NotNil(t, result, "WithURL should not return nil even before upload")
+	require.Empty(t, result.URL, "URL should be empty before upload")
+}

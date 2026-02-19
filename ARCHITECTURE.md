@@ -12,7 +12,7 @@ Plik is a temporary file upload system with three main components:
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | **Server** (`plikd`) | `server/` | Go HTTP server — REST API, middleware chain, data/metadata backends |
-| **CLI Client** (`plik`) | `client/` | Multi-platform command-line uploader with archive/crypto support |
+| **CLI Client** (`plik`) | `client/` | Multi-platform command-line uploader with archive/crypto support and MCP server mode |
 | **Webapp** | `webapp/` | Vue 3 SPA served by the server |
 | **Go Library** | `plik/` | Public Go client library (used by CLI + e2e tests) |
 

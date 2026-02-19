@@ -66,6 +66,7 @@ Options:
   --insecure                (TLS) Do not verify the server's certificate chain and hostname
   --update                  Update client
   --login                   Authenticate CLI with the server (opens browser)
+  --mcp                     Start as MCP (Model Context Protocol) server over stdio
   -q --quiet                Enable quiet mode
   -d --debug                Enable debug mode
   -v --version              Show client version
@@ -92,6 +93,16 @@ Options:
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
+	}
+
+	// MCP server mode
+	if arguments["--mcp"].(bool) {
+		err = RunMCPServer(config)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "MCP server error: %s\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	if config.Debug {

@@ -87,6 +87,22 @@ func (file *File) Metadata() (details *common.File) {
 	return file.metadata
 }
 
+// FileWithURL wraps common.File with its computed download URL
+type FileWithURL struct {
+	*common.File
+	URL string `json:"url"`
+}
+
+// WithURL returns the file metadata enriched with its download URL
+func (file *File) WithURL() *FileWithURL {
+	result := &FileWithURL{File: file.Metadata()}
+	u, err := file.GetURL()
+	if err == nil {
+		result.URL = u.String()
+	}
+	return result
+}
+
 // getParams return a common.File to be passed to internal methods
 func (file *File) getParams() (params *common.File) {
 	file.lock.Lock()
