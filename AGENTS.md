@@ -38,7 +38,7 @@ plik/
 │   ├── metadata/           ← metadata backend (GORM)
 │   ├── middleware/          ← middleware chain (auth, logging, upload/file resolution)
 │   └── server/             ← HTTP server + router setup
-├── client/                 ← CLI client (see client/ARCHITECTURE.md)
+├── client/                 ← CLI client + MCP server (see client/ARCHITECTURE.md)
 ├── plik/                   ← Go client library (see plik/ARCHITECTURE.md)
 ├── webapp/                 ← Vue 3 SPA (see webapp/ARCHITECTURE.md)
 ├── testing/                ← backend integration tests (see testing/ARCHITECTURE.md)
