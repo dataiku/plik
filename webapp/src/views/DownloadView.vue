@@ -103,6 +103,12 @@ const activeFiles = computed(() => {
   })
 })
 
+// Total non-removed files (for "X/Y files uploaded" display during uploads)
+const totalFiles = computed(() => {
+  if (!upload.value?.files) return 0
+  return upload.value.files.filter(f => f.status !== 'removed' && f.status !== 'deleted').length
+})
+
 // Upload token from in-memory store (set after upload or from admin URL)
 const uploadToken = computed(() => getToken(props.id))
 
@@ -453,7 +459,12 @@ watch(activeFiles, (files) => {
           <div v-if="activeFiles.length" class="space-y-2">
             <div class="flex items-center justify-between px-1">
               <h3 class="text-sm font-medium text-surface-400">
-                {{ activeFiles.length }} file{{ activeFiles.length > 1 ? 's' : '' }}
+                <template v-if="isAddingFiles">
+                  {{ activeFiles.length }}/{{ totalFiles }} file{{ totalFiles > 1 ? 's' : '' }} uploaded
+                </template>
+                <template v-else>
+                  {{ activeFiles.length }} file{{ activeFiles.length > 1 ? 's' : '' }}
+                </template>
               </h3>
               <CopyButton
                 v-if="fileLinks().length > 1"
