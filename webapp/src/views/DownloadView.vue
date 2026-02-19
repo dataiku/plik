@@ -489,8 +489,12 @@ watch(activeFiles, (files) => {
           <div v-if="pendingFiles.length" class="space-y-2">
             <div class="flex items-center justify-between px-1">
               <h3 class="text-sm font-medium text-surface-400">
-                {{ pendingFiles.length }} file{{ pendingFiles.length > 1 ? 's' : '' }}
-                {{ isAddingFiles ? 'uploading' : 'to add' }}
+                <template v-if="isAddingFiles">
+                  {{ pendingFiles.filter(f => f.status !== 'uploaded').length }} file{{ pendingFiles.filter(f => f.status !== 'uploaded').length > 1 ? 's' : '' }} left to upload
+                </template>
+                <template v-else>
+                  {{ pendingFiles.length }} file{{ pendingFiles.length > 1 ? 's' : '' }} to add
+                </template>
               </h3>
               <button v-if="isAddingFiles"
                       class="text-xs text-danger-500 hover:text-danger-400 transition-colors"
