@@ -151,9 +151,10 @@ func TestGoogleCallback(t *testing.T) {
 	}
 
 	googleUser := api_oauth2.Userinfo{
-		Id:    "plik",
-		Email: "plik@root.gg",
-		Name:  "plik.root.gg",
+		Id:      "plik",
+		Email:   "plik@root.gg",
+		Name:    "plik.root.gg",
+		Picture: "https://lh3.googleusercontent.com/photo.jpg",
 	}
 
 	user := common.NewUser("google", "plik")
@@ -219,6 +220,13 @@ func TestGoogleCallback(t *testing.T) {
 
 	require.NotEqual(t, "", sessionCookie, "missing plik session cookie")
 	require.NotEqual(t, "", xsrfCookie, "missing plik xsrf cookie")
+
+	// Verify that user fields were updated on re-login
+	updated, err := ctx.GetMetadataBackend().GetUser(common.GetUserID(common.ProviderGoogle, googleUser.Email))
+	require.NoError(t, err)
+	require.NotNil(t, updated, "missing user")
+	require.Equal(t, googleUser.Name, updated.Name, "user name not updated on re-login")
+	require.Equal(t, googleUser.Picture, updated.ProfilePicture, "user profile picture not updated on re-login")
 }
 
 func TestGoogleCallbackAuthDisabled(t *testing.T) {
@@ -482,9 +490,10 @@ func TestGoogleCallbackCreateUser(t *testing.T) {
 	}
 
 	googleUser := api_oauth2.Userinfo{
-		Id:    "plik",
-		Email: "plik@root.gg",
-		Name:  "plik.root.gg",
+		Id:      "plik",
+		Email:   "plik@root.gg",
+		Name:    "plik.root.gg",
+		Picture: "https://lh3.googleusercontent.com/photo.jpg",
 	}
 
 	handler := func(resp http.ResponseWriter, req *http.Request) {
@@ -548,6 +557,7 @@ func TestGoogleCallbackCreateUser(t *testing.T) {
 	require.NotNil(t, user, "missing user")
 	require.Equal(t, googleUser.Email, user.Email, "invalid user email")
 	require.Equal(t, googleUser.Name, user.Name, "invalid user name")
+	require.Equal(t, googleUser.Picture, user.ProfilePicture, "invalid user profile picture")
 }
 func TestGoogleCallbackCreateUserNotWhitelisted(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())

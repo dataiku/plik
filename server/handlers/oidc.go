@@ -540,6 +540,7 @@ func OIDCCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Requ
 				user.Name = claims.Name
 			}
 			user.Email = claims.Email
+			user.ProfilePicture = claims.Picture
 
 			err = ctx.GetMetadataBackend().CreateUser(user)
 			if err != nil {
@@ -562,6 +563,10 @@ func OIDCCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Requ
 		}
 		if claims.PreferredUsername != "" && user.Login != claims.PreferredUsername {
 			user.Login = claims.PreferredUsername
+			updated = true
+		}
+		if claims.Picture != "" && user.ProfilePicture != claims.Picture {
+			user.ProfilePicture = claims.Picture
 			updated = true
 		}
 		if updated {
