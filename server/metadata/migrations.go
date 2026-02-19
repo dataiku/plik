@@ -175,6 +175,20 @@ func (b *Backend) getMigrations() []*gormigrate.Migration {
 				b.log.Criticalf("Something went wrong. Please check database status manually")
 				return nil
 			},
+		}, {
+			ID: "0006-user-profile-picture",
+			Migrate: func(tx *gorm.DB) error {
+				type User struct {
+					ProfilePicture string `json:"profilePicture,omitempty"`
+				}
+
+				b.log.Warning("Applying database migration 0006-user-profile-picture")
+				return b.setupTxForMigration(tx).AutoMigrate(&User{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				b.log.Criticalf("Something went wrong. Please check database status manually")
+				return nil
+			},
 		},
 	}
 

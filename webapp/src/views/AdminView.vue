@@ -438,7 +438,14 @@ onMounted(async () => {
               <div class="flex flex-col sm:flex-row gap-4">
                 <!-- User info -->
                 <div class="sm:w-1/4 text-sm space-y-1">
-                  <p class="text-surface-200 font-medium">{{ user.login }}</p>
+                  <div class="flex items-center gap-2">
+                    <img v-if="user.profilePicture"
+                         :src="user.profilePicture"
+                         alt=""
+                         class="w-6 h-6 rounded-full object-cover shrink-0"
+                         referrerpolicy="no-referrer" />
+                    <p class="text-surface-200 font-medium">{{ user.login }}</p>
+                  </div>
                   <p class="text-surface-500">({{ user.provider }})</p>
                   <span v-if="user.admin"
                         class="inline-block text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">

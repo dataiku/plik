@@ -271,6 +271,25 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 			ctx.Forbidden("unable to create user from untrusted source IP address")
 			return
 		}
+	} else {
+		// Update existing user fields if changed
+		updated := false
+		name := userInfo.FirstName + " " + userInfo.LastName
+		if name != " " && user.Name != name {
+			user.Name = name
+			updated = true
+		}
+		if userInfo.Email != "" && user.Email != userInfo.Email {
+			user.Email = userInfo.Email
+			updated = true
+		}
+		if updated {
+			err = ctx.GetMetadataBackend().UpdateUser(user)
+			if err != nil {
+				ctx.InternalServerError("unable to update user : %s", err)
+				return
+			}
+		}
 	}
 
 	// Set Plik session cookie and xsrf cookie

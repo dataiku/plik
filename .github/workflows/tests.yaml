@@ -25,7 +25,10 @@ jobs:
       run: make test
 
     - name: Check for uncommitted changes
-      run: git diff --exit-code && test -z "$(git ls-files --others --exclude-standard)"
+      run: |
+        git diff --exit-code || { echo "::error::Uncommitted changes detected"; git status; exit 1; }
+        UNTRACKED=$(git ls-files --others --exclude-standard)
+        if [ -n "$UNTRACKED" ]; then echo "::error::Untracked files detected:"; git status; exit 1; fi
 
     - name: Install govulncheck
       run: go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -52,7 +55,10 @@ jobs:
       run: make test-backends
 
     - name: Check for uncommitted changes
-      run: git diff --exit-code && test -z "$(git ls-files --others --exclude-standard)"
+      run: |
+        git diff --exit-code || { echo "::error::Uncommitted changes detected"; git status; exit 1; }
+        UNTRACKED=$(git ls-files --others --exclude-standard)
+        if [ -n "$UNTRACKED" ]; then echo "::error::Untracked files detected:"; git status; exit 1; fi
 
   release:
     runs-on: ubuntu-latest

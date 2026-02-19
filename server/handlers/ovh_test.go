@@ -234,8 +234,8 @@ func TestOVHCallback(t *testing.T) {
 	user := common.NewUser("ovh", "plik")
 	user.ID = "ovh:plik"
 	user.Login = ovhUserResponse.Nichandle
-	user.Name = ovhUserResponse.FirstName + " " + ovhUserResponse.LastName
-	user.Email = ovhUserResponse.Email
+	user.Name = "Old Name"     // stale value to test update-on-login
+	user.Email = "old@root.gg" // stale value to test update-on-login
 	err = ctx.GetMetadataBackend().CreateUser(user)
 	require.NoError(t, err, "unable to create test user")
 
@@ -283,6 +283,13 @@ func TestOVHCallback(t *testing.T) {
 
 	require.NotEqual(t, "", sessionCookie, "missing plik session cookie")
 	require.NotEqual(t, "", xsrfCookie, "missing plik xsrf cookie")
+
+	// Verify that user fields were updated on re-login
+	updated, err := ctx.GetMetadataBackend().GetUser("ovh:plik")
+	require.NoError(t, err)
+	require.NotNil(t, updated, "missing user")
+	require.Equal(t, ovhUserResponse.FirstName+" "+ovhUserResponse.LastName, updated.Name, "user name not updated on re-login")
+	require.Equal(t, ovhUserResponse.Email, updated.Email, "user email not updated on re-login")
 }
 
 func TestOVHCallbackCreateUser(t *testing.T) {

@@ -194,6 +194,7 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 			user.Login = userInfo.Email
 			user.Name = userInfo.Name
 			user.Email = userInfo.Email
+			user.ProfilePicture = userInfo.Picture
 			components := strings.Split(user.Email, "@")
 
 			// Accepted user domain checking
@@ -223,6 +224,28 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 		} else {
 			ctx.Forbidden("unable to create user from untrusted source IP address")
 			return
+		}
+	} else {
+		// Update existing user fields if changed
+		updated := false
+		if userInfo.Name != "" && user.Name != userInfo.Name {
+			user.Name = userInfo.Name
+			updated = true
+		}
+		if userInfo.Email != "" && user.Email != userInfo.Email {
+			user.Email = userInfo.Email
+			updated = true
+		}
+		if userInfo.Picture != "" && user.ProfilePicture != userInfo.Picture {
+			user.ProfilePicture = userInfo.Picture
+			updated = true
+		}
+		if updated {
+			err = ctx.GetMetadataBackend().UpdateUser(user)
+			if err != nil {
+				ctx.InternalServerError("unable to update user : %s", err)
+				return
+			}
 		}
 	}
 

@@ -401,9 +401,10 @@ func TestOIDCCallbackCreateUser(t *testing.T) {
 	setupOIDCConfig(ctx.GetConfig())
 
 	oidcUser := oidcClaims{
-		Sub:   "user456",
-		Email: "newuser@root.gg",
-		Name:  "New User",
+		Sub:     "user456",
+		Email:   "newuser@root.gg",
+		Name:    "New User",
+		Picture: "https://example.com/avatar.jpg",
 	}
 
 	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
@@ -440,6 +441,7 @@ func TestOIDCCallbackCreateUser(t *testing.T) {
 	require.NotNil(t, user, "missing user")
 	require.Equal(t, oidcUser.Email, user.Email, "invalid user email")
 	require.Equal(t, oidcUser.Name, user.Name, "invalid user name")
+	require.Equal(t, oidcUser.Picture, user.ProfilePicture, "invalid user profile picture")
 }
 
 func TestOIDCCallbackCreateUserNotWhitelisted(t *testing.T) {
@@ -483,6 +485,7 @@ func TestOIDCCallbackUpdateUserFields(t *testing.T) {
 		Email:             "new@root.gg",
 		Name:              "New Name",
 		PreferredUsername: "newlogin",
+		Picture:           "https://example.com/new-avatar.jpg",
 	}
 
 	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, oidcMockHandler(oidcMockOptions{userinfo: oidcUser}))
@@ -502,6 +505,7 @@ func TestOIDCCallbackUpdateUserFields(t *testing.T) {
 	require.Equal(t, "new@root.gg", updated.Email, "email not updated")
 	require.Equal(t, "New Name", updated.Name, "name not updated")
 	require.Equal(t, "newlogin", updated.Login, "login not updated")
+	require.Equal(t, "https://example.com/new-avatar.jpg", updated.ProfilePicture, "profile picture not updated")
 }
 
 func TestOIDCCallbackInvalidDomain(t *testing.T) {
