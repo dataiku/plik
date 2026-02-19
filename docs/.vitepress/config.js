@@ -21,35 +21,35 @@ export default withMermaid(defineConfig({
                     text: 'Guide',
                     items: [
                         { text: 'Getting Started', link: '/guide/getting-started' },
-                        { text: 'Docker Deployment', link: '/guide/docker' },
                         { text: 'Configuration', link: '/guide/configuration' },
+                        { text: 'Docker Deployment', link: '/guide/docker' },
                         { text: 'Security', link: '/guide/security' },
-                        { text: 'Windows "Send to Plik"', link: '/guide/windows-send-to' },
-                    ],
-                },
-                {
-                    text: 'Backends',
-                    items: [
-                        { text: 'Data Backends', link: '/backends/data' },
-                        { text: 'Metadata Backends', link: '/backends/metadata' },
+                        { text: 'Send to Plik', link: '/guide/windows-send-to' },
                     ],
                 },
                 {
                     text: 'Features',
                     items: [
                         { text: 'CLI', link: '/features/cli-client' },
-                        { text: 'MCP Server', link: '/features/mcp' },
                         { text: 'Web UI', link: '/features/web-ui' },
-                        { text: 'Streaming', link: '/features/streaming' },
                         { text: 'Authentication', link: '/features/authentication' },
+                        { text: 'Streaming', link: '/features/streaming' },
+                        { text: 'MCP Server', link: '/features/mcp' },
+                    ],
+                },
+                {
+                    text: 'Backend',
+                    items: [
+                        { text: 'Data Backends', link: '/backends/data' },
+                        { text: 'Metadata Backends', link: '/backends/metadata' },
                     ],
                 },
                 {
                     text: 'Reference',
                     items: [
                         { text: 'HTTP API', link: '/reference/api' },
-                        { text: 'Prometheus Metrics', link: '/reference/metrics' },
                         { text: 'Go Library', link: '/reference/go-library' },
+                        { text: 'Prometheus Metrics', link: '/reference/metrics' },
                     ],
                 },
                 {
