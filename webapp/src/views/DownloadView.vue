@@ -64,7 +64,10 @@ async function viewFile(file) {
   try {
     const url = getFileURL(props.id, file.id, file.fileName)
     const resp = await fetch(url, { credentials: 'same-origin' })
-    if (!resp.ok) throw new Error(`Failed to fetch file (${resp.status})`)
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '')
+      throw new Error(text || `Failed to load file (HTTP ${resp.status})`)
+    }
     const text = await resp.text()
     viewingContent.value = text
   } catch (err) {
@@ -124,7 +127,9 @@ async function fetchUpload() {
   try {
     upload.value = await getUpload(props.id, uploadToken.value)
   } catch (err) {
-    error.value = err.message || 'Failed to load upload'
+    error.value = err.status
+      ? `${err.message} (HTTP ${err.status})`
+      : (err.message || 'Failed to load upload')
   } finally {
     loading.value = false
   }
@@ -205,12 +210,17 @@ async function cancelFileUpload(file) {
   }
   pendingFiles.value = pendingFiles.value.filter(f => f.reference !== file.reference)
 
+  // If no more active/error files, exit upload mode
+  if (!pendingFiles.value.some(f => f.status === 'uploading' || f.status === 'toUpload' || f.status === 'error')) {
+    isAddingFiles.value = false
+  }
+
   // Give the server time to clean up the aborted file (uploading → removed → deleted)
   await new Promise(resolve => setTimeout(resolve, 200))
   await fetchUpload()
 }
 
-function cancelAllUploads() {
+async function cancelAllUploads() {
   uploadsCancelled = true
   for (const file of pendingFiles.value) {
     if (file.abort) {
@@ -219,78 +229,129 @@ function cancelAllUploads() {
   }
   pendingFiles.value = []
   isAddingFiles.value = false
+
+  // Give the server time to clean up aborted files before refreshing
+  await new Promise(resolve => setTimeout(resolve, 200))
+  await fetchUpload()
 }
 
+// --- Shared upload helpers ---
+
+const MAX_CONCURRENT = 5
+
+// BasicAuth stored at component level so retries preserve credentials
+let activeBasicAuth = null
+
+// Whether the upload pool is currently running (re-entry guard)
+let isUploading = false
+
+// Locally update a server file's status (reactive, no full refresh needed)
+function setServerFileStatus(fileId, status) {
+  const serverFile = upload.value?.files?.find(f => f.id === fileId)
+  if (serverFile) serverFile.status = status
+}
+
+// Upload a single file entry (shared by pool and individual retry)
+function uploadFileEntry(fileEntry) {
+  fileEntry.status = 'uploading'
+  fileEntry.error = null
+  fileEntry.progress = 0
+
+  const isStream = upload.value.stream
+
+  const { promise, abort } = uploadFile(
+    { id: props.id, stream: isStream, uploadToken: uploadToken.value },
+    { id: fileEntry.id, fileName: fileEntry.fileName, file: fileEntry.file },
+    (progress) => { fileEntry.progress = progress },
+    activeBasicAuth,
+    isStream ? () => setServerFileStatus(fileEntry.id, 'uploading') : undefined,
+  )
+
+  fileEntry.abort = abort
+
+  return promise.then((result) => {
+    fileEntry.status = 'uploaded'
+    fileEntry.id = result.id
+    setServerFileStatus(result.id, 'uploaded')
+    // Remove from pending panel immediately
+    pendingFiles.value = pendingFiles.value.filter(f => f.reference !== fileEntry.reference)
+  }).catch((err) => {
+    if (!err.cancelled) {
+      fileEntry.status = 'error'
+      fileEntry.error = err.message || 'Upload failed'
+    }
+  })
+}
+
+// Check if we should exit upload mode
+function checkUploadModeExit() {
+  const hasErrors = pendingFiles.value.some(f => f.status === 'error')
+  const hasActive = pendingFiles.value.some(f => f.status === 'uploading' || f.status === 'toUpload')
+  if (!hasErrors && !hasActive) {
+    isAddingFiles.value = false
+  }
+}
+
+// --- Upload pool ---
+
 async function uploadPendingFiles() {
-  if (!pendingFiles.value.length || isAddingFiles.value) return
+  if (!pendingFiles.value.length || isUploading) return
+  isUploading = true
   isAddingFiles.value = true
   uploadsCancelled = false
 
-  const basicAuth = pendingBasicAuth
+  activeBasicAuth = pendingBasicAuth || activeBasicAuth
   pendingBasicAuth = null
 
-  const isStream = upload.value.stream
-  const filesToUpload = [...pendingFiles.value]
-    .filter(fileEntry => pendingFiles.value.includes(fileEntry))
+  // Re-check loop: after each batch, pick up files that were retried mid-batch
+  while (!uploadsCancelled) {
+    const filesToUpload = pendingFiles.value.filter(f => f.status === 'toUpload')
+    if (!filesToUpload.length) break
 
-  // Locally update a server file's status (reactive, no full refresh needed)
-  function setServerFileStatus(fileId, status) {
-    const serverFile = upload.value?.files?.find(f => f.id === fileId)
-    if (serverFile) serverFile.status = status
-  }
-
-  // Upload a single file entry
-  function doUpload(fileEntry) {
-    if (uploadsCancelled) return Promise.resolve()
-
-    fileEntry.status = 'uploading'
-
-    const { promise, abort } = uploadFile(
-      { id: props.id, stream: isStream, uploadToken: uploadToken.value },
-      { id: fileEntry.id, fileName: fileEntry.fileName, file: fileEntry.file },
-      (progress) => { fileEntry.progress = progress },
-      basicAuth,
-      // For streaming: mark server file as 'uploading' on connection open
-      // so it appears in the top panel with a working download link
-      isStream ? () => setServerFileStatus(fileEntry.id, 'uploading') : undefined,
-    )
-
-    fileEntry.abort = abort
-
-    return promise.then((result) => {
-      fileEntry.status = 'uploaded'
-      fileEntry.id = result.id
-      // Locally mark server file as uploaded — appears in top panel
-      setServerFileStatus(result.id, 'uploaded')
-    }).catch((err) => {
-      if (!err.cancelled) {
-        fileEntry.status = 'error'
-        fileEntry.error = err.message || 'Upload failed'
-        uploadError.value = err.message || `Failed to upload ${fileEntry.fileName}`
-        // No local status change on error — file stays in bottom panel
+    const queue = [...filesToUpload]
+    const workers = Array.from({ length: Math.min(MAX_CONCURRENT, queue.length) }, async () => {
+      while (queue.length > 0 && !uploadsCancelled) {
+        const fileEntry = queue.shift()
+        await uploadFileEntry(fileEntry)
       }
     })
+
+    await Promise.allSettled(workers)
   }
 
-  // Concurrency-limited pool: max 5 uploads at a time
-  const MAX_CONCURRENT = 5
-  const queue = [...filesToUpload]
-  const workers = Array.from({ length: Math.min(MAX_CONCURRENT, queue.length) }, async () => {
-    while (queue.length > 0 && !uploadsCancelled) {
-      const fileEntry = queue.shift()
-      await doUpload(fileEntry)
-    }
-  })
-
-  await Promise.allSettled(workers)
-
-  // Clear completed/errored pending files, keep only remaining toUpload files
-  pendingFiles.value = pendingFiles.value.filter(f => f.status === 'toUpload')
-  isAddingFiles.value = false
+  isUploading = false
+  checkUploadModeExit()
 
   // Final refresh to sync with server truth
   if (!uploadsCancelled) {
     await fetchUpload()
+  }
+}
+
+// --- Retry (funnel through standard upload pool) ---
+
+function retryFile(file) {
+  file.status = 'toUpload'
+  file.error = null
+  file.progress = 0
+  file.abort = null
+  if (!isUploading) {
+    uploadPendingFiles()
+  }
+  // If pool is running, the re-check loop picks it up after the current batch
+}
+
+function retryAllFailed() {
+  for (const file of pendingFiles.value) {
+    if (file.status === 'error') {
+      file.status = 'toUpload'
+      file.error = null
+      file.progress = 0
+      file.abort = null
+    }
+  }
+  if (!isUploading) {
+    uploadPendingFiles()
   }
 }
 
@@ -338,17 +399,39 @@ onMounted(async () => {
   }
 })
 
-// Auto-show view panel if there is exactly one text file
+// When the upload ID changes (e.g. user pastes a different URL), reset and re-fetch
+watch(() => props.id, async (newId, oldId) => {
+  if (newId === oldId) return
+
+  // Reset all state
+  upload.value = null
+  error.value = null
+  uploadError.value = null
+  pendingFiles.value = []
+  isAddingFiles.value = false
+  closeViewer()
+  lastAutoViewedId.value = null
+
+  // Handle uploadToken in query
+  const queryToken = router.currentRoute.value.query.uploadToken
+  if (queryToken) {
+    setToken(newId, queryToken)
+    router.replace({ path: '/', query: { id: newId } })
+  }
+
+  await fetchUpload()
+})
+
+// Auto-show view panel if the upload contains exactly one file and it's a text file
 watch(activeFiles, (files) => {
-  if (files.length === 1) {
-    const file = files[0]
-    if (file.status === 'uploaded' && isTextFile(file) && lastAutoViewedId.value !== file.id) {
-      lastAutoViewedId.value = file.id
-      viewFile(file)
-    }
-  } else if (files.length > 1) {
-    // If more files added, we might want to reset scroll but keep viewer if it was manually opened.
-    // However, the requirement is only for "if upload has only one file".
+  // Only auto-view when the entire upload has exactly one file
+  const totalUploadFiles = upload.value?.files?.filter(f => f.status !== 'removed' && f.status !== 'deleted')
+  if (totalUploadFiles?.length !== 1) return
+
+  const file = files[0]
+  if (file?.status === 'uploaded' && isTextFile(file) && lastAutoViewedId.value !== file.id) {
+    lastAutoViewedId.value = file.id
+    viewFile(file)
   }
 }, { immediate: true })
 </script>
@@ -489,18 +572,28 @@ watch(activeFiles, (files) => {
           <div v-if="pendingFiles.length" class="space-y-2">
             <div class="flex items-center justify-between px-1">
               <h3 class="text-sm font-medium text-surface-400">
-                <template v-if="isAddingFiles">
+                <template v-if="isAddingFiles && pendingFiles.some(f => f.status === 'error') && !pendingFiles.some(f => f.status === 'uploading' || f.status === 'toUpload')">
+                  {{ pendingFiles.filter(f => f.status === 'error').length }} file{{ pendingFiles.filter(f => f.status === 'error').length > 1 ? 's' : '' }} failed
+                </template>
+                <template v-else-if="isAddingFiles">
                   {{ pendingFiles.filter(f => f.status !== 'uploaded').length }} file{{ pendingFiles.filter(f => f.status !== 'uploaded').length > 1 ? 's' : '' }} left to upload
                 </template>
                 <template v-else>
                   {{ pendingFiles.length }} file{{ pendingFiles.length > 1 ? 's' : '' }} to add
                 </template>
               </h3>
-              <button v-if="isAddingFiles"
-                      class="text-xs text-danger-500 hover:text-danger-400 transition-colors"
-                      @click="cancelAllUploads">
-                Cancel All
-              </button>
+              <div class="flex items-center gap-3">
+                <button v-if="isAddingFiles && pendingFiles.some(f => f.status === 'error') && !pendingFiles.some(f => f.status === 'uploading' || f.status === 'toUpload')"
+                        class="text-xs text-accent-400 hover:text-accent-300 transition-colors"
+                        @click="retryAllFailed">
+                  Retry Failed
+                </button>
+                <button v-if="isAddingFiles"
+                        class="text-xs text-danger-500 hover:text-danger-400 transition-colors"
+                        @click="cancelAllUploads">
+                  Cancel All
+                </button>
+              </div>
             </div>
 
             <FileRow v-for="file in pendingFiles"
@@ -508,7 +601,8 @@ watch(activeFiles, (files) => {
                      :file="file"
                      :mode="isAddingFiles ? 'uploading' : 'upload'"
                      @remove="isAddingFiles ? cancelFileUpload(file) : removePendingFile(file)"
-                     @cancel="cancelFileUpload" />
+                     @cancel="cancelFileUpload"
+                     @retry="retryFile" />
           </div>
 
           <!-- Upload Pending Files Button (only shown when files are staged but not yet uploading) -->
@@ -523,7 +617,7 @@ watch(activeFiles, (files) => {
           </div>
 
           <!-- Upload progress indicator -->
-          <div v-if="isAddingFiles" class="flex items-center justify-center py-2">
+          <div v-if="isAddingFiles && pendingFiles.some(f => f.status === 'uploading' || f.status === 'toUpload')" class="flex items-center justify-center py-2">
             <div class="animate-spin rounded-full h-4 w-4 border-2 border-accent-500 border-t-transparent" />
             <span class="ml-2 text-xs text-surface-400">Uploading files...</span>
           </div>
