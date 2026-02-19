@@ -102,6 +102,12 @@ Configuration is loaded from (in order):
 2. `~/.plikrc`
 3. `/etc/plik/plikrc`
 
+## Example
+
+Here is an example of an AI assistant uploading multiple files in a single operation using the `upload_files` tool:
+
+![MCP Upload Example](/mcp-upload-example.png)
+
 ## Troubleshooting
 
 **Server won't start:** Ensure `plik` is in your `PATH` and `~/.plikrc` exists with a valid `URL`.
