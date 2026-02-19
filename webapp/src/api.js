@@ -211,9 +211,10 @@ export function removeUpload(id, uploadToken) {
  * @param {Object} fileEntry - { id, fileName, file (File object) }
  * @param {Function} onProgress - callback(percent)
  * @param {string} basicAuth - optional base64 auth string
+ * @param {Function} onStart - optional callback fired when upload connection opens (loadstart)
  * @returns {{ promise: Promise<Object>, abort: Function }} - promise resolves to file metadata, abort cancels the upload
  */
-export function uploadFile(upload, fileEntry, onProgress, basicAuth) {
+export function uploadFile(upload, fileEntry, onProgress, basicAuth, onStart) {
     const mode = upload.stream ? 'stream' : 'file'
     let url
     if (fileEntry.id) {
@@ -243,6 +244,10 @@ export function uploadFile(upload, fileEntry, onProgress, basicAuth) {
                 onProgress(Math.round((e.loaded / e.total) * 100))
             }
         })
+
+        if (onStart) {
+            xhr.upload.addEventListener('loadstart', () => onStart())
+        }
 
         xhr.addEventListener('load', () => {
             if (xhr.status >= 200 && xhr.status < 300) {

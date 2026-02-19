@@ -105,13 +105,30 @@ Files in the Plik API have a `status` field with 5 possible values:
 
 ### activeFiles computed property
 
-Files with `removed` or `deleted` status are filtered out. All other statuses are displayed:
+During active uploads (`isAddingFiles`), the top panel only shows files the user can interact with:
+- **Non-streaming**: only `uploaded` files (must be complete on server)
+- **Streaming**: `uploading` + `uploaded` (download works via live stream)
+
+When not uploading (e.g. friend viewing the download page), all non-removed files are shown:
 
 ```js
 const activeFiles = computed(() => {
-  return upload.value.files.filter(f => f.status !== 'removed' && f.status !== 'deleted')
+  if (!upload.value?.files) return []
+  return upload.value.files.filter(f => {
+    if (f.status === 'removed' || f.status === 'deleted') return false
+    if (isAddingFiles.value) {
+      if (upload.value.stream) {
+        return f.status === 'uploading' || f.status === 'uploaded'
+      } else {
+        return f.status === 'uploaded'
+      }
+    }
+    return true
+  })
 })
 ```
+
+> **Key design**: Files "move" from the bottom pending panel to the top active list as they become ready — non-streaming files appear when uploaded, streaming files appear when they start uploading (since their download link is immediately valid).
 
 > **Gotcha**: After deleting a file via the API, the server returns `"ok"` (plain text, not JSON). The file's status changes to `removed` server-side but the API **does not return the updated file object**. You must call `fetchUpload()` again to refresh the list.
 
@@ -196,12 +213,16 @@ The URL prefix changes based on whether the upload uses streaming:
 
 ### Upload flow (UploadView → DownloadView)
 
-1. `createUpload(params)` → server returns upload with `id`, `uploadToken`, and pre-created file entries (with IDs)
-2. `setPendingFiles(id, files, basicAuth)` stashes files in the in-memory `pendingUploadStore`
-3. `setToken(id, token)`, then `router.push({ path: '/', query: { id } })` — **navigates immediately**
-4. DownloadView mounts, calls `consumePendingFiles(id)` to retrieve the stashed files
-5. Auto-starts `uploadPendingFiles()` — uploads each file sequentially with progress tracking
-6. After each file: `fetchUpload()` refreshes the file list (incremental download links)
+1. `buildUploadParams()` pre-populates files (with `reference` fields) so the server assigns IDs upfront
+2. `createUpload(params)` → server returns upload with `id`, `uploadToken`, and pre-created file entries (with IDs)
+3. `setPendingFiles(id, files, basicAuth)` stashes files in the in-memory `pendingUploadStore` — file IDs are matched via `reference` (not array index)
+4. `setToken(id, token)`, then `router.push({ path: '/', query: { id } })` — **navigates immediately**
+5. DownloadView mounts, calls `consumePendingFiles(id)` to retrieve the stashed files
+6. Auto-starts `uploadPendingFiles()` — uploads files concurrently (max 5 at a time) with a worker pool
+7. Status updates are **local** (reactive mutations on `upload.value.files[i].status`) — no `fetchUpload()` during uploads to avoid UI flash
+8. For streaming uploads: `onStart` callback marks server files as `'uploading'` → they appear in the top panel immediately
+9. For all uploads: `.then()` marks server files as `'uploaded'` → they appear in the top panel
+10. One final `fetchUpload()` after all uploads complete to sync with server truth
 
 > **Key design**: UploadView does NO file uploading — it only stages files and creates the upload. All upload logic lives in DownloadView, reusing the same `uploadPendingFiles()` used when adding files to an existing upload.
 
@@ -216,8 +237,8 @@ In-memory store (same pattern as `tokenStore.js`) to pass files from UploadView 
 When adding files to an existing upload:
 1. `onFilesSelected` stages files in `pendingFiles` ref (NOT uploaded yet)
 2. User sees staged files with remove buttons, can review before uploading
-3. Clicking "Upload" runs `uploadPendingFiles()` which uploads each file with progress
-4. After each upload: `fetchUpload()` refreshes the list (incremental download links)
+3. Clicking "Upload" runs `uploadPendingFiles()` which uploads files concurrently (max 5) with local status updates
+4. Files transition from bottom panel → top panel as they become ready
 5. Files added to existing uploads have **no pre-created fileId** — server assigns one
 
 ### Upload Cancellation
@@ -616,7 +637,7 @@ For full details on the Docker multi-stage build and release packaging, see [rel
 
 3. **`uploadToken` must be in `X-UploadToken` header** — not in the request body or URL query for API calls.
 
-4. **Filter out `removed`/`deleted`, show everything else** — use a blacklist, not a whitelist. Files with `missing` or `uploading` status must be shown (they represent ongoing uploads).
+4. **During uploads, `activeFiles` filters by readiness** — non-streaming: only `uploaded`; streaming: `uploading` + `uploaded`. When not uploading (friend viewing), all non-removed statuses are shown. Don't change this to a simple blacklist.
 
 5. **Refreshing the page loses admin access** — tokens are in-memory only. The only way to regain access is to open the Admin URL again.
 
