@@ -9,9 +9,18 @@ const props = defineProps({
   uploadId: { type: String, default: '' },
   mode: { type: String, default: 'upload' }, // 'upload' | 'uploading' | 'download'
   canRemove: { type: Boolean, default: false },
+  isStream: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['remove', 'update-name', 'show-qr', 'view', 'cancel'])
+
+// For streaming uploads, files in 'uploading' status have a valid download URL
+// (the server streams from uploader to downloader). Files in 'missing' status
+// are not yet being uploaded and will 404 if downloaded.
+const isDownloadable = computed(() =>
+  props.file.status === 'uploaded' ||
+  (props.isStream && props.file.status === 'uploading')
+)
 
 const isTextFile = computed(() => {
   if (props.file.status !== 'uploaded') return false
@@ -115,7 +124,7 @@ function fileUrl() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <a v-if="file.status === 'uploaded'"
+          <a v-if="isDownloadable"
              :href="fileUrl()"
              class="text-sm text-surface-100 hover:text-accent-400 transition-colors truncate"
              target="_blank">
@@ -180,7 +189,7 @@ function fileUrl() {
       <div class="flex items-center gap-1 shrink-0">
 
         <!-- QR Code button (download mode) -->
-        <button v-if="mode === 'download' && file.status === 'uploaded'"
+        <button v-if="mode === 'download' && isDownloadable"
                 class="btn bg-surface-700/50 text-surface-400 hover:text-white px-2 py-1.5 text-xs"
                 title="Show QR code"
                 @click="emit('show-qr', file)">
@@ -191,7 +200,7 @@ function fileUrl() {
         </button>
 
         <!-- Copy link (download mode) -->
-        <CopyButton v-if="mode === 'download' && file.status === 'uploaded'"
+        <CopyButton v-if="mode === 'download' && isDownloadable"
                     :text="fileUrl()" />
 
         <!-- View button (download mode, text files only) -->
@@ -209,7 +218,7 @@ function fileUrl() {
         </button>
 
         <!-- Download button (download mode) -->
-        <a v-if="mode === 'download' && file.status === 'uploaded'"
+        <a v-if="mode === 'download' && isDownloadable"
            :href="fileUrl() + '?dl=1'"
            class="btn bg-success-500/10 text-success-500 hover:bg-success-500/20 px-2 md:px-3 py-1.5 text-xs">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

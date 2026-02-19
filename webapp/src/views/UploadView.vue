@@ -210,6 +210,14 @@ function buildUploadParams() {
     params.comments = commentText.value.trim()
   }
 
+  // Pre-populate files so the server assigns IDs (matched back via reference)
+  params.files = files.value.map(f => ({
+    fileName: f.fileName,
+    fileSize: f.size,
+    fileType: f.file?.type || '',
+    reference: f.reference,
+  }))
+
   return params
 }
 
@@ -246,10 +254,10 @@ async function doUpload() {
       : null
 
     // Stash files for DownloadView to pick up and upload
-    const pendingFiles = files.value.map((f, idx) => ({
+    const pendingFiles = files.value.map(f => ({
       ...f,
-      // Attach server-assigned file ID for initial upload (files were pre-created)
-      id: upload.files?.[idx]?.id,
+      // Match server-assigned file ID via reference
+      id: upload.files?.find(sf => sf.reference === f.reference)?.id,
     }))
     setPendingFiles(upload.id, pendingFiles, basicAuth)
 
