@@ -1,7 +1,6 @@
 package file
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"sync"
@@ -13,44 +12,42 @@ import (
 // Ensure Testing Data Backend implements data.Backend interface
 var _ data.Backend = (*Backend)(nil)
 
-type BufferReadSeekCloser struct {
-	buffer *bytes.Buffer
-	off int64 // Forced to duplicate it since bytes.Buffer hides it
+// This is like a bytes.Buffer but seekable. We implent io.ReadSeekCloser
+type Buffer struct {
+	buf []byte
+	off int
 }
 
-func NewBufferReadSeekCloser(buffer *bytes.Buffer) (io.ReadSeekCloser) {
-	return &BufferReadSeekCloser { buffer: buffer, off: 0}
+func (b *Buffer) Read(p []byte) (n int, err error) {
+	if len(b.buf) <= b.off {
+        b.buf = b.buf[:0]
+        b.off = 0
+		if len(p) == 0 {
+			return 0, nil
+		}
+		return 0, io.EOF
+	}
+	n = copy(p, b.buf[b.off:])
+	b.off += n
+	return n, nil
 }
 
-func (b *BufferReadSeekCloser) Read(data []byte) (n int, err error) {
-	return b.buffer.Read(data)
-}
-
-func (b *BufferReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
-    // Convert SeekStart and SeekEnd to SeekCurent equivalent
+func (b *Buffer) Seek(offset int64, whence int) (int64, error) {
 	switch whence {
     case io.SeekStart:
-        offset = offset - b.off
+		b.off = int(offset)
+    case io.SeekCurrent:
+		b.off += int(offset)
 	case io.SeekEnd:
-		len := int64(b.buffer.Len()) + b.off
-		offset = len - offset - b.off
+		b.off = len(b.buf) - int(offset)
 	default:
 	}
-
-	// Seeking back is not supported by bytes.Buffer
-	if offset < 0 {
-		return b.off, io.ErrUnexpectedEOF
-	}
-
-    b.off += int64(len(b.buffer.Next(int(offset))))
-	return b.off, nil
+	return int64(b.off), nil
 }
 
-
-func (*BufferReadSeekCloser) Close() error {
+func (*Buffer) Close() error {
 	return nil
 }
-
 
 // Backend object
 type Backend struct {
@@ -83,7 +80,7 @@ func (b *Backend) GetFile(file *common.File) (reader io.ReadSeekCloser, err erro
 	}
 
 	if content, ok := b.files[file.ID]; ok {
-        return NewBufferReadSeekCloser(bytes.NewBuffer(content)), nil
+        return &Buffer{buf: content, off: 0}, nil
 	}
 
 	return nil, errors.New("file not found")
