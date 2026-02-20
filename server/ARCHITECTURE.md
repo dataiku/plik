@@ -205,6 +205,7 @@ Each middleware is a function that takes a `context.Context` and optionally call
 | `create_upload.go` | `CreateUpload` | Parse upload creation params for quick upload |
 | `paginate.go` | `Paginate` | Parse pagination query params |
 | `redirect.go` | `RedirectOnFailure` | Redirect to webapp on error (for browser requests) |
+| `block_bot_download.go` | `BlockBotDownload` | Block messaging app link preview bots from downloading one-shot/streaming files (returns 406) |
 | `user.go` | `User` | Resolve `{userID}` → load user (admin or self) |
 
 ---

@@ -49,6 +49,12 @@ func (ctx *Context) Forbidden(message string, params ...any) {
 	ctx.Fail(message, nil, http.StatusForbidden)
 }
 
+// NotAcceptable is a helper to generate http.StatusNotAcceptable responses
+func (ctx *Context) NotAcceptable(message string, params ...any) {
+	message = fmt.Sprintf(message, params...)
+	ctx.Fail(message, nil, http.StatusNotAcceptable)
+}
+
 // Unauthorized is a helper to generate http.Unauthorized responses
 func (ctx *Context) Unauthorized(message string, params ...any) {
 	message = fmt.Sprintf(message, params...)
