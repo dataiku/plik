@@ -42,7 +42,13 @@ async function apiCall(url, method = 'GET', data = null, headers = {}) {
         opts.body = JSON.stringify(data)
     }
 
-    const resp = await fetch(url, opts)
+    let resp
+    try {
+        resp = await fetch(url, opts)
+    } catch (err) {
+        // Network errors (offline, DNS, CORS, server down)
+        throw { status: 0, message: 'Network error \u2014 server may be unreachable', originalError: err.message }
+    }
 
     if (!resp.ok) {
         let message = 'Unknown error'
@@ -211,9 +217,10 @@ export function removeUpload(id, uploadToken) {
  * @param {Object} fileEntry - { id, fileName, file (File object) }
  * @param {Function} onProgress - callback(percent)
  * @param {string} basicAuth - optional base64 auth string
+ * @param {Function} onStart - optional callback fired when upload connection opens (loadstart)
  * @returns {{ promise: Promise<Object>, abort: Function }} - promise resolves to file metadata, abort cancels the upload
  */
-export function uploadFile(upload, fileEntry, onProgress, basicAuth) {
+export function uploadFile(upload, fileEntry, onProgress, basicAuth, onStart) {
     const mode = upload.stream ? 'stream' : 'file'
     let url
     if (fileEntry.id) {
@@ -244,6 +251,10 @@ export function uploadFile(upload, fileEntry, onProgress, basicAuth) {
             }
         })
 
+        if (onStart) {
+            xhr.upload.addEventListener('loadstart', () => onStart())
+        }
+
         xhr.addEventListener('load', () => {
             if (xhr.status >= 200 && xhr.status < 300) {
                 try {
@@ -252,17 +263,20 @@ export function uploadFile(upload, fileEntry, onProgress, basicAuth) {
                     resolve(null)
                 }
             } else {
-                let message = 'Upload failed'
+                let message = `Upload failed (${xhr.status})`
                 try {
                     const body = JSON.parse(xhr.responseText)
                     message = body.message || message
-                } catch { /* ignore */ }
+                } catch {
+                    // Server returns plain text errors (not JSON)
+                    if (xhr.responseText) message = xhr.responseText
+                }
                 reject({ status: xhr.status, message })
             }
         })
 
         xhr.addEventListener('error', () => {
-            reject({ status: 0, message: 'Connection failed' })
+            reject({ status: 0, message: 'Upload connection lost \u2014 check your network' })
         })
 
         xhr.addEventListener('abort', () => {

@@ -80,3 +80,21 @@ Set `FeatureAuthentication = "forced"` to require authentication for all uploads
 ### Upload Tokens
 
 Authenticated users can generate upload tokens to link CLI uploads to their account. Tokens are sent via the `X-PlikToken` HTTP header.
+
+## Link Preview Bot Protection
+
+Messaging apps like Slack, Telegram, WhatsApp, Signal, Discord, and others generate link previews by fetching shared URLs. This is problematic for:
+
+- **One-shot uploads**: the bot's preview request counts as the single allowed download, deleting the file before the intended recipient can access it
+- **Streaming uploads**: the bot consumes the stream data, leaving nothing for the real downloader
+
+Plik automatically blocks known messaging app link preview bots from downloading one-shot and streaming files, returning a **406 Not Acceptable** response. Normal (multi-download) uploads are not affected — bots can still generate previews for those.
+
+::: tip No configuration needed
+This protection is always active and requires no configuration. It uses a hardcoded list of known bot user-agent strings that is maintained with Plik releases.
+:::
+
+### Blocked Bots
+
+Slack, Telegram, WhatsApp, Signal, Facebook/Messenger, Discord, Skype, Viber, LinkedIn, Twitter/X, Microsoft Teams, Wire, Mattermost, Rocket.Chat, and Zulip.
+

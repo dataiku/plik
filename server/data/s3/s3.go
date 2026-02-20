@@ -26,6 +26,7 @@ type Config struct {
 	Prefix          string
 	PartSize        uint64
 	UseSSL          bool
+	SendContentMd5  bool
 	SSE             string
 }
 
@@ -127,7 +128,7 @@ func (b *Backend) GetFile(file *common.File) (reader io.ReadSeekCloser, err erro
 
 // AddFile implementation for S3 Data Backend
 func (b *Backend) AddFile(file *common.File, fileReader io.Reader) (err error) {
-	putOpts := minio.PutObjectOptions{ContentType: file.Type}
+	putOpts := b.newPutObjectOptions(file.Type)
 
 	// Configure server side encryption
 	putOpts.ServerSideEncryption, err = b.getServerSideEncryption(file)
@@ -147,6 +148,13 @@ func (b *Backend) AddFile(file *common.File, fileReader io.Reader) (err error) {
 		_, err = b.client.PutObject(context.TODO(), b.config.Bucket, b.getObjectName(file.ID), fileReader, -1, putOpts)
 	}
 	return err
+}
+
+func (b *Backend) newPutObjectOptions(contentType string) minio.PutObjectOptions {
+	return minio.PutObjectOptions{
+		ContentType:    contentType,
+		SendContentMd5: b.config.SendContentMd5,
+	}
 }
 
 // RemoveFile implementation for S3 Data Backend
