@@ -6,6 +6,7 @@ import { createUpload } from '../api.js'
 import { setToken } from '../tokenStore.js'
 import { setPendingFiles } from '../pendingUploadStore.js'
 import { generateRef, ttlToSeconds, secondsToTTL, encodeBasicAuth, humanReadableSize } from '../utils.js'
+import { encryptFile } from '../crypto.js'
 import { auth } from '../authStore.js'
 import { marked } from 'marked'
 import UploadSidebar from '../components/UploadSidebar.vue'
@@ -49,6 +50,8 @@ const settings = reactive({
   password: '',
   commentEnabled: isFeatureDefaultOn('comments'),
   extendTTL: isFeatureDefaultOn('extend_ttl'),
+  e2eeEnabled: isFeatureDefaultOn('e2ee'),
+  e2eePassphrase: '',
   // When both defaultTTL and maxTTL are 0 (no limit), default to "never expires" ON (opt-out)
   neverExpires: config.defaultTTL <= 0 && effectiveMaxTTL.value <= 0,
   ttlValue: defaultTTL.value.value || 15,
@@ -210,6 +213,10 @@ function buildUploadParams() {
     params.comments = commentText.value.trim()
   }
 
+  if (settings.e2eeEnabled) {
+    params.e2ee = 'age'
+  }
+
   // Pre-populate files so the server assigns IDs (matched back via reference)
   params.files = files.value.map(f => ({
     fileName: f.fileName,
@@ -256,14 +263,28 @@ async function doUpload() {
       : null
 
     // Stash files for DownloadView to pick up and upload
-    const pendingFiles = files.value.map(f => ({
-      ...f,
-      // Match server-assigned file ID via reference
-      id: upload.files?.find(sf => sf.reference === f.reference)?.id,
-    }))
-    setPendingFiles(upload.id, pendingFiles, basicAuth)
+    // If E2EE is enabled, encrypt files before stashing
+    let pendingFiles
+    if (settings.e2eeEnabled && settings.e2eePassphrase) {
+      pendingFiles = await Promise.all(files.value.map(async (f) => {
+        const encryptedBlob = await encryptFile(f.file, settings.e2eePassphrase)
+        return {
+          ...f,
+          file: encryptedBlob,
+          id: upload.files?.find(sf => sf.reference === f.reference)?.id,
+        }
+      }))
+    } else {
+      pendingFiles = files.value.map(f => ({
+        ...f,
+        id: upload.files?.find(sf => sf.reference === f.reference)?.id,
+      }))
+    }
 
-    // Navigate immediately — DownloadView will auto-start uploading
+    const passphrase = settings.e2eeEnabled ? settings.e2eePassphrase : null
+    setPendingFiles(upload.id, pendingFiles, basicAuth, passphrase)
+
+    // Navigate to download view — passphrase is carried via pendingUploadStore
     setToken(upload.id, upload.uploadToken)
     router.push({ path: '/', query: { id: upload.id } })
   } catch (err) {

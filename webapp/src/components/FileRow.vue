@@ -10,9 +10,10 @@ const props = defineProps({
   mode: { type: String, default: 'upload' }, // 'upload' | 'uploading' | 'download'
   canRemove: { type: Boolean, default: false },
   isStream: { type: Boolean, default: false },
+  isE2ee: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['remove', 'update-name', 'show-qr', 'view', 'cancel', 'retry'])
+const emit = defineEmits(['remove', 'update-name', 'show-qr', 'view', 'cancel', 'retry', 'decrypt-download'])
 
 // For streaming uploads, files in 'uploading' status have a valid download URL
 // (the server streams from uploader to downloader). Files in 'missing' status
@@ -124,12 +125,17 @@ function fileUrl() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <a v-if="isDownloadable"
+          <a v-if="isDownloadable && !isE2ee"
              :href="fileUrl()"
              class="text-sm text-surface-100 hover:text-accent-400 transition-colors truncate"
              target="_blank">
             {{ file.fileName }}
           </a>
+          <button v-else-if="isDownloadable && isE2ee"
+                  class="text-sm text-surface-100 hover:text-accent-400 transition-colors truncate text-left"
+                  @click="emit('decrypt-download', file)">
+            {{ file.fileName }}
+          </button>
           <span v-else class="text-sm text-surface-100 truncate">
             {{ file.fileName }}
           </span>
@@ -226,7 +232,7 @@ function fileUrl() {
         </button>
 
         <!-- Download button (download mode) -->
-        <a v-if="mode === 'download' && isDownloadable"
+        <a v-if="mode === 'download' && isDownloadable && !isE2ee"
            :href="fileUrl() + '?dl=1'"
            class="btn bg-success-500/10 text-success-500 hover:bg-success-500/20 px-2 md:px-3 py-1.5 text-xs">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,6 +241,18 @@ function fileUrl() {
           </svg>
           <span class="hidden md:inline">Download</span>
         </a>
+
+        <!-- Decrypt + Download button (E2EE mode) -->
+        <button v-if="mode === 'download' && isDownloadable && isE2ee"
+                class="btn bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 px-2 md:px-3 py-1.5 text-xs"
+                title="Decrypt and download"
+                @click="emit('decrypt-download', file)">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span class="hidden md:inline">Decrypt</span>
+        </button>
 
         <!-- Cancel button (uploading mode — for in-progress or queued files) -->
         <button v-if="mode === 'uploading' && (file.status === 'uploading' || file.status === 'toUpload')"

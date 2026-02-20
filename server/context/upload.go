@@ -166,13 +166,18 @@ func (ctx *Context) setParams(upload *common.Upload, params *common.Upload) (err
 	if upload.Stream && config.FeatureStream == common.FeatureDisabled {
 		return fmt.Errorf("streaming uploads are disabled")
 	} else if !upload.Stream && config.FeatureStream == common.FeatureForced {
-		upload.Stream = true
+		return fmt.Errorf("streaming uploads are required")
 	}
 
 	if config.FeatureComments == common.FeatureDisabled {
 		upload.Comments = ""
 	} else {
 		upload.Comments = params.Comments
+	}
+
+	upload.E2EE = params.E2EE
+	if upload.E2EE != "" && !common.IsValidE2EEScheme(upload.E2EE) {
+		return fmt.Errorf("invalid e2ee scheme %q", upload.E2EE)
 	}
 
 	return nil

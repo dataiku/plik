@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	cloud.google.com/go/storage v1.31.0
+	filippo.io/age v1.3.1
 	github.com/BurntSushi/toml v1.3.2
 	github.com/boombuler/barcode v1.0.1
 	github.com/camathieu/pb v1.0.29-0.20190403132434-889de99fc8d5
@@ -30,7 +31,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/xhit/go-str2duration/v2 v2.1.0
-	golang.org/x/crypto v0.35.0
+	golang.org/x/crypto v0.45.0
 	golang.org/x/oauth2 v0.30.0
 	google.golang.org/api v0.129.0
 	gorm.io/driver/mysql v1.5.1
@@ -44,6 +45,8 @@ require (
 	cloud.google.com/go v0.110.3 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.1 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -85,7 +88,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect

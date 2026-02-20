@@ -20,7 +20,7 @@ Plik is a temporary file upload system with three main components:
 
 | Type | Package | Description |
 |------|---------|-------------|
-| `Upload` | `server/common` | Container for files — has TTL, options (OneShot, Stream, Removable), password protection |
+| `Upload` | `server/common` | Container for files — has TTL, options (OneShot, Stream, Removable), password protection, E2EE scheme |
 | `File` | `server/common` | Individual file within an upload — has status, size, type, md5 |
 | `User` | `server/common` | Authenticated user (local, Google, OVH, OIDC) — has quotas |
 | `Token` | `server/common` | Upload token (UUID) — authenticates CLI clients on behalf of a user |

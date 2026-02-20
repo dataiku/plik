@@ -73,8 +73,11 @@ Archives wrap multiple files/directories into a single upload file.
 |---------|-------------|
 | `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher) |
 | `pgp` | Asymmetric encryption via GPG/PGP (recipient-based) |
+| `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
 
 Encryption wraps the file data stream before upload.
+
+When the `age` backend is used, the upload is flagged as E2EE (`upload.E2EE = "age"`). This tells the webapp to prompt for a passphrase on download and decrypt client-side. A cryptographically-secure passphrase is auto-generated when none is provided.
 
 ### Self-Update (`update.go`)
 

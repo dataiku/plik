@@ -1,9 +1,9 @@
 // In-memory store to pass initial files from UploadView → DownloadView across navigation
-// Files + basicAuth are stashed after createUpload(), consumed once by DownloadView on mount
+// Files + basicAuth + passphrase are stashed after createUpload(), consumed once by DownloadView on mount
 const pending = new Map()
 
-export function setPendingFiles(uploadId, files, basicAuth) {
-    pending.set(uploadId, { files, basicAuth })
+export function setPendingFiles(uploadId, files, basicAuth, passphrase = null) {
+    pending.set(uploadId, { files, basicAuth, passphrase })
 }
 
 export function consumePendingFiles(uploadId) {

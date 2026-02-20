@@ -35,6 +35,7 @@ export default withMermaid(defineConfig({
                         { text: 'Authentication', link: '/features/authentication' },
                         { text: 'Streaming', link: '/features/streaming' },
                         { text: 'MCP Server', link: '/features/mcp' },
+                        { text: 'Encryption', link: '/features/encryption' },
                     ],
                 },
                 {

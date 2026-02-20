@@ -1,10 +1,11 @@
 package context
 
 import (
-	"github.com/root-gg/utils"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/root-gg/utils"
 
 	"github.com/stretchr/testify/require"
 
@@ -183,9 +184,8 @@ func TestUpload_StreamForced(t *testing.T) {
 	ctx.config.FeatureStream = common.FeatureForced
 
 	upload, err := ctx.CreateUpload(&common.Upload{Stream: false})
-	require.NoError(t, err)
-	require.NotNil(t, upload)
-	require.True(t, upload.Stream)
+	require.Errorf(t, err, "streaming uploads are required")
+	require.Nil(t, upload)
 
 	upload, err = ctx.CreateUpload(&common.Upload{Stream: true})
 	require.NoError(t, err)

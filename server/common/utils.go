@@ -10,6 +10,11 @@ import (
 	"github.com/root-gg/utils"
 )
 
+// IsPlikWebapp checks if the request comes from the Plik web application
+func IsPlikWebapp(req *http.Request) bool {
+	return req.Header.Get("X-ClientApp") == "web_client"
+}
+
 // Ensure HTTPError implements error
 var _ error = (*HTTPError)(nil)
 

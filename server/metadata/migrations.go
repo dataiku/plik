@@ -189,6 +189,20 @@ func (b *Backend) getMigrations() []*gormigrate.Migration {
 				b.log.Criticalf("Something went wrong. Please check database status manually")
 				return nil
 			},
+		}, {
+			ID: "0007-upload-e2ee",
+			Migrate: func(tx *gorm.DB) error {
+				type Upload struct {
+					E2EE string `json:"e2ee,omitempty" gorm:"column:e2ee"`
+				}
+
+				b.log.Warning("Applying database migration 0007-upload-e2ee")
+				return b.setupTxForMigration(tx).AutoMigrate(&Upload{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				b.log.Criticalf("Something went wrong. Please check database status manually")
+				return nil
+			},
 		},
 	}
 

@@ -58,10 +58,10 @@ Options:
   --archive-options OPTIONS [tar|zip] Additional command line options
   -s                        Encrypt upload using the default encryption parameters ( see ~/.plikrc )
   --not-secure              Do not encrypt upload files regardless of the ~/.plikrc configurations
-  --secure MODE             Encrypt upload files using the specified crypto backend : openssl|pgp
+  --secure MODE             Encrypt upload files using the specified crypto backend : openssl|pgp|age (default: age)
   --cipher CIPHER           [openssl] Openssl cipher to use ( see openssl help )
-  --passphrase PASSPHRASE   [openssl] Passphrase or '-' to be prompted for a passphrase
-  --recipient RECIPIENT     [pgp] Set recipient for pgp backend ( example : --recipient Bob )
+  --passphrase PASSPHRASE   [openssl|age] Passphrase or '-' to be prompted for a passphrase
+  --recipient RECIPIENT     [pgp|age] Set recipient ( pgp: name, age: @github_user, ssh://host, URL, ssh key, or age1... )
   --secure-options OPTIONS  [openssl|pgp] Additional command line options
   --insecure                (TLS) Do not verify the server's certificate chain and hostname
   --update                  Update client
@@ -246,6 +246,13 @@ Options:
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to configure crypto backend : %s", err)
 			os.Exit(1)
+		}
+
+		// Set E2EE metadata on the upload when using age backend with passphrase mode.
+		// Recipient mode (-r <pubkey>) is not webapp-compatible — the webapp can't
+		// ask for the private key, so we don't flag the upload as E2EE.
+		if config.SecureMethod == "age" && arguments["--recipient"] == nil {
+			upload.E2EE = "age"
 		}
 	}
 
