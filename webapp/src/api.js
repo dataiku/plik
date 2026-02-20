@@ -42,7 +42,13 @@ async function apiCall(url, method = 'GET', data = null, headers = {}) {
         opts.body = JSON.stringify(data)
     }
 
-    const resp = await fetch(url, opts)
+    let resp
+    try {
+        resp = await fetch(url, opts)
+    } catch (err) {
+        // Network errors (offline, DNS, CORS, server down)
+        throw { status: 0, message: 'Network error \u2014 server may be unreachable', originalError: err.message }
+    }
 
     if (!resp.ok) {
         let message = 'Unknown error'
@@ -257,17 +263,20 @@ export function uploadFile(upload, fileEntry, onProgress, basicAuth, onStart) {
                     resolve(null)
                 }
             } else {
-                let message = 'Upload failed'
+                let message = `Upload failed (${xhr.status})`
                 try {
                     const body = JSON.parse(xhr.responseText)
                     message = body.message || message
-                } catch { /* ignore */ }
+                } catch {
+                    // Server returns plain text errors (not JSON)
+                    if (xhr.responseText) message = xhr.responseText
+                }
                 reject({ status: xhr.status, message })
             }
         })
 
         xhr.addEventListener('error', () => {
-            reject({ status: 0, message: 'Connection failed' })
+            reject({ status: 0, message: 'Upload connection lost \u2014 check your network' })
         })
 
         xhr.addEventListener('abort', () => {

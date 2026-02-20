@@ -232,7 +232,9 @@ async function createEmptyUpload() {
     setToken(upload.id, upload.uploadToken)
     router.push({ path: '/', query: { id: upload.id } })
   } catch (err) {
-    uploadError.value = err.message || 'Failed to create upload'
+    uploadError.value = err.status
+      ? `${err.message} (HTTP ${err.status})`
+      : (err.message || 'Failed to create upload')
   } finally {
     isUploading.value = false
   }
@@ -265,7 +267,9 @@ async function doUpload() {
     setToken(upload.id, upload.uploadToken)
     router.push({ path: '/', query: { id: upload.id } })
   } catch (err) {
-    uploadError.value = err.message || 'Failed to create upload'
+    uploadError.value = err.status
+      ? `${err.message} (HTTP ${err.status})`
+      : (err.message || 'Failed to create upload')
   } finally {
     isUploading.value = false
   }

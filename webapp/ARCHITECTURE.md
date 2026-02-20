@@ -157,6 +157,18 @@ try {
 
 > **Why**: Calling `resp.json()` first consumes the body stream. If it fails (plain text response), `resp.text()` would then also fail with "body stream already read". The text-first approach avoids this.
 
+### Network error wrapping
+
+`apiCall` wraps `fetch()` in a try/catch to convert the browser's generic `TypeError: Failed to fetch` into a user-friendly `"Network error — server may be unreachable"`. Without this, network failures (offline, DNS, server down) surface as cryptic browser errors.
+
+### XHR upload errors
+
+`uploadFile` uses XHR (not fetch) for progress tracking. The server returns **plain text** errors, not JSON, so the XHR error handler uses the same two-pass pattern: try `JSON.parse`, fall back to `xhr.responseText`. The `error` event (network failure) produces `"Upload connection lost — check your network"` instead of the generic browser error.
+
+### Error display format
+
+Error messages include the HTTP status code when available: `"message (HTTP 404)"`. File upload errors in the banner include the filename: `"photo.jpg: file too big"`. This gives users enough context to understand what went wrong and report issues.
+
 ### Success responses
 
 Some endpoints return **plain text** on success:
@@ -181,9 +193,34 @@ DownloadView uses **two separate error refs** to avoid upload errors from hiding
 | Ref | Purpose | Display |
 |-----|---------|---------|
 | `error` | Page-level failures (e.g., `fetchUpload` fails, upload not found) | Full-page error state via `v-else-if="error"` — replaces entire content |
-| `uploadError` | File transfer failures (e.g., 400 Bad Request during upload) | Dismissible inline banner within the upload content area |
+| `uploadError` | Non-file operational errors (reserved for future use) | Dismissible inline banner within the upload content area |
 
 > **Why two refs**: The template uses `v-if="loading"` / `v-else-if="error"` / `v-else-if="upload"` branching. If file upload errors set `error`, the `v-else-if="error"` branch takes over and hides the sidebar + file list. The `uploadError` ref keeps errors in the `v-else-if="upload"` block so the user retains context.
+
+### Per-file error handling with retry
+
+File upload errors are shown **per-file in the pending panel**, not in a top banner. Failed files:
+- Stay in the pending panel with `status: 'error'` and a red error message
+- Have a **Retry** button (per-file) and a **Retry Failed** button (bulk)
+- Have a dismiss (X) button to remove them from the list
+- Keep `isAddingFiles = true` so they don't appear as "Waiting for upload" in the top panel
+- When retried, transition back to `status: 'toUpload'` and re-enter the upload pool
+
+### Upload pool architecture
+
+All upload logic is DRY across three entry points:
+
+| Function | Purpose |
+|---|---|
+| `uploadFileEntry(file)` | Shared helper: XHR upload, progress, success/error handling |
+| `uploadPendingFiles()` | Pool manager: concurrency-limited batch with re-check loop |
+| `retryFile(file)` / `retryAllFailed()` | Reset file(s) to `toUpload`, delegate to pool |
+
+Key design decisions:
+- **`isUploading`** (non-reactive) guards pool re-entry. Separate from `isAddingFiles` (reactive, UI display).
+- **`activeBasicAuth`** stored at component level so retries preserve password-protected upload credentials.
+- **Re-check loop**: after each batch completes, the pool re-scans for `toUpload` files. This lets retries queue into the existing pool without bypassing `MAX_CONCURRENT`.
+- **`cancelAllUploads`** calls `fetchUpload()` after a 200ms delay so the server has time to update metadata.
 
 ---
 
