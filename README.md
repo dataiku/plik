@@ -45,6 +45,10 @@ cd plik-server-1.3.8-linux-amd64/server && ./plikd
 git clone https://github.com/root-gg/plik.git
 cd plik && make
 cd server && ./plikd
+
+# Kubernetes (Helm)
+helm repo add plik https://root-gg.github.io/plik
+helm install plik plik/plik
 ```
 
 Open web interface at [http://127.0.0.1:8080](http://127.0.0.1:8080)

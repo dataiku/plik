@@ -171,8 +171,11 @@ Key fields:
 ## How to Cut a Release
 
 1. Update `changelog/{version}` with release notes
-2. Create a release from GitHub (this creates the tag)
-3. The `release` GitHub Actions workflow runs automatically — it builds archives, client binaries, Docker images, and uploads everything to the release page
+2. Update `charts/plik/Chart.yaml` — bump `appVersion` to the new version
+3. Create a release from GitHub (this creates the tag)
+4. The `release` GitHub Actions workflow runs automatically — it builds archives, client binaries, Docker images, and uploads everything to the release page
+
+> The Helm chart is published separately via the `pages.yml` workflow when `charts/` changes are pushed to `master`. See [.github/ARCHITECTURE.md](../.github/ARCHITECTURE.md) for details.
 
 ## Testing the Release Process Locally
 

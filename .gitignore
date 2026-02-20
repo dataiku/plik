@@ -1,4 +1,5 @@
-*/plik
+# Ignore plik CLI binary (not */plik which would exclude charts/plik/)
+client/plik
 plikd
 clients
 *.db
