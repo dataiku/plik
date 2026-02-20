@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
@@ -98,7 +99,16 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 
 	// HEAD Request => Do not print file, user just wants http headers
 	// GET  Request => Print file content
-	if req.Method == "GET" {
+	if !upload.Stream && !upload.OneShot {
+		backend := ctx.GetDataBackend()
+		fileReader, err := backend.GetFile(file)
+		if err != nil {
+			ctx.InternalServerError("unable to get file from data backend", err)
+			return
+		}
+		defer func() { _ = fileReader.Close() }()
+		http.ServeContent(resp, req, file.Name, time.Time{}, fileReader)
+	} else if req.Method == "GET" {
 		// Get file in data backend
 		var backend data.Backend
 		if upload.Stream {
