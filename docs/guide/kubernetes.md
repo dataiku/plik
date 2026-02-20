@@ -30,25 +30,43 @@ The chart supports several modes of deployment. All Plik [configuration](./confi
 
 ### Persistence
 
-By default, the chart uses `emptyDir` for storage. For production, you should enable persistence and choose the deployment kind.
+Plik requires two types of persistent storage when using the `file` data backend:
+
+| PVC | `values.yaml` key | Default mount path | Stores |
+|-----|------------------|--------------------|--------|
+| File data | `persistence` | `/home/plik/server/files` | Uploaded files |
+| Database | `dbPersistence` | `/home/plik/server/db` | SQLite metadata (`plik.db`) |
+
+By default both use `emptyDir` (data is lost on pod restart). For production, enable both.
+
+> [!WARNING]
+> If you only enable `persistence` (file data PVC) but not `dbPersistence`, the SQLite database will still be on `emptyDir`. Restarting the pod will delete all metadata — uploaded files will survive on the PV but Plik will not know about them.
 
 #### StatefulSet (Recommended when using File Data Backend)
 
-If you use the `file` backend, a `StatefulSet` with a `PersistentVolumeClaim` is recommended to ensure files are consistently stored.
+`StatefulSet` is recommended for the `file` backend as each pod gets its own stable PVCs via `volumeClaimTemplates`.
 
 ```yaml
 kind: StatefulSet
+
 persistence:
-  enabled: true
   size: 10Gi
+
+dbPersistence:
+  size: 1Gi
 ```
 
 #### Deployment (Recommended when using Cloud Data Backends)
 
-If you use S3, GCS, or Swift, a standard `Deployment` is more appropriate.
+If you use S3, GCS, or Swift for file storage, a standard `Deployment` is more appropriate. Enable `dbPersistence` to preserve the SQLite database across pod restarts.
 
 ```yaml
 kind: Deployment
+
+dbPersistence:
+  enabled: true
+  size: 1Gi
+
 plikd:
   DataBackend: s3
   DataBackendConfig:
@@ -56,6 +74,19 @@ plikd:
     Bucket: "my-bucket"
     # Credentials should be provided via secret
 ```
+
+#### Custom Database Connection String
+
+The default `MetadataBackendConfig.ConnectionString` is `/home/plik/server/db/plik.db` (inside the `dbPersistence` volume). Override it to use PostgreSQL or MySQL instead:
+
+```yaml
+plikd:
+  MetadataBackendConfig:
+    Driver: "postgres"
+    ConnectionString: "host=pg.example.com user=plik dbname=plik sslmode=require"
+```
+
+When using a remote database, `dbPersistence` is not needed.
 
 ### Secrets Management
 

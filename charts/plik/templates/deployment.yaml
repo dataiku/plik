@@ -56,6 +56,8 @@ spec:
               subPath: plikd.cfg
             - name: data
               mountPath: {{ .Values.persistence.path }}
+            - name: db
+              mountPath: {{ .Values.dbPersistence.path }}
           envFrom:
             - secretRef:
                 name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "plik.fullname" . }}{{ end }}
@@ -83,6 +85,13 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        - name: db
+          {{- if .Values.dbPersistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "plik.fullname" . }}-db
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
         {{- end }}
   {{- if eq .Values.kind "StatefulSet" }}
   volumeClaimTemplates:
@@ -96,4 +105,14 @@ spec:
         resources:
           requests:
             storage: {{ .Values.persistence.size }}
+    - metadata:
+        name: db
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        {{- if .Values.dbPersistence.storageClassName }}
+        storageClassName: {{ .Values.dbPersistence.storageClassName }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.dbPersistence.size }}
   {{- end }}

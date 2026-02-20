@@ -104,6 +104,7 @@ make vuln                   # govulncheck (report only)
   - `charts/plik/values.yaml` — add/update the field under `plikd:`
   - `charts/plik/templates/configmap.yaml` — add/update the explicit key in the template
   - `charts/plik/templates/secret.yaml` — if the field is sensitive, add env var injection
+- **Helm persistence**: the chart has two independent PVCs — `persistence` for uploaded files (`/home/plik/server/files`) and `dbPersistence` for the SQLite database (`/home/plik/server/db`). Both default to `emptyDir` when disabled. The default `MetadataBackendConfig.ConnectionString` is `/home/plik/server/db/plik.db`.
 - **Run tests before committing**: `make lint && make test`
 - **Keep ARCHITECTURE.md files in sync**: Each root folder has its own — update the one closest to your change
 

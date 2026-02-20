@@ -316,6 +316,17 @@ The Helm chart (`charts/plik/`) mirrors the configuration model. When adding or 
 - `charts/plik/templates/configmap.yaml` — add the explicit key to the template
 - `charts/plik/templates/secret.yaml` — if the field is sensitive, add env var injection (`PLIKD_` prefix)
 
+#### Helm Chart Persistence
+
+The chart supports two independent PVCs:
+
+| `values.yaml` key | Default path | Purpose | PVC name |
+|-------------------|-------------|---------|----------|
+| `persistence` | `/home/plik/server/files` | Uploaded file data | `<release>` |
+| `dbPersistence` | `/home/plik/server/db` | SQLite metadata database | `<release>-db` |
+
+Both are disabled by default (`enabled: false`) and fall back to `emptyDir` when disabled. For `StatefulSet` kind, both create `volumeClaimTemplates` (always provisioned). The default `MetadataBackendConfig.ConnectionString` is `/home/plik/server/db/plik.db` — this path is valid even without a PVC (the directory is created at runtime).
+
 ### Feature Flags
 
 | Value | Meaning |
@@ -363,7 +374,7 @@ GORM-based with auto-migrations via gormigrate.
 
 | Driver | Config | Notes |
 |--------|--------|-------|
-| `sqlite3` | `ConnectionString = "plik.db"` | Default, standalone |
+| `sqlite3` | `ConnectionString = "/home/plik/server/db/plik.db"` | Default, standalone — path is inside the `dbPersistence` volume |
 | `postgres` | Standard GORM connection string | Distributed / HA |
 | `mysql` | Standard GORM connection string | Distributed / HA |
 

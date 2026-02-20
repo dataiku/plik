@@ -99,6 +99,15 @@ persistence:
   # annotations: {}
   path: /home/plik/server/files
 
+dbPersistence:
+  enabled: false
+  # storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+  # annotations: {}
+  path: /home/plik/server/db
+
 plikd:
   Debug: false
   DebugRequests: false
@@ -186,7 +195,7 @@ plikd:
 
   MetadataBackendConfig:
     Driver: "sqlite3"
-    ConnectionString: "plik.db"
+    ConnectionString: "/home/plik/server/db/plik.db"
     Debug: false
 
 # External Secrets
