@@ -38,7 +38,7 @@ func NewReader(ctx context.Context, obj *storage.ObjectHandle) (*GCSReadSeekClos
 }
 
 func NewReaderWithSize(ctx context.Context, obj *storage.ObjectHandle, size int64) *GCSReadSeekCloser {
-	return &GCSReadSeekCloser {
+	return &GCSReadSeekCloser{
 		ctx:  ctx,
 		obj:  obj,
 		size: size,

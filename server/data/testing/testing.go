@@ -20,8 +20,8 @@ type Buffer struct {
 
 func (b *Buffer) Read(p []byte) (n int, err error) {
 	if len(b.buf) <= b.off {
-        b.buf = b.buf[:0]
-        b.off = 0
+		b.buf = b.buf[:0]
+		b.off = 0
 		if len(p) == 0 {
 			return 0, nil
 		}
@@ -34,9 +34,9 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 
 func (b *Buffer) Seek(offset int64, whence int) (int64, error) {
 	switch whence {
-    case io.SeekStart:
+	case io.SeekStart:
 		b.off = int(offset)
-    case io.SeekCurrent:
+	case io.SeekCurrent:
 		b.off += int(offset)
 	case io.SeekEnd:
 		b.off = len(b.buf) - int(offset)
@@ -80,7 +80,7 @@ func (b *Backend) GetFile(file *common.File) (reader io.ReadSeekCloser, err erro
 	}
 
 	if content, ok := b.files[file.ID]; ok {
-        return &Buffer{buf: content, off: 0}, nil
+		return &Buffer{buf: content, off: 0}, nil
 	}
 
 	return nil, errors.New("file not found")
