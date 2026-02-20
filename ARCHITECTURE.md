@@ -309,6 +309,13 @@ PLIKD_DATA_BACKEND_CONFIG='{"Directory":"/var/files"}' ./plikd
 
 Arrays are overridden, maps are merged.
 
+### Helm Chart Sync
+
+The Helm chart (`charts/plik/`) mirrors the configuration model. When adding or modifying config fields in `server/common/config.go` or `server/plikd.cfg`, **always update**:
+- `charts/plik/values.yaml` — add the field under `plikd:` with its default value
+- `charts/plik/templates/configmap.yaml` — add the explicit key to the template
+- `charts/plik/templates/secret.yaml` — if the field is sensitive, add env var injection (`PLIKD_` prefix)
+
 ### Feature Flags
 
 | Value | Meaning |
@@ -396,7 +403,7 @@ docs/
 ```
 
 - **Build**: `make docs` (or `cd docs && npm run dev` for local dev server)
-- **Deploy**: Automated via `.github/workflows/deploy-docs.yml` on push to `master`
+- **Deploy**: Automated via `.github/workflows/pages.yml` on push to `master` (also publishes the Helm chart via chart-releaser)
 - **CI**: Build is verified on every push/PR via `.github/workflows/tests.yaml`. Automated docker build (`docker build` comment) and deploy (`docker deploy` comment) are available on PRs.
 
 **Build pipeline** (`make docs`):
@@ -425,3 +432,4 @@ For deeper details on each component:
 - [webapp/ARCHITECTURE.md](webapp/ARCHITECTURE.md) — Vue 3 SPA
 - [testing/ARCHITECTURE.md](testing/ARCHITECTURE.md) — Backend integration tests
 - [releaser/ARCHITECTURE.md](releaser/ARCHITECTURE.md) — Release pipeline
+- [.github/ARCHITECTURE.md](.github/ARCHITECTURE.md) — GitHub Actions workflows & CI/CD

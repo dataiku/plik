@@ -23,6 +23,7 @@ declare -A ARCH_FILES=(
   ["webapp/ARCHITECTURE.md"]="webapp"
   ["testing/ARCHITECTURE.md"]="testing"
   ["releaser/ARCHITECTURE.md"]="releaser"
+  [".github/ARCHITECTURE.md"]="github"
 )
 
 for src in "${!ARCH_FILES[@]}"; do
@@ -53,6 +54,8 @@ for src in "${!ARCH_FILES[@]}"; do
     -e "s|\]\(\.\./testing/ARCHITECTURE\.md([)#])|\](./testing.md\1|g" \
     -e "s|\]\(releaser/ARCHITECTURE\.md([)#])|\](./releaser.md\1|g" \
     -e "s|\]\(\.\./releaser/ARCHITECTURE\.md([)#])|\](./releaser.md\1|g" \
+    -e "s|\]\(\.github/ARCHITECTURE\.md([)#])|\](./github.md\1|g" \
+    -e "s|\]\(\.\./\.github/ARCHITECTURE\.md([)#])|\](./github.md\1|g" \
     "$full_src" > "$out"
 
   echo "  $src -> $out"

@@ -16,7 +16,7 @@ Plik is a temporary file upload system (WeTransfer-like) written in Go, with a V
 | Config    | TOML (server), TOML (client `.plikrc`) |
 | Data      | File, OpenStack Swift, S3, Google Cloud Storage |
 | Metadata  | SQLite3, PostgreSQL, MySQL (via GORM) |
-| CI        | GitHub Actions (tests, docker build/deploy on PR comment, release: `dev`/`preview`/`latest`/`{version}`) |
+| CI        | GitHub Actions (tests, docker build/deploy on PR comment, release, Helm chart publish) |
 
 ## Repo Layout
 
@@ -42,6 +42,8 @@ plik/
 ├── plik/                   ← Go client library (see plik/ARCHITECTURE.md)
 ├── webapp/                 ← Vue 3 SPA (see webapp/ARCHITECTURE.md)
 ├── testing/                ← backend integration tests (see testing/ARCHITECTURE.md)
+├── charts/                 ← Helm chart for Kubernetes deployment
+├── .github/                ← GitHub Actions workflows (see .github/ARCHITECTURE.md)
 ├── changelog/              ← release changelogs
 ├── releaser/               ← release build scripts
 ├── docs/                   ← VitePress documentation site
@@ -98,6 +100,10 @@ make vuln                   # govulncheck (report only)
 ## Best Practices
 
 - **Always update docs**: When changing code, update the relevant `ARCHITECTURE.md` and VitePress docs
+- **Keep Helm chart in sync with plikd config**: When adding, removing, or renaming configuration fields in `server/common/config.go` or `server/plikd.cfg`, you **must** also update the Helm chart:
+  - `charts/plik/values.yaml` — add/update the field under `plikd:`
+  - `charts/plik/templates/configmap.yaml` — add/update the explicit key in the template
+  - `charts/plik/templates/secret.yaml` — if the field is sensitive, add env var injection
 - **Run tests before committing**: `make lint && make test`
 - **Keep ARCHITECTURE.md files in sync**: Each root folder has its own — update the one closest to your change
 
@@ -129,3 +135,4 @@ make docs                    # Build docs (validates links, injects version)
 | [webapp/ARCHITECTURE.md](webapp/ARCHITECTURE.md) | Vue 3 SPA: components, routing, API layer, state |
 | [testing/ARCHITECTURE.md](testing/ARCHITECTURE.md) | Backend integration tests: docker-based test scripts |
 | [releaser/ARCHITECTURE.md](releaser/ARCHITECTURE.md) | Release tooling: build pipeline, Docker stages, client/server compilation |
+| [.github/ARCHITECTURE.md](.github/ARCHITECTURE.md) | GitHub Actions workflows, CI/CD, Helm chart release flow |

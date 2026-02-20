@@ -86,7 +86,7 @@ affinity: {}
 # This section mirrors the plikd.cfg configuration file
 
 # Deployment Strategy
-# Can be 'Deployment' or 'StatefulSet'. 
+# Can be 'Deployment' or 'StatefulSet'.
 # Use StatefulSet if you are using 'file' backend with a PersistentVolume.
 kind: Deployment
 
@@ -103,7 +103,7 @@ plikd:
   Debug: false
   DebugRequests: false
   LogLevel: "INFO"
-  
+
   ListenPort: 8080
   ListenAddress: "0.0.0.0"
   MetricsPort: 0
@@ -124,16 +124,17 @@ plikd:
   ChangelogDirectory: "../changelog"
   SourceIpHeader: ""
   UploadWhitelist: []
-  
+
   MaxFileSizeStr: "10GB"
   MaxUserSizeStr: "unlimited"
   MaxFilePerUpload: 1000
-  
+
   DefaultTTLStr: "30d"
   MaxTTLStr: "30d"
-  
+
   FeatureAuthentication: "disabled"
-  DisableLocalLogin: false
+  FeatureLocalLogin: "enabled"
+  FeatureDeleteAccount: "enabled"
   FeatureOneShot: "enabled"
   FeatureRemovable: "enabled"
   FeatureStream: "enabled"
@@ -144,19 +145,22 @@ plikd:
   FeatureClients: "enabled"
   FeatureGithub: "enabled"
   FeatureText: "enabled"
-  
+
   # Google config (consider using secrets)
-  GoogleApiClientID: "" 
+  GoogleApiClientID: ""
   GoogleValidDomains: []
-  
+
   # Ovh config (consider using secrets)
+  OvhApiKey: ""
   OvhApiEndpoint: ""
-  
+
   # OIDC config (consider using secrets)
   OIDCClientID: ""
   OIDCProviderURL: ""
+  OIDCProviderName: "OpenID"
   OIDCValidDomains: []
-  
+  OIDCRequireVerifiedEmail: false
+
   DataBackend: "file"
   DataBackendConfig:
     Directory: "files"

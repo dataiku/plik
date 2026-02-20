@@ -63,6 +63,7 @@ export default withMermaid(defineConfig({
                         { text: 'Web UI', link: '/architecture/webapp' },
                         { text: 'Testing', link: '/architecture/testing' },
                         { text: 'Releaser', link: '/architecture/releaser' },
+                        { text: 'GitHub Actions', link: '/architecture/github' },
                     ],
                 },
                 {
