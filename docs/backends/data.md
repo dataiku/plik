@@ -27,6 +27,7 @@ DataBackend = "s3"
     Prefix = ""
     UseSSL = true
     PartSize = 16777216  # 16MiB chunks (min 5MiB, max file = PartSize × 10000)
+    SendContentMd5 = false  # Use Content-MD5 instead of x-amz-checksum-* headers (for strict S3-compatible APIs like B2)
 ```
 
 ### Server-Side Encryption
