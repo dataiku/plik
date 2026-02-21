@@ -53,9 +53,7 @@ func (b *Backend) GetFile(file *common.File) (reader io.ReadSeekCloser, err erro
 
 	objectID := objectID(file)
 	reader, _, err = b.connection.ObjectOpen(b.config.Container, objectID, true, nil)
-
-	// This does only very basic checking and basically always return nil, error will happen when reading from the reader
-	return reader, nil
+	return reader, err
 }
 
 // AddFile implementation for Swift Data Backend
