@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 
 	"filippo.io/age"
@@ -55,7 +56,7 @@ func (ab *Backend) Configure(arguments map[string]any) (err error) {
 	// If no passphrase or recipient specified, generate a random passphrase
 	if ab.Config.Passphrase == "" && ab.Config.Recipient == "" {
 		ab.Config.Passphrase = generatePassphrase(32)
-		fmt.Printf("Passphrase : %s\n\n", ab.Config.Passphrase)
+		fmt.Fprintf(os.Stderr, "Passphrase : %s\n\n", ab.Config.Passphrase)
 	}
 
 	// Resolve recipient to age.Recipient objects
@@ -90,7 +91,7 @@ func resolveRecipients(recipient string) ([]age.Recipient, string, error) {
 			return nil, "", fmt.Errorf("empty GitHub username")
 		}
 		url := fmt.Sprintf("https://github.com/%s.keys", username)
-		fmt.Printf("Fetching SSH keys for @%s from %s\n", username, url)
+		fmt.Fprintf(os.Stderr, "Fetching SSH keys for @%s from %s\n", username, url)
 		recipients, err := fetchSSHKeys(url)
 		return recipients, "", err
 
@@ -103,7 +104,7 @@ func resolveRecipients(recipient string) ([]age.Recipient, string, error) {
 		if !strings.Contains(host, ":") {
 			host = host + ":22"
 		}
-		fmt.Printf("Scanning SSH host key from %s\n", host)
+		fmt.Fprintf(os.Stderr, "Scanning SSH host key from %s\n", host)
 		key, keyType, err := fetchHostKey(host)
 		if err != nil {
 			return nil, "", err
@@ -115,7 +116,7 @@ func resolveRecipients(recipient string) ([]age.Recipient, string, error) {
 		case ssh.KeyAlgoRSA:
 			keyPath = "/etc/ssh/ssh_host_rsa_key"
 		}
-		fmt.Printf("Found %s host key\n", keyType)
+		fmt.Fprintf(os.Stderr, "Found %s host key\n", keyType)
 		r, err := agessh.ParseRecipient(key)
 		if err != nil {
 			return nil, "", fmt.Errorf("invalid SSH host key: %s", err)
@@ -124,7 +125,7 @@ func resolveRecipients(recipient string) ([]age.Recipient, string, error) {
 
 	case strings.HasPrefix(recipient, "https://") || strings.HasPrefix(recipient, "http://"):
 		// Arbitrary URL containing SSH public keys
-		fmt.Printf("Fetching SSH keys from %s\n", recipient)
+		fmt.Fprintf(os.Stderr, "Fetching SSH keys from %s\n", recipient)
 		recipients, err := fetchSSHKeys(recipient)
 		return recipients, "", err
 
@@ -184,7 +185,7 @@ func fetchSSHKeys(url string) ([]age.Recipient, error) {
 		return nil, fmt.Errorf("no supported SSH keys found at %s (age supports ssh-rsa and ssh-ed25519)", url)
 	}
 
-	fmt.Printf("Found %d supported SSH key(s)\n", len(recipients))
+	fmt.Fprintf(os.Stderr, "Found %d supported SSH key(s)\n", len(recipients))
 
 	return recipients, nil
 }

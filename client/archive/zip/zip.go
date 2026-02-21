@@ -39,7 +39,7 @@ func (zb *Backend) Configure(arguments map[string]any) (err error) {
 // Archive implementation for ZIP Archive Backend
 func (zb *Backend) Archive(files []string) (reader io.Reader, err error) {
 	if len(files) == 0 {
-		fmt.Println("Unable to make a zip archive from STDIN")
+		fmt.Fprintln(os.Stderr, "Unable to make a zip archive from STDIN")
 		os.Exit(1)
 		return
 	}
@@ -57,19 +57,19 @@ func (zb *Backend) Archive(files []string) (reader io.Reader, err error) {
 	go func() {
 		err := cmd.Start()
 		if err != nil {
-			fmt.Printf("Unable to run zip cmd : %s\n", err)
+			fmt.Fprintf(os.Stderr, "Unable to run zip cmd : %s\n", err)
 			os.Exit(1)
 			return
 		}
 		err = cmd.Wait()
 		if err != nil {
-			fmt.Printf("Unable to run zip cmd : %s\n", err)
+			fmt.Fprintf(os.Stderr, "Unable to run zip cmd : %s\n", err)
 			os.Exit(1)
 			return
 		}
 		err = writer.Close()
 		if err != nil {
-			fmt.Printf("Unable to run zip cmd : %s\n", err)
+			fmt.Fprintf(os.Stderr, "Unable to run zip cmd : %s\n", err)
 			return
 		}
 	}()

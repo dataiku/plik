@@ -34,7 +34,7 @@ func (ob *Backend) Configure(arguments map[string]any) (err error) {
 	if arguments["--passphrase"] != nil && arguments["--passphrase"].(string) != "" {
 		ob.Config.Passphrase = arguments["--passphrase"].(string)
 		if ob.Config.Passphrase == "-" {
-			fmt.Printf("Please enter a passphrase : ")
+			fmt.Fprintf(os.Stderr, "Please enter a passphrase : ")
 			_, err = fmt.Scanln(&ob.Config.Passphrase)
 			if err != nil {
 				return err
@@ -42,7 +42,7 @@ func (ob *Backend) Configure(arguments map[string]any) (err error) {
 		}
 	} else {
 		ob.Config.Passphrase = common.GenerateRandomID(25)
-		fmt.Println("Passphrase : " + ob.Config.Passphrase)
+		fmt.Fprintln(os.Stderr, "Passphrase : "+ob.Config.Passphrase)
 	}
 	if arguments["--secure-options"] != nil && arguments["--secure-options"].(string) != "" {
 		ob.Config.Options = arguments["--secure-options"].(string)
@@ -55,19 +55,19 @@ func (ob *Backend) Configure(arguments map[string]any) (err error) {
 func (ob *Backend) Encrypt(in io.Reader) (out io.Reader, err error) {
 	passReader, passWriter, err := os.Pipe()
 	if err != nil {
-		fmt.Printf("Unable to make pipe : %s\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to make pipe : %s\n", err)
 		os.Exit(1)
 		return
 	}
 	_, err = passWriter.Write([]byte(ob.Config.Passphrase))
 	if err != nil {
-		fmt.Printf("Unable to write to pipe : %s\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to write to pipe : %s\n", err)
 		os.Exit(1)
 		return
 	}
 	err = passWriter.Close()
 	if err != nil {
-		fmt.Printf("Unable to close to pipe : %s\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to close to pipe : %s\n", err)
 		os.Exit(1)
 		return
 	}
