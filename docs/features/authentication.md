@@ -53,6 +53,13 @@ OIDCClientSecret = "your-secret"
 OIDCProviderURL = "https://keycloak.example.com/realms/myrealm"
 OIDCProviderName = "Keycloak"           # Optional: login button label
 OIDCValidDomains = ["company.com"]      # Optional: restrict by email domain
+OIDCRequireVerifiedEmail = true         # Optional: reject unverified emails (default: false)
+```
+
+## Session Settings
+
+```toml
+SessionTimeout = 3600  # Session cookie lifetime in seconds (default: 1h)
 ```
 
 ## Disabling Local Login

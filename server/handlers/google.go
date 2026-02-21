@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -106,7 +107,7 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 	state, err := jwt.Parse(b64state, func(token *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected siging method : %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
 		}
 
 		// Verify expiration data
@@ -141,6 +142,12 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 
 	redirectURL := state.Claims.(jwt.MapClaims)["redirectURL"].(string)
 
+	parsedRedirectURL, err := url.Parse(redirectURL)
+	if err != nil || !strings.HasSuffix(parsedRedirectURL.Path, "/auth/google/callback") {
+		ctx.InvalidParameter("oauth2 state : invalid redirectURL")
+		return
+	}
+
 	conf := &oauth2.Config{
 		ClientID:     config.GoogleAPIClientID,
 		ClientSecret: config.GoogleAPISecret,
@@ -157,13 +164,13 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 		conf.Endpoint = customEndpoint.(oauth2.Endpoint)
 	}
 
-	token, err := conf.Exchange(oauth2.NoContext, code)
+	token, err := conf.Exchange(req.Context(), code)
 	if err != nil {
 		ctx.InternalServerError("unable to get user info from Google API (1)", err)
 		return
 	}
 
-	client, err := api_oauth2.New(conf.Client(oauth2.NoContext, token))
+	client, err := api_oauth2.New(conf.Client(req.Context(), token))
 	if err != nil {
 		ctx.InternalServerError("unable to get user info from Google API (2)", err)
 		return
@@ -178,6 +185,27 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 	if err != nil {
 		ctx.InternalServerError("unable to get user info from Google API (3)", err)
 		return
+	}
+
+	// Intentional: validate domain on every login (not just creation)
+	// to revoke access when allowed domains change
+	if len(config.GoogleValidDomains) > 0 {
+		components := strings.Split(userInfo.Email, "@")
+		if len(components) != 2 {
+			ctx.Forbidden("invalid email address")
+			return
+		}
+		goodDomain := false
+		for _, validDomain := range config.GoogleValidDomains {
+			if strings.EqualFold(components[1], validDomain) {
+				goodDomain = true
+				break
+			}
+		}
+		if !goodDomain {
+			ctx.Forbidden("unauthorized domain name")
+			return
+		}
 	}
 
 	// Get user from metadata backend
@@ -195,25 +223,6 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 			user.Name = userInfo.Name
 			user.Email = userInfo.Email
 			user.ProfilePicture = userInfo.Picture
-			components := strings.Split(user.Email, "@")
-
-			// Accepted user domain checking
-			goodDomain := false
-			if len(config.GoogleValidDomains) > 0 {
-				for _, validDomain := range config.GoogleValidDomains {
-					if strings.Compare(components[1], validDomain) == 0 {
-						goodDomain = true
-					}
-				}
-			} else {
-				goodDomain = true
-			}
-
-			if !goodDomain {
-				// User not from accepted google domains list
-				ctx.Forbidden("unauthorized domain name")
-				return
-			}
 
 			// Save user to metadata backend
 			err = ctx.GetMetadataBackend().CreateUser(user)
@@ -253,9 +262,10 @@ func GoogleCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 	sessionCookie, xsrfCookie, err := ctx.GetAuthenticator().GenAuthCookies(user)
 	if err != nil {
 		ctx.InternalServerError("unable to generate session cookies", err)
+		return
 	}
 	http.SetCookie(resp, sessionCookie)
 	http.SetCookie(resp, xsrfCookie)
 
-	http.Redirect(resp, req, config.Path+"/#/login", http.StatusMovedPermanently)
+	http.Redirect(resp, req, config.Path+"/#/login", http.StatusFound)
 }

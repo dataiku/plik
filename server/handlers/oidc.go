@@ -586,5 +586,5 @@ func OIDCCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Requ
 	http.SetCookie(resp, sessionCookie)
 	http.SetCookie(resp, xsrfCookie)
 
-	http.Redirect(resp, req, config.Path+"/#/login", http.StatusMovedPermanently)
+	http.Redirect(resp, req, config.Path+"/#/login", http.StatusFound)
 }
