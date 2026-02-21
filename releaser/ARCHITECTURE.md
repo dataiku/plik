@@ -8,9 +8,10 @@
 
 ```
 releaser/
-├── release.sh        ← top-level entry point: orchestrates multi-arch Docker build + optional push
-├── build_clients.sh  ← builds CLI client binaries for all target platforms (pure Go cross-compilation)
-└── build_server_release.sh  ← runs inside Docker: builds server and assembles the release archive
+├── release.sh              ← top-level entry point: orchestrates multi-arch Docker build + optional push
+├── helm_release.sh         ← packages Helm chart + updates gh-pages index.yaml
+├── build_clients.sh        ← builds CLI client binaries for all target platforms (pure Go cross-compilation)
+└── build_server_release.sh ← runs inside Docker: builds server and assembles the release archive
 ```
 
 Supporting files referenced by the release process:
@@ -168,14 +169,27 @@ Key fields:
 
 ---
 
+## `helm_release.sh` — Helm Chart Packager
+
+Called by the `release.yaml` GitHub Actions workflow after `release.sh`. Takes the release tag as argument:
+
+1. **Replace placeholders**: Substitutes `__VERSION__` in `Chart.yaml` with the release tag (unified versioning)
+2. **Package chart**: Runs `helm package`, producing `plik-helm-{tag}.tgz` in `releases/`
+3. **Update Helm repo index**: Fetches existing `index.yaml` from `gh-pages`, merges the new chart entry via `helm repo index --merge`, and commits the updated `index.yaml` back to `gh-pages`
+
+The packaged `.tgz` file is left in `releases/` so it gets uploaded alongside other release artifacts by the workflow.
+
+Set `DRY_RUN=true` to test locally — packages the chart, generates `index.yaml`, prints both, then reverts `Chart.yaml`.
+
+---
+
 ## How to Cut a Release
 
 1. Update `changelog/{version}` with release notes
-2. Update `charts/plik/Chart.yaml` — bump `appVersion` to the new version
-3. Create a release from GitHub (this creates the tag)
-4. The `release` GitHub Actions workflow runs automatically — it builds archives, client binaries, Docker images, and uploads everything to the release page
+2. Create a release from GitHub (this creates the tag)
+3. The `release` GitHub Actions workflow runs automatically — it builds archives, client binaries, Docker images, packages the Helm chart, updates the Helm repo index, and uploads everything to the release page
 
-> The Helm chart is published separately via the `pages.yml` workflow when `charts/` changes are pushed to `master`. See [.github/ARCHITECTURE.md](../.github/ARCHITECTURE.md) for details.
+> The Helm chart version is automatically synchronized with the release tag — no manual `Chart.yaml` update needed.
 
 ## Testing the Release Process Locally
 

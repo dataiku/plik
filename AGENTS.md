@@ -59,6 +59,8 @@ make server                 # Build server only → server/plikd
 make client                 # Build CLI client only → client/plik
 make frontend               # Build Vue webapp → webapp/dist
 make docker                 # Build Docker image (rootgg/plik:dev)
+make helm                   # Package Helm chart locally (dry-run)
+make helm-install           # Package and install Helm chart locally
 cd server && ./plikd        # Run server on http://127.0.0.1:8080
 
 #### Pull Request Deployments (GitHub Actions)
