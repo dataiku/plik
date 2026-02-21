@@ -20,6 +20,7 @@ type UploadParams struct {
 	TTL       int    `json:"ttl,omitempty" jsonschema:"Time to live in seconds (0 = server default)"`
 	ExtendTTL bool   `json:"extend_ttl,omitempty" jsonschema:"Extend upload expiration date by TTL when accessed"`
 	Comments  string `json:"comments,omitempty" jsonschema:"Arbitrary comment to attach to the upload (supports markdown)"`
+	E2EE      string `json:"e2ee,omitempty" jsonschema:"End-to-end encryption scheme (e.g. age)"`
 
 	Token string `json:"token,omitempty" jsonschema:"Authentication token to link an upload to a Plik user"`
 
@@ -61,6 +62,9 @@ func (p UploadParams) Apply(upload *Upload) {
 	if p.Comments != "" {
 		upload.Comments = p.Comments
 	}
+	if p.E2EE != "" {
+		upload.E2EE = p.E2EE
+	}
 	if p.Token != "" {
 		upload.Token = p.Token
 	}
@@ -92,6 +96,7 @@ func newUploadFromMetadata(client *Client, uploadMetadata *common.Upload) (uploa
 	upload.TTL = uploadMetadata.TTL
 	upload.ExtendTTL = uploadMetadata.ExtendTTL
 	upload.Comments = uploadMetadata.Comments
+	upload.E2EE = uploadMetadata.E2EE
 	upload.metadata = uploadMetadata
 
 	// Generate files
@@ -157,6 +162,7 @@ func (upload *Upload) getParams() (params *common.Upload) {
 	params.TTL = upload.TTL
 	params.ExtendTTL = upload.ExtendTTL
 	params.Comments = upload.Comments
+	params.E2EE = upload.E2EE
 	params.Token = upload.Token
 	params.Login = upload.Login
 	params.Password = upload.Password

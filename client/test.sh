@@ -724,6 +724,55 @@ download && check
 echo "OK"
 
 ###
+# Age
+###
+
+echo -n " - age auto passphrase : "
+before
+cp $SPECIMEN $TMPDIR/upload/FILE1
+upload --secure age
+grep 'Passphrase' $CLIENT_LOG >/dev/null 2>/dev/null
+grep 'age --decrypt' $CLIENT_LOG >/dev/null 2>/dev/null
+# Verify uploaded file is age-encrypted (starts with "age-encryption.org" header)
+FILE_URL=$(cat $CLIENT_LOG | grep curl | sed -n 's/^.*"\(.*\)".*$/\1/p')
+curl -s "$FILE_URL" 2>/dev/null | head -c 20 | grep -q 'age-encryption.org'
+echo "OK"
+
+#---------------------------------------------
+
+echo -n " - age custom passphrase : "
+before
+cp $SPECIMEN $TMPDIR/upload/FILE1
+upload --secure age --passphrase foobar
+grep 'age --decrypt' $CLIENT_LOG >/dev/null 2>/dev/null
+# Verify uploaded file is age-encrypted
+FILE_URL=$(cat $CLIENT_LOG | grep curl | sed -n 's/^.*"\(.*\)".*$/\1/p')
+curl -s "$FILE_URL" 2>/dev/null | head -c 20 | grep -q 'age-encryption.org'
+echo "OK"
+
+#---------------------------------------------
+
+if command -v age-keygen >/dev/null 2>&1 ; then
+    echo -n " - age recipient : "
+    before
+    # Generate age keypair
+    age-keygen -o $TMPDIR/age_identity.txt 2>/dev/null
+    AGE_RECIPIENT=$(grep -oP 'public key: \K.*' $TMPDIR/age_identity.txt)
+
+    cp $SPECIMEN $TMPDIR/upload/FILE1
+    upload --secure age --recipient "$AGE_RECIPIENT"
+
+    # Download and decrypt using the identity file
+    cd $TMPDIR/download
+    ENCRYPTED_URL=$(cat $CLIENT_LOG | grep curl | sed -n 's/^.*"\(.*\)".*$/\1/p')
+    curl -s "$ENCRYPTED_URL" 2>/dev/null | age --decrypt -i $TMPDIR/age_identity.txt > $TMPDIR/download/FILE1 2>/dev/null
+    check
+    echo "OK"
+else
+    echo " - age recipient : SKIP (age-keygen not found)"
+fi
+
+###
 # UPDATE
 ###
 

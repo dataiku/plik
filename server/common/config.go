@@ -77,6 +77,7 @@ type Configuration struct {
 	FeatureClients        string `json:"feature_clients"`
 	FeatureGithub         string `json:"feature_github"`
 	FeatureText           string `json:"feature_text"`
+	FeatureE2EE           string `json:"feature_e2ee"`
 
 	// Deprecated Feature Flags
 	Authentication      bool `json:"authentication"`      // Deprecated: >1.3.6
@@ -448,6 +449,7 @@ func (config *Configuration) String() string {
 	str += fmt.Sprintf("Upload comments : %s\n", config.FeatureComments)
 	str += fmt.Sprintf("Upload set TTL : %s\n", config.FeatureSetTTL)
 	str += fmt.Sprintf("Upload extend TTL : %s\n", config.FeatureExtendTTL)
+	str += fmt.Sprintf("E2E encryption : %s\n", config.FeatureE2EE)
 	str += fmt.Sprintf("Delete account : %s\n", config.FeatureDeleteAccount)
 
 	str += fmt.Sprintf("Authentication : %s\n", config.FeatureAuthentication)

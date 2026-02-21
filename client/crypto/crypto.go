@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 
+	agebackend "github.com/root-gg/plik/client/crypto/age"
 	"github.com/root-gg/plik/client/crypto/openssl"
 	"github.com/root-gg/plik/client/crypto/pgp"
 )
@@ -25,6 +26,8 @@ func NewCryptoBackend(name string, config map[string]any) (backend Backend, err 
 		backend = openssl.NewOpenSSLBackend(config)
 	case "pgp":
 		backend = pgp.NewPgpBackend(config)
+	case "age":
+		backend = agebackend.NewAgeBackend(config)
 	default:
 		err = errors.New("Invalid crypto backend")
 	}

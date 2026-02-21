@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/rand"
 	"math/big"
+	"slices"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,6 +22,7 @@ type Upload struct {
 	DownloadDomain string `json:"downloadDomain" gorm:"-"`
 	RemoteIP       string `json:"uploadIp,omitempty"`
 	Comments       string `json:"comments"`
+	E2EE           string `json:"e2ee,omitempty" gorm:"column:e2ee"`
 
 	Files []*File `json:"files"`
 
@@ -41,6 +43,14 @@ type Upload struct {
 	CreatedAt time.Time      `json:"createdAt"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index:idx_upload_deleted_at"`
 	ExpireAt  *time.Time     `json:"expireAt" gorm:"index:idx_upload_expire_at"`
+}
+
+// validE2EESchemes is the whitelist of allowed e2ee scheme values
+var validE2EESchemes = []string{"age"}
+
+// IsValidE2EEScheme checks if the given scheme is a known E2EE encryption scheme
+func IsValidE2EEScheme(scheme string) bool {
+	return slices.Contains(validE2EESchemes, scheme)
 }
 
 // NewUpload creates a new upload object

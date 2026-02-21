@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { config, isFeatureEnabled, isFeatureForced } from '../config.js'
 import { secondsToTTL } from '../utils.js'
+import { generatePassphrase } from '../crypto.js'
 
 const props = defineProps({
   settings: {
@@ -22,6 +23,7 @@ function updateSetting(key, value) {
 
 // Password generation
 const copied = ref(false)
+const e2eeCopied = ref(false)
 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*'
 
 function generatePassword() {
@@ -50,6 +52,31 @@ function copyPassword() {
   navigator.clipboard.writeText(props.settings.password)
   copied.value = true
   setTimeout(() => { copied.value = false }, 1500)
+}
+
+// E2EE toggle
+function toggleE2EE() {
+  const enabling = !props.settings.e2eeEnabled
+  if (enabling) {
+    emit('update:settings', {
+      ...props.settings,
+      e2eeEnabled: true,
+      e2eePassphrase: generatePassphrase(),
+    })
+  } else {
+    emit('update:settings', {
+      ...props.settings,
+      e2eeEnabled: false,
+      e2eePassphrase: '',
+    })
+  }
+}
+
+function copyE2EEPassphrase() {
+  if (!props.settings.e2eePassphrase) return
+  navigator.clipboard.writeText(props.settings.e2eePassphrase)
+  e2eeCopied.value = true
+  setTimeout(() => { e2eeCopied.value = false }, 1500)
 }
 
 // TTL handling
@@ -84,7 +111,8 @@ const hasAnySettings = computed(() =>
   isFeatureEnabled('password') ||
   isFeatureEnabled('comments') ||
   isFeatureEnabled('extend_ttl') ||
-  isFeatureEnabled('set_ttl')
+  isFeatureEnabled('set_ttl') ||
+  isFeatureEnabled('e2ee')
 )
 </script>
 
@@ -138,6 +166,48 @@ const hasAnySettings = computed(() =>
           <span class="toggle-dot" />
         </button>
       </label>
+
+      <!-- E2EE -->
+      <div v-if="isFeatureEnabled('e2ee')">
+        <label class="flex items-center justify-between py-1 cursor-pointer group">
+          <span class="text-sm text-surface-200 group-hover:text-white transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            End-to-End Encryption
+          </span>
+          <button type="button"
+                  class="toggle-switch"
+                  :class="{ 'opacity-50 cursor-not-allowed': isFeatureForced('e2ee') }"
+                  :data-active="settings.e2eeEnabled"
+                  :disabled="isFeatureForced('e2ee')"
+                  @click="toggleE2EE">
+            <span class="toggle-dot" />
+          </button>
+        </label>
+        <div v-if="settings.e2eeEnabled" class="mt-2">
+          <label class="text-xs text-surface-500 mb-1 block">Passphrase</label>
+          <div class="relative">
+            <input type="text"
+                   class="input-field pr-9 font-mono text-xs"
+                   :value="settings.e2eePassphrase"
+                   @input="updateSetting('e2eePassphrase', $event.target.value)" />
+            <button type="button"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-surface-400 hover:text-white transition-colors"
+                    title="Copy passphrase"
+                    @click="copyE2EEPassphrase">
+              <svg v-if="!e2eeCopied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke-width="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke-width="2" />
+              </svg>
+              <svg v-else class="w-4 h-4 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- Password -->
       <div v-if="isFeatureEnabled('password')">

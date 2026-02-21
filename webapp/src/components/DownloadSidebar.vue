@@ -6,6 +6,7 @@ import CopyButton from './CopyButton.vue'
 
 const props = defineProps({
   upload: { type: Object, required: true },
+  passphrase: { type: String, default: null },
 })
 
 const emit = defineEmits(['delete-upload', 'add-files', 'show-qr'])
@@ -30,8 +31,13 @@ const adminUrl = computed(() => {
 })
 
 // Share URL (download page without upload token)
+const includePassphrase = ref(false)
 const shareUrl = computed(() => {
-  return `${window.location.origin}${window.location.pathname}#/?id=${props.upload.id}`
+  let url = `${window.location.origin}${window.location.pathname}#/?id=${props.upload.id}`
+  if (includePassphrase.value && props.passphrase) {
+    url += `&key=${encodeURIComponent(props.passphrase)}`
+  }
+  return url
 })
 
 // Native share support (mobile + Chrome/Edge desktop)
@@ -94,12 +100,35 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
               class="text-xs px-2 py-0.5 rounded-full bg-surface-600/50 text-surface-300">
           🔒 Password
         </span>
+        <span v-if="upload.e2ee"
+              class="text-xs px-2 py-0.5 rounded-full bg-accent-500/15 text-accent-400">
+          🔐 Encrypted
+        </span>
       </div>
     </div>
 
     <!-- Share -->
     <div class="sidebar-section">
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Share</h3>
+
+      <!-- Passphrase display (E2EE only) -->
+      <div v-if="upload.e2ee && passphrase" class="mb-3">
+        <label class="text-xs text-surface-500 mb-1 block">Passphrase</label>
+        <div class="flex items-center gap-2 p-2 rounded bg-surface-800/50 min-w-0 overflow-hidden">
+          <span class="text-xs text-accent-400 font-mono truncate flex-1">{{ passphrase }}</span>
+          <CopyButton :text="passphrase" size="sm" />
+        </div>
+        <label class="flex items-center justify-between py-1.5 mt-2 cursor-pointer group">
+          <span class="text-xs text-surface-400 group-hover:text-surface-200 transition-colors">Include passphrase in link</span>
+          <button type="button"
+                  class="toggle-switch scale-75"
+                  :data-active="includePassphrase"
+                  @click="includePassphrase = !includePassphrase">
+            <span class="toggle-dot" />
+          </button>
+        </label>
+      </div>
+
       <button v-if="canNativeShare"
               class="btn-primary w-full"
               :class="shareSuccess ? 'bg-success-500/20 text-success-500' : ''"
@@ -144,7 +173,7 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Actions</h3>
 
       <!-- Zip archive -->
-      <a v-if="upload.files?.length && !upload.stream"
+      <a v-if="upload.files?.length && !upload.stream && !upload.e2ee"
          :href="archiveUrl"
          class="btn-primary w-full">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

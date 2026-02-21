@@ -26,6 +26,15 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		panic("missing upload from context")
 	}
 
+	// For E2EE uploads, redirect the webapp to the download page
+	// so decryption can happen client-side
+	if upload.E2EE != "" && common.IsPlikWebapp(req) {
+		config := ctx.GetConfig()
+		redirectURL := fmt.Sprintf("%s/#/?id=%s", config.Path, upload.ID)
+		http.Redirect(resp, req, redirectURL, http.StatusTemporaryRedirect)
+		return
+	}
+
 	// Get file from context
 	file := ctx.GetFile()
 	if file == nil {
@@ -61,6 +70,12 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 
 	// Force the download of the following types as they are blocked by the CSP Header and won't display properly.
 	if file.Type == "" || strings.Contains(file.Type, "flash") || strings.Contains(file.Type, "pdf") {
+		file.Type = "application/octet-stream"
+	}
+
+	// For E2EE uploads, always serve as binary data — content-type detection
+	// on encrypted bytes is meaningless
+	if upload.E2EE != "" {
 		file.Type = "application/octet-stream"
 	}
 

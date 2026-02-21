@@ -46,7 +46,7 @@ Core types used throughout the server:
 
 | File | Content |
 |------|---------|
-| `upload.go` | `Upload` struct — container for files with TTL, options, password |
+| `upload.go` | `Upload` struct — container for files with TTL, options, password, E2EE scheme |
 | `file.go` | `File` struct + status constants (`missing`/`uploading`/`uploaded`/`removed`/`deleted`) |
 | `user.go` | `User` struct + provider constants (`local`/`google`/`ovh`/`oidc`) |
 | `token.go` | `Token` struct — UUID-based upload tokens |
@@ -59,7 +59,7 @@ Core types used throughout the server:
 | `stats.go` | `ServerStats` — upload/file/user counts |
 | `metrics.go` | `PlikMetrics` — Prometheus metric registry |
 | `version.go` | Build info (version, git commit, build date) |
-| `utils.go` | `GenerateRandomID()`, `StripPrefix()`, etc. |
+| `utils.go` | `GenerateRandomID()`, `StripPrefix()`, `IsPlikWebapp()`, etc. |
 
 ---
 
@@ -219,7 +219,7 @@ Each handler file contains one or more `http.Handler` functions.
 | `create_upload.go` | `CreateUpload` | Create upload with options, validate config/quotas |
 | `add_file.go` | `AddFile` | Upload file to existing upload (multipart) |
 | `get_upload.go` | `GetUpload` | Return upload metadata |
-| `get_file.go` | `GetFile` | Download file, handle OneShot, extend TTL |
+| `get_file.go` | `GetFile` | Download file, handle OneShot, extend TTL. E2EE uploads: redirects webapp to download page, forces `application/octet-stream` |
 | `get_archive.go` | `GetArchive` | Download all files as zip |
 | `remove_file.go` | `RemoveFile` | Mark file as removed |
 | `remove_upload.go` | `RemoveUpload` | Soft-delete upload |

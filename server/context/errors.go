@@ -2,11 +2,11 @@ package context
 
 import (
 	"fmt"
-	"github.com/root-gg/plik/server/common"
 	"log"
 	"net/http"
 	"runtime/debug"
-	"strings"
+
+	"github.com/root-gg/plik/server/common"
 )
 
 var internalServerError = "internal server error"
@@ -81,8 +81,6 @@ func (ctx *Context) Recover() {
 	}
 }
 
-var userAgents = []string{"wget", "curl", "python-urllib", "libwwww-perl", "php", "pycurl", "go-http-client", "plik_client"}
-
 // Error handles common.HttpError
 func (ctx *Context) Error(err error) {
 	if httpError, ok := err.(*common.HTTPError); ok {
@@ -128,14 +126,8 @@ func (ctx *Context) Fail(message string, err error, status int) {
 		if isRedirectOnFailure {
 			// The web client uses http redirect to get errors
 			// from http redirect and display a nice HTML error message
-			// But cli clients needs a clean string response
-			userAgent := strings.ToLower(req.UserAgent())
-			redirect = true
-			for _, ua := range userAgents {
-				if strings.HasPrefix(userAgent, ua) {
-					redirect = false
-				}
-			}
+			// Only redirect when the request comes from the Plik webapp
+			redirect = common.IsPlikWebapp(req)
 		}
 
 		if config != nil && redirect {

@@ -4,7 +4,7 @@
 
 ## What is Plik?
 
-Plik is a temporary file upload system (WeTransfer-like) written in Go, with a Vue 3 web UI and a cross-platform CLI client. It supports multiple storage and metadata backends, authentication providers, and features like one-shot downloads, streaming, and server-side encryption.
+Plik is a temporary file upload system (WeTransfer-like) written in Go, with a Vue 3 web UI and a cross-platform CLI client. It supports multiple storage and metadata backends, authentication providers, and features like one-shot downloads, streaming, end-to-end encryption (E2EE via age), and server-side encryption.
 
 ## Tech Stack
 

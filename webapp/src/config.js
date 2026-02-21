@@ -29,6 +29,7 @@ export const config = reactive({
     feature_clients: 'default',
     feature_github: 'default',
     feature_text: 'default',
+    feature_e2ee: 'enabled',
 
     // Download domain
     downloadDomain: '',

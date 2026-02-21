@@ -56,6 +56,7 @@ func (config *Configuration) initializeFeatureFlags() error {
 		config.initializeFeatureGithub,
 		config.initializeFeatureClients,
 		config.initializeFeatureText,
+		config.initializeFeatureE2EE,
 	}
 
 	for _, initialization := range initializations {
@@ -277,6 +278,19 @@ func (config *Configuration) initializeFeatureText() error {
 	err := ValidateFeatureFlag(config.FeatureText)
 	if err != nil {
 		return fmt.Errorf("Invalid value for FeatureText : %s", err)
+	}
+
+	return nil
+}
+
+func (config *Configuration) initializeFeatureE2EE() error {
+	if config.FeatureE2EE == "" {
+		config.FeatureE2EE = FeatureEnabled
+	}
+
+	err := ValidateFeatureFlag(config.FeatureE2EE)
+	if err != nil {
+		return fmt.Errorf("Invalid value for FeatureE2EE : %s", err)
 	}
 
 	return nil

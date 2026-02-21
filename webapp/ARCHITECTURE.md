@@ -266,7 +266,7 @@ The URL prefix changes based on whether the upload uses streaming:
 ### Pending Upload Store (`pendingUploadStore.js`)
 
 In-memory store (same pattern as `tokenStore.js`) to pass files from UploadView → DownloadView across navigation:
-- `setPendingFiles(uploadId, files, basicAuth)` — stash after `createUpload()`
+- `setPendingFiles(uploadId, files, basicAuth, passphrase)` — stash after `createUpload()` (includes E2EE passphrase if enabled)
 - `consumePendingFiles(uploadId)` — retrieve and clear (one-shot)
 
 ### Staged upload flow (DownloadView)
@@ -336,6 +336,8 @@ The server exposes feature flags via `GET /config`:
 | `disabled`  | Feature is hidden entirely                   |
 | `forced`    | Feature is on, user cannot toggle it off     |
 | `default`   | Feature is available, default on             |
+
+| `feature_e2ee` | `"enabled"` or `"disabled"` — controls E2EE toggle in upload sidebar |
 
 The config object keys use the pattern `feature_<name>` (e.g., `feature_one_shot`, `feature_stream`).
 
@@ -434,11 +436,11 @@ App.vue
 ├── AppHeader.vue          — top nav bar (Upload, CLI, Source, user/admin links)
 ├── RootView.vue           — switches between Upload/Download based on query.id
 │   ├── UploadView.vue     — file staging, settings, upload execution
-│   │   ├── UploadSidebar  — upload settings (one-shot, stream, TTL, etc.)
+│   │   ├── UploadSidebar  — upload settings (one-shot, stream, TTL, E2EE, etc.)
 │   │   ├── FileRow        — individual file display
 │   │   └── CodeEditor     — text paste mode with syntax highlighting
 │   └── DownloadView.vue   — file list, admin actions
-│       ├── DownloadSidebar — upload info, share, admin URL, action buttons
+│       ├── DownloadSidebar — upload info (E2EE badge), share (passphrase + toggle), admin URL, actions
 │       ├── FileRow         — file link (preview), caret (details), download/QR/copy/view/remove
 │       ├── CodeEditor      — inline file viewer (read-only)
 │       ├── QrCodeDialog    — QR code modal
@@ -616,8 +618,7 @@ Reusable CodeMirror 6 wrapper (`CodeEditor.vue`) used in two contexts:
 
 The `isTextFile()` utility in `utils.js` determines if a file can be viewed in the code editor based on:
 1. **Size**: Max 5 MB (`MAX_VIEWABLE_SIZE`)
-2. **MIME type**: `text/*` prefix or known application types (JSON, XML, YAML, etc.)
-3. **Extension**: ~60 common text/code extensions
+2. **MIME type**: `text/*` prefix only — the server detects MIME types via Go's `http.DetectContentType`, which returns `text/plain` for all text-like content (JS, JSON, Go, Python, etc.) and `application/octet-stream` for binary
 
 `FileRow.vue` uses this to conditionally show a "View" button on uploaded files in download mode.
 
@@ -693,4 +694,48 @@ For full details on the Docker multi-stage build and release packaging, see [rel
 12. **DownloadView has two error refs** — `error` (page-level) and `uploadError` (inline banner). Setting file upload errors on `error` hides the entire upload content due to template branching. Always use `uploadError` for file transfer failures.
 
 13. **Filenames are capped at 1024 characters** — enforced in `UploadView.addFiles()`, `FileRow.onNameInput/onNameKeydown/onNamePaste`. The server also validates this, so both layers must agree.
+
+14. **E2EE passphrase is never stored server-side** — it lives only in the `pendingUploadStore` (for same-session navigation) and optionally in the URL fragment (via the share toggle). If the user loses the passphrase, decryption is impossible.
+
+---
+
+## End-to-End Encryption (E2EE)
+
+### Module: `crypto.js`
+
+Provides streaming encryption/decryption using the `age-encryption` npm package:
+
+| Function | Description |
+|----------|-------------|
+| `encryptFile(file, passphrase)` | Encrypts a `File` object → returns encrypted `File` |
+| `fetchAndDecrypt(url, passphrase)` | Fetches encrypted bytes, decrypts → returns `Blob` |
+| `generatePassphrase()` | Generates a 20-char cryptographically-secure passphrase |
+
+### Upload Flow (E2EE)
+
+1. User toggles E2EE in `UploadSidebar` → passphrase auto-generated (or customized)
+2. `UploadView.doUpload()` encrypts each file via `encryptFile()` before building the upload params
+3. `params.e2ee = 'age'` sent to server → server stores the E2EE scheme on the upload model
+4. Passphrase passed via `setPendingFiles(id, files, basicAuth, passphrase)` to the pending store
+5. Navigation to DownloadView — passphrase is **not** in the URL
+
+### Download Flow (E2EE)
+
+1. `DownloadView.onMounted()` reads passphrase from `pendingUploadStore` (same-session) or URL fragment `#key=` (shared link)
+2. If E2EE is set on the upload but no passphrase is available → modal prompt
+3. Passphrase is stripped from the URL after extraction (security measure)
+4. `decryptAndDownload()` fetches the encrypted file and decrypts in-browser via `fetchAndDecrypt()`
+5. For E2EE files, `FileRow` emits `decrypt-download` instead of using a direct download link
+
+### Server Behavior for E2EE Uploads
+
+- **Browser redirect**: `GetFile` handler checks `common.IsPlikWebapp(req)` (via `X-ClientApp: web_client` header) — if the request is from the webapp and the upload has `E2EE != ""`, it redirects to `/#/?id=<uploadId>` so the webapp handles passphrase input and decryption
+- **Content-Type**: E2EE uploads are always served as `application/octet-stream` — content-type detection on encrypted bytes is meaningless
+- **CLI downloads**: Non-webapp requests get raw encrypted bytes directly (for piping to `age --decrypt`)
+
+### DownloadSidebar (E2EE)
+
+- **🔐 Encrypted badge**: Shown in upload info when `upload.e2ee` is truthy
+- **Passphrase display**: Shown in Share section with copy button (only when passphrase is available)
+- **Include passphrase in link toggle**: Off by default — appends `#key=<passphrase>` to the share URL when enabled
 
