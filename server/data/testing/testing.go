@@ -39,7 +39,7 @@ func (b *Buffer) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekCurrent:
 		b.off += int(offset)
 	case io.SeekEnd:
-		b.off = len(b.buf) - int(offset)
+		b.off = len(b.buf) + int(offset)
 	default:
 	}
 	return int64(b.off), nil
