@@ -262,7 +262,7 @@ func TestOVHCallback(t *testing.T) {
 	OvhCallback(ctx, rr, req)
 
 	// Check the status code is what we expect.
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -351,7 +351,7 @@ func TestOVHCallbackCreateUser(t *testing.T) {
 	OvhCallback(ctx, rr, req)
 
 	// Check the status code is what we expect.
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -457,6 +457,7 @@ func TestOVHCallbackMissingOvhAPIConfigParam(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 
 	ctx.GetConfig().FeatureAuthentication = common.FeatureEnabled
+	ctx.GetConfig().OvhAuthentication = true
 
 	req, err := http.NewRequest("GET", "/auth/ovh/callback", bytes.NewBuffer([]byte{}))
 	require.NoError(t, err, "unable to create new request")
