@@ -20,6 +20,7 @@ import (
 type CliConfig struct {
 	Debug          bool
 	Quiet          bool
+	JSON           bool
 	URL            string
 	OneShot        bool
 	Removable      bool
@@ -258,6 +259,10 @@ func (config *CliConfig) UnmarshalArgs(opts docopt.Opts) (err error) {
 		config.Debug = true
 	}
 	if opts["--quiet"].(bool) {
+		config.Quiet = true
+	}
+	if opts["--json"].(bool) {
+		config.JSON = true
 		config.Quiet = true
 	}
 
