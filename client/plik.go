@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -67,6 +68,7 @@ Options:
   --update                  Update client
   --login                   Authenticate CLI with the server (opens browser)
   --mcp                     Start as MCP (Model Context Protocol) server over stdio
+  -j, --json                Output upload metadata as JSON (implies --quiet)
   -q --quiet                Enable quiet mode
   -d --debug                Enable debug mode
   -v --version              Show client version
@@ -106,10 +108,10 @@ Options:
 	}
 
 	if config.Debug {
-		fmt.Println("Arguments : ")
-		utils.Dump(arguments)
-		fmt.Println("Configuration : ")
-		utils.Dump(config)
+		fmt.Fprintln(os.Stderr, "Arguments : ")
+		fmt.Fprintln(os.Stderr, utils.Sdump(arguments))
+		fmt.Fprintln(os.Stderr, "Configuration : ")
+		fmt.Fprintln(os.Stderr, utils.Sdump(config))
 	}
 
 	client := plik.NewClient(config.URL)
@@ -307,7 +309,7 @@ Options:
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to get download command for file %s : %s\n", file.Name, err)
 			}
-			fmt.Println(cmd)
+			fmt.Fprintln(os.Stderr, cmd)
 		}
 		printf("\n")
 	}
@@ -323,6 +325,17 @@ Options:
 	if !config.Quiet && !config.Debug {
 		// Finalize the progress bar display
 		progress.stop()
+	}
+
+	// JSON output mode
+	if config.JSON {
+		data, err := json.MarshalIndent(upload.WithURL(), "", "  ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to marshal upload metadata : %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(data))
+		os.Exit(0)
 	}
 
 	// Display download commands

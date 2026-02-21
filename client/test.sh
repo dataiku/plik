@@ -148,7 +148,7 @@ function uploadOpts {
         CURL_CMD="$CURL_CMD -u $UPLOAD_USER:$UPLOAD_PWD"
     fi
     CURL_CMD="$CURL_CMD $URL/upload/$UPLOAD_ID"
-    UPLOAD_OPTS=$( eval "$CURL_CMD" 2>/dev/null | python -m json.tool )
+    UPLOAD_OPTS=$( eval "$CURL_CMD" 2>/dev/null | python3 -m json.tool )
 }
 
 # Download files by running the output cmds
@@ -450,6 +450,38 @@ upload --quiet
 test $(cat $CLIENT_LOG | wc -l) -eq 1
 grep "$URL/file/.*/.*/FILE1" $CLIENT_LOG >/dev/null 2>/dev/null
 
+echo "OK"
+
+#---------------------------------------------
+
+echo -n " - json output : "
+
+before
+cp $SPECIMEN $TMPDIR/upload/FILE1
+upload --json
+# Verify output is valid JSON with expected fields
+cat $CLIENT_LOG | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'url' in d; assert 'files' in d; assert len(d['files']) == 1" 2>/dev/null
+echo "OK"
+
+#---------------------------------------------
+
+echo -n " - json output multiple files : "
+
+before
+cp $SPECIMEN $TMPDIR/upload/FILE1
+cp $SPECIMEN $TMPDIR/upload/FILE2
+upload --json
+cat $CLIENT_LOG | python3 -c "import json,sys; d=json.load(sys.stdin); assert len(d['files']) == 2" 2>/dev/null
+echo "OK"
+
+#---------------------------------------------
+
+echo -n " - json output short flag : "
+
+before
+cp $SPECIMEN $TMPDIR/upload/FILE1
+upload -j
+cat $CLIENT_LOG | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'url' in d" 2>/dev/null
 echo "OK"
 
 #---------------------------------------------
