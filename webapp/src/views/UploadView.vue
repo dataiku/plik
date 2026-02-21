@@ -228,8 +228,14 @@ function buildUploadParams() {
   return params
 }
 
+const commentsRequired = computed(() => isFeatureForced('comments') && !commentText.value.trim())
+
 async function createEmptyUpload() {
   if (isUploading.value) return
+  if (commentsRequired.value) {
+    uploadError.value = 'A comment is required'
+    return
+  }
 
   isUploading.value = true
   uploadError.value = null
@@ -249,6 +255,10 @@ async function createEmptyUpload() {
 
 async function doUpload() {
   if (!hasFiles.value || isUploading.value) return
+  if (commentsRequired.value) {
+    uploadError.value = 'A comment is required'
+    return
+  }
 
   isUploading.value = true
   uploadError.value = null
@@ -329,7 +339,8 @@ async function doUpload() {
         </div>
 
         <!-- Markdown Editor -->
-        <div v-if="settings.commentEnabled && !isUploading" class="glass-card overflow-hidden animate-fade-in">
+        <div v-if="settings.commentEnabled && !isUploading" class="glass-card overflow-hidden animate-fade-in"
+             :class="{ 'ring-1 ring-danger-500/50': commentsRequired }">
           <div class="flex border-b border-surface-700/50">
             <button class="px-4 py-2 text-sm font-medium transition-colors"
                     :class="commentTab === 'write'
@@ -341,6 +352,7 @@ async function doUpload() {
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Write
+              <span v-if="isFeatureForced('comments')" class="ml-1 text-[10px] text-danger-400 font-semibold uppercase">required</span>
             </button>
             <button class="px-4 py-2 text-sm font-medium transition-colors"
                     :class="commentTab === 'preview'
@@ -362,7 +374,7 @@ async function doUpload() {
               class="w-full bg-transparent border border-surface-700 rounded-lg p-3 text-sm text-surface-200
                      placeholder-surface-500 font-mono resize-y focus:outline-none focus:border-accent-500/50
                      transition-colors min-h-[120px]"
-              placeholder="Write a comment... (Markdown supported)"
+              :placeholder="isFeatureForced('comments') ? 'Write a comment... (required, Markdown supported)' : 'Write a comment... (Markdown supported)'"
             />
           </div>
           <div v-else class="p-4 min-h-[120px]">
