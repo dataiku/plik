@@ -215,6 +215,50 @@ func TestRemovableDisabled(t *testing.T) {
 	require.Contains(t, err.Error(), "removable uploads are disabled", "invalid error")
 }
 
+func TestCommentsForced(t *testing.T) {
+	ps, pc := newPlikServerAndClient()
+	defer shutdown(ps)
+
+	ps.GetConfig().FeatureComments = common.FeatureForced
+
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	// Empty comments should be rejected
+	upload := pc.NewUpload()
+	err = upload.Create()
+	require.Error(t, err, "should not be able to create upload without comments")
+	require.Contains(t, err.Error(), "upload comments are required", "invalid error")
+
+	// Non-empty comments should be accepted
+	upload = pc.NewUpload()
+	upload.Comments = "test comment"
+	upload.AddFileFromReader("filename", bytes.NewBufferString("data"))
+	err = upload.Create()
+	require.NoError(t, err, "unable to create upload")
+	require.NotNil(t, upload.Metadata(), "upload has not been created")
+	require.Equal(t, "test comment", upload.Metadata().Comments, "invalid comments")
+}
+
+func TestCommentsDisabled(t *testing.T) {
+	ps, pc := newPlikServerAndClient()
+	defer shutdown(ps)
+
+	ps.GetConfig().FeatureComments = common.FeatureDisabled
+
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	// Comments should be stripped when disabled
+	upload := pc.NewUpload()
+	upload.Comments = "should be stripped"
+	upload.AddFileFromReader("filename", bytes.NewBufferString("data"))
+	err = upload.Create()
+	require.NoError(t, err, "unable to create upload")
+	require.NotNil(t, upload.Metadata(), "upload has not been created")
+	require.Empty(t, upload.Metadata().Comments, "comments should be empty when disabled")
+}
+
 func TestValidDownloadDomain(t *testing.T) {
 	ps, pc := newPlikServerAndClient()
 	defer shutdown(ps)

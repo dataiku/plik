@@ -293,11 +293,17 @@ func TestUpload_CommentsForced(t *testing.T) {
 	ctx := newTestContext()
 	ctx.config.FeatureComments = common.FeatureForced
 
+	// Empty comments should be rejected
 	upload, err := ctx.CreateUpload(&common.Upload{Comments: ""})
-	require.NoError(t, err)
-	require.NotNil(t, upload)
-	require.Empty(t, upload.Comments)
+	common.RequireError(t, err, "upload comments are required")
+	require.Nil(t, upload)
 
+	// Whitespace-only comments should be rejected
+	upload, err = ctx.CreateUpload(&common.Upload{Comments: "   "})
+	common.RequireError(t, err, "upload comments are required")
+	require.Nil(t, upload)
+
+	// Non-empty comments should be accepted
 	upload, err = ctx.CreateUpload(&common.Upload{Comments: "comments"})
 	require.NoError(t, err)
 	require.NotNil(t, upload)

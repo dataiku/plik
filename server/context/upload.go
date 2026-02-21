@@ -3,6 +3,7 @@ package context
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -171,6 +172,8 @@ func (ctx *Context) setParams(upload *common.Upload, params *common.Upload) (err
 
 	if config.FeatureComments == common.FeatureDisabled {
 		upload.Comments = ""
+	} else if config.FeatureComments == common.FeatureForced && strings.TrimSpace(params.Comments) == "" {
+		return fmt.Errorf("upload comments are required")
 	} else {
 		upload.Comments = params.Comments
 	}
