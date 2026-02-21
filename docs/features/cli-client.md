@@ -70,14 +70,16 @@ Options:
   --archive-options OPTIONS [tar|zip] Additional command line options
   -s                        Encrypt upload using the default encryption parameters ( see ~/.plikrc )
   --not-secure              Do not encrypt upload files regardless of the ~/.plikrc configurations
-  --secure MODE             Encrypt upload files using the specified crypto backend : openssl|pgp
+  --secure MODE             Encrypt upload files using the specified crypto backend : openssl|pgp|age (default: age)
   --cipher CIPHER           [openssl] Openssl cipher to use ( see openssl help )
-  --passphrase PASSPHRASE   [openssl] Passphrase or '-' to be prompted for a passphrase
-  --recipient RECIPIENT     [pgp] Set recipient for pgp backend ( example : --recipient Bob )
+  --passphrase PASSPHRASE   [openssl|age] Passphrase or '-' to be prompted for a passphrase
+  --recipient RECIPIENT     [pgp|age] Set recipient ( pgp: name, age: @github_user, ssh://host, URL, ssh key, or age1... )
   --secure-options OPTIONS  [openssl|pgp] Additional command line options
   --insecure                (TLS) Do not verify the server's certificate chain and hostname
   --update                  Update client
   --login                   Authenticate with the Plik server via browser
+  --mcp                     Start as MCP (Model Context Protocol) server over stdio
+  -j --json                Output upload metadata as JSON (implies --quiet)
   -q --quiet                Enable quiet mode
   -d --debug                Enable debug mode
   -v --version              Show client version
@@ -89,7 +91,14 @@ Options:
 
 Upload a file:
 ```bash
-plik myfile.txt
+🪂 ➜  plik git:(master) ✗ plik README.md
+Upload successfully created at Sat, 21 Feb 2026 09:02:54 CET :
+    http://127.0.0.1:8080/#/?id=vDPmPEUqc5oCt31T
+
+README.md :  2.56 KiB / 2.56 KiB [=========================================] 100.00% 719.15 KiB/s 0s
+
+Commands :
+curl -s "http:/127.0.0.1:8080/file/vDPmPEUqc5oCt31T/UZzSdZ7zPgfRiTem/README.md" > 'README.md'
 ```
 
 Create an encrypted archive:

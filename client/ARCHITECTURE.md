@@ -37,7 +37,10 @@ Uses [docopt-go](https://github.com/docopt/docopt-go) for argument parsing. The 
 4. Create upload via the Go library (`plik/`)
 5. Add files (with optional archive/encrypt preprocessing)
 6. Upload files with progress bars
-7. Print download URLs
+7. Output results:
+   - Default: print download URLs/commands to stdout
+   - `--quiet`: print only file URLs to stdout
+   - `--json`: print `UploadWithURL` as pretty-printed JSON to stdout (implies `--quiet`)
 
 ### Configuration (`config.go`)
 
@@ -107,3 +110,20 @@ All upload tools use `plik.UploadParams` via struct embedding and return `Upload
 
 - `test.sh` — comprehensive CLI integration tests (requires a running server)
 - `test_upgrade.sh` / `test_downgrade.sh` — version compatibility tests (stale, unused since ~2021)
+
+---
+
+## Conventions
+
+### Stderr for all non-data output
+
+Because `--quiet` and `--json` modes reserve stdout exclusively for machine-readable data (file URLs or JSON), **all** informational, diagnostic, and error messages in the CLI must be written to **stderr** (`fmt.Fprintf(os.Stderr, ...)`). This includes:
+
+- Passphrase display (crypto backends)
+- Recipient resolution progress (age backend)
+- Debug output
+- Streaming download commands
+- Archive/crypto error messages
+- Progress bars (already write to stderr via the `pb` library)
+
+Never use `fmt.Printf` / `fmt.Println` for non-data output in the CLI.
