@@ -108,7 +108,7 @@ type Backend interface {
 | Package | Backend | Notes |
 |---------|---------|-------|
 | `data/file` | Local filesystem | Files stored in configurable directory |
-| `data/s3` | Amazon S3 / MinIO | Supports SSE-C and S3-managed encryption |
+| `data/s3` | Amazon S3 / MinIO | Supports SSE-C/S3 encryption and optional legacy Content-MD5 compatibility mode |
 | `data/swift` | OpenStack Swift | |
 | `data/gcs` | Google Cloud Storage | |
 | `data/stream` | In-memory pipe | Blocks uploader until downloader connects — nothing stored |
