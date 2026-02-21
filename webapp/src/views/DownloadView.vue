@@ -391,7 +391,7 @@ function openQrFile(file) {
 // E2EE decrypt-and-download handler
 async function decryptAndDownload(file) {
   if (!e2eePassphrase.value) {
-    showPassphraseModal.value = true
+    openPassphraseModal()
     return
   }
 
@@ -410,6 +410,11 @@ async function decryptAndDownload(file) {
   } finally {
     isDecrypting.value = false
   }
+}
+
+function openPassphraseModal() {
+  passphraseInput.value = e2eePassphrase.value || ''
+  showPassphraseModal.value = true
 }
 
 function submitPassphrase() {
@@ -455,7 +460,7 @@ onMounted(async () => {
 
   // If this is an E2EE upload and we don't have the passphrase, prompt the user
   if (upload.value?.e2ee && !e2eePassphrase.value) {
-    showPassphraseModal.value = true
+    openPassphraseModal()
   }
 })
 
@@ -503,13 +508,14 @@ watch(activeFiles, (files) => {
       <DownloadSidebar
         v-if="upload"
         :upload="{ ...upload, admin: isAdmin }"
-        :passphrase="e2eePassphrase"
+        v-model:passphrase="e2eePassphrase"
+        @edit-passphrase="openPassphraseModal"
         @delete-upload="deleteUpload"
         @add-files="triggerAddFiles"
         @show-qr="openQrUpload" />
 
       <!-- Loading placeholder sidebar -->
-      <aside v-else class="w-full md:w-72 md:shrink-0 p-4">
+      <aside v-else class="w-full md:w-80 md:shrink-0 p-4">
         <div class="sidebar-section animate-pulse">
           <div class="h-4 bg-surface-700 rounded w-1/2 mb-3" />
           <div class="h-8 bg-surface-700 rounded mb-2" />
@@ -573,13 +579,8 @@ watch(activeFiles, (files) => {
             </svg>
             <div>
               <span class="text-sm text-accent-400 font-medium">End-to-End Encrypted</span>
-              <p class="text-xs text-surface-400 mt-0.5">
-                {{ e2eePassphrase ? 'Passphrase available — files will be decrypted in your browser' : 'Enter passphrase to decrypt files' }}
-              </p>
+              <p class="text-xs text-surface-400 mt-0.5">Files will be decrypted in your browser</p>
             </div>
-            <button v-if="!e2eePassphrase"
-                    class="ml-auto text-xs text-accent-400 hover:text-accent-300 transition-colors"
-                    @click="showPassphraseModal = true">Enter passphrase</button>
           </div>
 
           <!-- Decrypting Spinner -->

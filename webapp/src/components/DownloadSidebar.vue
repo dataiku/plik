@@ -4,12 +4,13 @@ import { formatDate } from '../utils.js'
 import { getArchiveURL, getAdminURL } from '../api.js'
 import CopyButton from './CopyButton.vue'
 
+const passphrase = defineModel('passphrase', { type: String, default: null })
+
 const props = defineProps({
   upload: { type: Object, required: true },
-  passphrase: { type: String, default: null },
 })
 
-const emit = defineEmits(['delete-upload', 'add-files', 'show-qr'])
+const emit = defineEmits(['delete-upload', 'add-files', 'show-qr', 'edit-passphrase'])
 
 const expirationText = computed(() => {
   if (!props.upload.expireAt) return null
@@ -34,8 +35,8 @@ const adminUrl = computed(() => {
 const includePassphrase = ref(false)
 const shareUrl = computed(() => {
   let url = `${window.location.origin}${window.location.pathname}#/?id=${props.upload.id}`
-  if (includePassphrase.value && props.passphrase) {
-    url += `&key=${encodeURIComponent(props.passphrase)}`
+  if (includePassphrase.value && passphrase.value) {
+    url += `&key=${encodeURIComponent(passphrase.value)}`
   }
   return url
 })
@@ -66,7 +67,7 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
 </script>
 
 <template>
-  <aside class="w-full md:w-72 md:shrink-0 p-4 space-y-3 animate-slide-in">
+  <aside class="w-full md:w-80 md:shrink-0 p-4 space-y-3 animate-slide-in">
     <!-- Upload Info -->
     <div class="sidebar-section">
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Upload Info</h3>
@@ -112,13 +113,22 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Share</h3>
 
       <!-- Passphrase display (E2EE only) -->
-      <div v-if="upload.e2ee && passphrase" class="mb-3">
+      <div v-if="upload.e2ee" class="mb-3">
         <label class="text-xs text-surface-500 mb-1 block">Passphrase</label>
         <div class="flex items-center gap-2 p-2 rounded bg-surface-800/50 min-w-0 overflow-hidden">
-          <span class="text-xs text-accent-400 font-mono truncate flex-1">{{ passphrase }}</span>
-          <CopyButton :text="passphrase" size="sm" />
+          <span v-if="passphrase" class="text-xs text-accent-400 font-mono truncate flex-1">{{ passphrase }}</span>
+          <span v-else class="text-xs text-surface-500 italic flex-1">Not set</span>
+          <button class="text-surface-400 hover:text-accent-400 transition-colors shrink-0"
+                  title="Edit passphrase"
+                  @click="emit('edit-passphrase')">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <CopyButton v-if="passphrase" :text="passphrase" size="sm" />
         </div>
-        <label class="flex items-center justify-between py-1.5 mt-2 cursor-pointer group">
+        <label v-if="passphrase" class="flex items-center justify-between py-1.5 mt-2 cursor-pointer group">
           <span class="text-xs text-surface-400 group-hover:text-surface-200 transition-colors">Include passphrase in link</span>
           <button type="button"
                   class="toggle-switch scale-75"
