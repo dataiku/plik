@@ -83,3 +83,11 @@ helm install plik plik/plik
 ```
 
 The chart source lives in `charts/plik/`. See the chart's `values.yaml` for all configuration options.
+
+### Pre-release checklist
+
+Before creating a GitHub release:
+
+1. Update the version badge and install snippets in `README.md` to reference the new tag
+2. Move `charts/plik/CHANGELOG.md` entries from `[Unreleased]` to the new version heading (e.g. `[1.4-RC4] - 2026-02-21`)
+3. Ensure all `ARCHITECTURE.md` files reflect any structural changes
