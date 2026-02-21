@@ -199,7 +199,7 @@ func TestGoogleCallback(t *testing.T) {
 	GoogleCallback(ctx, rr, req)
 
 	// Check the status code is what we expect.
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -531,7 +531,7 @@ func TestGoogleCallbackCreateUser(t *testing.T) {
 	GoogleCallback(ctx, rr, req)
 
 	// Check the status code is what we expect.
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -626,4 +626,82 @@ func TestGoogleCallbackCreateUserNotWhitelisted(t *testing.T) {
 	GoogleCallback(ctx, rr, req)
 
 	context.TestForbidden(t, rr, "unable to create user from untrusted source IP address")
+}
+
+func TestGoogleCallbackExistingUserInvalidDomain(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+
+	ctx.GetConfig().FeatureAuthentication = common.FeatureEnabled
+	ctx.GetConfig().GoogleAuthentication = true
+	ctx.GetConfig().GoogleAPIClientID = "google_api_client_id"
+	ctx.GetConfig().GoogleAPISecret = "google_api_secret"
+	ctx.GetConfig().GoogleValidDomains = []string{"allowed.com"}
+
+	/* Generate state */
+	state := jwt.New(jwt.SigningMethodHS256)
+	state.Claims.(jwt.MapClaims)["redirectURL"] = "https://plik.root.gg/auth/google/callback"
+	state.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(time.Minute * 5).Unix()
+
+	oauthToken := struct {
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int32  `json:"expires_in"`
+	}{
+		AccessToken:  "access_token",
+		TokenType:    "token_type",
+		RefreshToken: "refresh_token",
+		ExpiresIn:    int32(time.Now().Add(5 * time.Minute).Unix()),
+	}
+
+	// User email domain does NOT match GoogleValidDomains
+	googleUser := api_oauth2.Userinfo{
+		Id:    "plik",
+		Email: "plik@root.gg",
+		Name:  "plik.root.gg",
+	}
+
+	// Pre-create user (simulates previously allowed domain)
+	user := common.NewUser(common.ProviderGoogle, googleUser.Email)
+	user.Login = googleUser.Email
+	user.Name = googleUser.Name
+	user.Email = googleUser.Email
+	err := ctx.GetMetadataBackend().CreateUser(user)
+	require.NoError(t, err, "unable to create test user")
+
+	handler := func(resp http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/token" {
+			responseBody, err := json.Marshal(oauthToken)
+			require.NoError(t, err, "unable to marshal oauth token")
+			resp.Header().Set("Content-Type", "application/json")
+			resp.Write(responseBody)
+			return
+		}
+		if req.URL.Path == "/oauth2/v2/userinfo" {
+			responseBody, err := json.Marshal(googleUser)
+			require.NoError(t, err, "unable to marshal oauth token")
+			resp.Header().Set("Content-Type", "application/json")
+			resp.Write(responseBody)
+			return
+		}
+		resp.WriteHeader(http.StatusInternalServerError)
+	}
+
+	_, shutdown, err := common.StartAPIMockServerCustomPort(common.APIMockServerDefaultPort, http.HandlerFunc(handler))
+	defer shutdown()
+	require.NoError(t, err, "unable to start api mock server")
+
+	/* Sign state */
+	b64state, err := state.SignedString([]byte(ctx.GetConfig().GoogleAPISecret))
+	require.NoError(t, err, "unable to sign state")
+
+	req, err := http.NewRequest("GET", "/auth/google/login?code=code&state="+url.QueryEscape(b64state), bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	req = req.WithContext(gocontext.WithValue(gocontext.TODO(), googleEndpointContextKey, oauth2TestEndpoint))
+
+	rr := ctx.NewRecorder(req)
+	GoogleCallback(ctx, rr, req)
+
+	context.TestForbidden(t, rr, "unauthorized domain name")
 }

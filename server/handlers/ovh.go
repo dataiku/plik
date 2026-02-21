@@ -33,8 +33,11 @@ type ovhUserResponse struct {
 	LastName  string `json:"name"`
 }
 
+// maxOVHResponseSize is the maximum size of an OVH API response body (1MB).
+const maxOVHResponseSize = 1 << 20
+
 func decodeOVHResponse(resp *http.Response) ([]byte, error) {
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxOVHResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("unable to read response body : %s", err)
 	}
@@ -77,12 +80,30 @@ func OvhLogin(ctx *context.Context, resp http.ResponseWriter, req *http.Request)
 	}
 
 	// Prepare auth request
-	ovhReqBody := "{\"accessRules\":[{\"method\":\"GET\",\"path\":\"/me\"}], \"redirection\":\"" + redirectURL + "\"}"
+	ovhReqPayload := struct {
+		AccessRules []struct {
+			Method string `json:"method"`
+			Path   string `json:"path"`
+		} `json:"accessRules"`
+		Redirection string `json:"redirection"`
+	}{
+		AccessRules: []struct {
+			Method string `json:"method"`
+			Path   string `json:"path"`
+		}{{Method: "GET", Path: "/me"}},
+		Redirection: redirectURL,
+	}
+	ovhReqBodyBytes, err := json.Marshal(ovhReqPayload)
+	if err != nil {
+		ctx.InternalServerError("unable to marshal OVH request body", err)
+		return
+	}
 	u := fmt.Sprintf("%s/auth/credential", config.OvhAPIEndpoint)
 
-	ovhReq, err := http.NewRequest("POST", u, strings.NewReader(ovhReqBody))
+	ovhReq, err := http.NewRequest("POST", u, strings.NewReader(string(ovhReqBodyBytes)))
 	if err != nil {
 		ctx.InvalidParameter("unable to create POST request to %s : %s", u, err)
+		return
 	}
 	ovhReq.Header.Add("X-Ovh-Application", config.OvhAPIKey)
 	ovhReq.Header.Add("Content-type", "application/json")
@@ -125,9 +146,10 @@ func OvhLogin(ctx *context.Context, resp http.ResponseWriter, req *http.Request)
 	ovhAuthCookie := &http.Cookie{}
 	ovhAuthCookie.HttpOnly = true
 	ovhAuthCookie.Secure = true
+	ovhAuthCookie.SameSite = http.SameSiteLaxMode
 	ovhAuthCookie.Name = "plik-ovh-session"
 	ovhAuthCookie.Value = sessionString
-	ovhAuthCookie.MaxAge = int(time.Now().Add(5 * time.Minute).Unix())
+	ovhAuthCookie.MaxAge = 300 // 5 minutes
 	ovhAuthCookie.Path = "/"
 	http.SetCookie(resp, ovhAuthCookie)
 
@@ -139,6 +161,7 @@ func cleanOvhAuthSessionCookie(resp http.ResponseWriter) {
 	ovhAuthCookie := &http.Cookie{}
 	ovhAuthCookie.HttpOnly = true
 	ovhAuthCookie.Secure = true
+	ovhAuthCookie.SameSite = http.SameSiteLaxMode
 	ovhAuthCookie.Name = "plik-ovh-session"
 	ovhAuthCookie.Value = ""
 	ovhAuthCookie.MaxAge = -1
@@ -158,6 +181,11 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 		return
 	}
 
+	if !config.OvhAuthentication {
+		ctx.BadRequest("OVH authentication is disabled")
+		return
+	}
+
 	if config.OvhAPIKey == "" || config.OvhAPISecret == "" || config.OvhAPIEndpoint == "" {
 		ctx.InternalServerError("missing OVH API credentials", nil)
 		return
@@ -174,7 +202,7 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 	ovhAuthCookie, err := jwt.Parse(ovhSessionCookie.Value, func(t *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected siging method : %v", t.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method : %v", t.Header["alg"])
 		}
 
 		return []byte(config.OvhAPISecret), nil
@@ -296,9 +324,10 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 	sessionCookie, xsrfCookie, err := ctx.GetAuthenticator().GenAuthCookies(user)
 	if err != nil {
 		ctx.InternalServerError("unable to generate session cookies", err)
+		return
 	}
 	http.SetCookie(resp, sessionCookie)
 	http.SetCookie(resp, xsrfCookie)
 
-	http.Redirect(resp, req, config.Path+"/#/login", http.StatusMovedPermanently)
+	http.Redirect(resp, req, config.Path+"/#/login", http.StatusFound)
 }
