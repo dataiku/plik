@@ -81,6 +81,34 @@ npm run dev           # http://localhost:5173/plik/
 npm run dev -- --host # expose to local network
 ```
 
+## AI-Assisted Development
+
+Plik ships with built-in support for AI coding agents (Cursor, Antigravity, Copilot, etc.). If you're using an agentic coding assistant, the repo is pre-configured to give it deep project context.
+
+This is all still very exploratory/experimental, and subject to change as the community is converging to a golden standard. We won't try to adapt to everyone's own IDE/setup.
+
+### Agent Context Files
+
+| File | Purpose |
+|------|---------|
+| `AGENTS.md` | Entry point for AI agents — tech stack, repo layout, build/test commands, conventions |
+| `ARCHITECTURE.md` | System-wide architecture overview |
+| `server/ARCHITECTURE.md` | Server internals (handlers, middleware, backends) |
+| `client/ARCHITECTURE.md` | CLI client (commands, config, crypto, archive, MCP) |
+| `webapp/ARCHITECTURE.md` | Vue 3 SPA (components, routing, state) |
+| `plik/ARCHITECTURE.md` | Go client library (public API, types) |
+
+Your agent should read `AGENTS.md` first, then follow pointers to scoped `ARCHITECTURE.md` files for the area being worked on.
+
+### Agentic Workflows
+
+Pre-built workflows live in `.agents/workflows/` and can be invoked as slash commands:
+
+| Command | What it does |
+|---------|-------------|
+| `/review-changes` | Critical self-review of local changes (lint, build, test, code review checklist) |
+| `/prepare-pr` | Full PR preparation pipeline (review → commit → push → draft PR) |
+
 ## Code Organization
 
 See the [Architecture Overview](/architecture/system) for details on how the code is structured.
