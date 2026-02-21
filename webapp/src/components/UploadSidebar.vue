@@ -117,7 +117,7 @@ const hasAnySettings = computed(() =>
 </script>
 
 <template>
-  <aside v-if="hasAnySettings" class="w-full md:w-72 md:shrink-0 p-4 space-y-3 animate-slide-in">
+  <aside v-if="hasAnySettings" class="w-full md:w-80 md:shrink-0 p-4 space-y-3 animate-slide-in">
     <!-- Upload Settings -->
     <div class="sidebar-section">
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Upload Settings</h3>

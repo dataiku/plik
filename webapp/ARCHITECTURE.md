@@ -722,7 +722,7 @@ Provides streaming encryption/decryption using the `age-encryption` npm package:
 ### Download Flow (E2EE)
 
 1. `DownloadView.onMounted()` reads passphrase from `pendingUploadStore` (same-session) or URL fragment `#key=` (shared link)
-2. If E2EE is set on the upload but no passphrase is available → modal prompt
+2. If E2EE is set on the upload but no passphrase is available → user enters it in the sidebar's editable passphrase input (two-way bound via `v-model:passphrase`)
 3. Passphrase is stripped from the URL after extraction (security measure)
 4. `decryptAndDownload()` fetches the encrypted file and decrypts in-browser via `fetchAndDecrypt()`
 5. For E2EE files, `FileRow` emits `decrypt-download` instead of using a direct download link
@@ -736,6 +736,6 @@ Provides streaming encryption/decryption using the `age-encryption` npm package:
 ### DownloadSidebar (E2EE)
 
 - **🔐 Encrypted badge**: Shown in upload info when `upload.e2ee` is truthy
-- **Passphrase display**: Shown in Share section with copy button (only when passphrase is available)
+- **Passphrase display**: Read-only display in Share section with edit (pencil) button and copy button, always shown for E2EE uploads. Edit button opens a modal to change the passphrase (uses `v-model:passphrase` for two-way binding with `DownloadView`)
 - **Include passphrase in link toggle**: Off by default — appends `#key=<passphrase>` to the share URL when enabled
 
