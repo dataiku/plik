@@ -112,6 +112,7 @@ make vuln                   # govulncheck (report only)
 - **Helm persistence**: the chart has two independent PVCs — `persistence` for uploaded files (`/home/plik/server/files`) and `dbPersistence` for the SQLite database (`/home/plik/server/db`). Both default to `emptyDir` when disabled. The default `MetadataBackendConfig.ConnectionString` is `/home/plik/server/db/plik.db`.
 - **Run tests before committing**: `make lint && make test`
 - **Keep ARCHITECTURE.md files in sync**: Each root folder has its own — update the one closest to your change
+- **Release process**: Before creating a GitHub release, update the version in `README.md` and move `charts/plik/CHANGELOG.md` entries from `[Unreleased]` to the new version heading
 
 ## Documentation
 
@@ -141,4 +142,5 @@ make docs                    # Build docs (validates links, injects version)
 | [webapp/ARCHITECTURE.md](webapp/ARCHITECTURE.md) | Vue 3 SPA: components, routing, API layer, state |
 | [testing/ARCHITECTURE.md](testing/ARCHITECTURE.md) | Backend integration tests: docker-based test scripts |
 | [releaser/ARCHITECTURE.md](releaser/ARCHITECTURE.md) | Release tooling: build pipeline, Docker stages, client/server compilation |
+| [charts/plik/ARCHITECTURE.md](charts/plik/ARCHITECTURE.md) | Helm chart: structure, config/secrets separation, persistence, versioning |
 | [.github/ARCHITECTURE.md](.github/ARCHITECTURE.md) | GitHub Actions workflows, CI/CD, Helm chart release flow |
