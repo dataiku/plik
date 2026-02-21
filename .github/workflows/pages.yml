@@ -6,7 +6,6 @@ on:
       - master
     paths:
       - "docs/**"
-      - "charts/**"
       - ".github/workflows/pages.yml"
 
 permissions:
@@ -20,11 +19,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,14 +35,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/.vitepress/dist
-          keep_files: true # Crucial to preserve Helm index.yaml
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.7.0
-        with:
-          config: .github/cr.yaml
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          keep_files: true # Preserve Helm index.yaml
