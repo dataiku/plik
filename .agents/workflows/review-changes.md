@@ -92,6 +92,8 @@ For every modified file, evaluate against ALL of the following checklist:
 
 ### 4. Lint and build
 
+Only if there are some code changes
+
 ```bash
 make lint 2>&1 | tail -20
 make client server 2>&1 | tail -20
@@ -104,6 +106,8 @@ make frontend 2>&1 | tail -20
 ```
 
 ### 5. Run tests
+
+If there are some code changes (ask the for confirmation)
 
 ```bash
 make test 2>&1 | tail -40
