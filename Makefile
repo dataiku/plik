@@ -1,6 +1,7 @@
 SHELL = bash
 
 BUILD_INFO = $(shell server/gen_build_info.sh base64)
+VERSION = $(shell server/gen_build_info.sh version)
 
 # External ldflags: default to -static for static builds on linux.
 # macOS (Darwin) does not support full static linking; avoid -static there.
@@ -160,6 +161,18 @@ release-and-push-to-docker-hub:
 	@PUSH_TO_DOCKER_HUB=true releaser/release.sh
 
 ###
+# Package Helm chart locally (auto-detects version from git tags)
+###
+helm:
+	@DRY_RUN=true releaser/helm_release.sh $(VERSION)
+
+###
+# Package and install Helm chart locally
+###
+helm-install: helm
+	@helm install plik releases/plik-helm-$(VERSION).tgz
+
+###
 # Remove server build files
 ###
 clean:
@@ -187,4 +200,4 @@ clean-all: clean clean-frontend
 # by make, we must declare these targets as phony to avoid :
 # "make: `client' is up to date" cases at compile time
 ###
-.PHONY: client clients server release docs test-backend
+.PHONY: client clients server release helm helm-install docs test-backend
