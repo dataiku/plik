@@ -119,3 +119,23 @@ func TestHumanDuration(t *testing.T) {
 	require.Equal(t, "1y1d1h1m1s", HumanDuration(366*24*time.Hour+3661*time.Second))
 	require.Equal(t, "-10s", HumanDuration(-10*time.Second))
 }
+
+func TestSanitizeFilenameForDisposition(t *testing.T) {
+	// Normal filename passes through unchanged
+	require.Equal(t, "file.txt", SanitizeFilenameForDisposition("file.txt"))
+
+	// Double quotes are stripped
+	require.Equal(t, "file.txt", SanitizeFilenameForDisposition(`fi"le.txt`))
+
+	// CRLF characters are stripped (header injection vector)
+	require.Equal(t, "file.txt", SanitizeFilenameForDisposition("file\r\n.txt"))
+
+	// Null bytes are stripped
+	require.Equal(t, "file.txt", SanitizeFilenameForDisposition("file\x00.txt"))
+
+	// Empty string
+	require.Equal(t, "", SanitizeFilenameForDisposition(""))
+
+	// Multiple dangerous characters at once
+	require.Equal(t, "malicious.txt", SanitizeFilenameForDisposition("mal\"\rici\nous\x00.txt"))
+}

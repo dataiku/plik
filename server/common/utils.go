@@ -68,6 +68,18 @@ func StripPrefix(prefix string, handler http.Handler) http.Handler {
 	})
 }
 
+// SanitizeFilenameForDisposition strips characters that could break a
+// Content-Disposition header value: double quotes, CR, LF, and null bytes.
+func SanitizeFilenameForDisposition(name string) string {
+	r := strings.NewReplacer(
+		`"`, "",
+		"\r", "",
+		"\n", "",
+		"\x00", "",
+	)
+	return r.Replace(name)
+}
+
 // EncodeAuthBasicHeader return the base64 version of "login:password"
 func EncodeAuthBasicHeader(login string, password string) (value string) {
 	return base64.StdEncoding.EncodeToString([]byte(login + ":" + password))

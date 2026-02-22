@@ -211,6 +211,7 @@ func TestOVHCallback(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
@@ -308,6 +309,7 @@ func TestOVHCallbackCreateUser(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
@@ -395,6 +397,7 @@ func TestOVHCallbackCreateUserNotWhitelisted(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -499,6 +502,7 @@ func TestOVHCallbackMissingSessionString(t *testing.T) {
 
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -532,6 +536,7 @@ func TestOVHCallbackMissingOvhApiEndpoint(t *testing.T) {
 
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -565,6 +570,7 @@ func TestOVHCallbackMissingOvhApi(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -624,6 +630,7 @@ func TestOVHCallbackInvalidOvhApiResponse(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
@@ -665,6 +672,7 @@ func TestOVHCallbackInvalidOvhApiResponseJson(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
