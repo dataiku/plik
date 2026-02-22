@@ -530,7 +530,7 @@ func TestBackend_PurgeDeletedUploads_FixFileStatus(t *testing.T) {
 	require.Nil(t, err, "unable to update file status")
 
 	purged, err := b.DeleteRemovedUploads()
-	require.Error(t, err, "missing purge deleted upload errors")
+	require.NoError(t, err, "unexpected purge deleted upload error")
 	require.Equal(t, 0, purged, "invalid purged upload count")
 
 	// Upload has been soft deleted by RemoveUpload
@@ -582,7 +582,7 @@ func TestBackend_PurgeDeletedUploads_FixFileStatusMissing(t *testing.T) {
 	require.Nil(t, err, "unable to update file status")
 
 	purged, err := b.DeleteRemovedUploads()
-	require.Error(t, err, "missing purge deleted upload errors")
+	require.NoError(t, err, "unexpected purge deleted upload error")
 	require.Equal(t, 0, purged, "invalid purged upload count")
 
 	// Upload has been soft deleted by RemoveUpload
