@@ -209,7 +209,7 @@ func TestUploadFiles(t *testing.T) {
 
 	tmpFile2, err := os.CreateTemp("", "pliktmpfile")
 	require.NoError(t, err, "unable to create tmp file")
-	defer os.Remove(tmpFile.Name())
+	defer os.Remove(tmpFile2.Name())
 
 	_, err = tmpFile2.Write([]byte(data))
 	require.NoError(t, err, "unable to write tmp file")
@@ -226,10 +226,10 @@ func TestUploadFiles(t *testing.T) {
 
 	err = upload.Upload()
 	require.NoError(t, err, "unable to upload file")
-	require.Len(t, upload.Metadata().Files, 0, "invalid file count")
+	require.Len(t, upload.Files(), 2, "invalid file count")
 
-	for _, file := range upload.Metadata().Files {
-		reader, err := pc.downloadFile(upload.Metadata(), file)
+	for _, file := range upload.Files() {
+		reader, err := file.Download()
 		require.NoError(t, err, "unable to download file")
 		content, err := io.ReadAll(reader)
 		require.NoError(t, err, "unable to read file")

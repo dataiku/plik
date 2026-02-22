@@ -22,7 +22,7 @@ func NewTarBackend(config map[string]any) (tb *Backend, err error) {
 	tb.Config = NewTarBackendConfig(config)
 	if _, err = os.Stat(tb.Config.Tar); os.IsNotExist(err) || os.IsPermission(err) {
 		if tb.Config.Tar, err = exec.LookPath("tar"); err != nil {
-			err = errors.New("tar binary not found in $PATH, please install or edit ~/.plickrc")
+			err = errors.New("tar binary not found in $PATH, please install or edit ~/.plikrc")
 		}
 	}
 	return
@@ -106,11 +106,11 @@ func (tb *Backend) GetFileName(files []string) (name string) {
 	if len(files) == 1 {
 		name = filepath.Base(files[0])
 	}
-	name += ".tar" + getCompressExtention(tb.Config.Compress)
+	name += ".tar" + getCompressExtension(tb.Config.Compress)
 	return
 }
 
-func getCompressExtention(mode string) string {
+func getCompressExtension(mode string) string {
 	switch mode {
 	case "gzip":
 		return ".gz"
@@ -124,7 +124,7 @@ func getCompressExtention(mode string) string {
 		return ".lzo"
 	case "lzma":
 		return ".lzma"
-	case "compres":
+	case "compress":
 		return ".Z"
 	default:
 		return ""
