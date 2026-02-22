@@ -43,8 +43,10 @@ func (b *Backend) GetFile(file *common.File) (stream io.ReadCloser, err error) {
 	return stream, err
 }
 
-// AddFile implementation for steam data backend will creates a new steam for the given upload
-// and save it on filesystem with the given steam reader
+// AddFile implementation for stream data backend will create a pipe and block until download begins.
+// The store entry is consumed (deleted) by GetFile on first retrieval.
+// The deferred delete here is a safety net for the case where GetFile is
+// never called — it cleans up the entry after io.Copy completes.
 func (b *Backend) AddFile(file *common.File, stream io.Reader) (err error) {
 	storeID := file.UploadID + "/" + file.ID
 
@@ -59,9 +61,9 @@ func (b *Backend) AddFile(file *common.File, stream io.Reader) (err error) {
 
 	// This will block until download begins
 	_, err = io.Copy(pipeWriter, stream)
-	_ = pipeWriter.Close()
+	_ = pipeWriter.CloseWithError(err)
 
-	return nil
+	return err
 }
 
 // RemoveFile does not need to be implemented cleaning occurs in AddFile's defer delete
