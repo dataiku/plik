@@ -2,6 +2,7 @@ package common
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"slices"
 	"time"
@@ -101,7 +102,7 @@ func (upload *Upload) GetFileByReference(ref string) (file *File) {
 	return nil
 }
 
-// Sanitize clear some fields to hide sensible information from the API.
+// Sanitize clear some fields to hide sensitive information from the API.
 func (upload *Upload) Sanitize(config *Configuration) {
 	upload.RemoteIP = ""
 	upload.Login = ""
@@ -125,7 +126,10 @@ func GenerateRandomID(length int) string {
 	max := *big.NewInt(int64(len(randRunes)))
 	b := make([]rune, length)
 	for i := range b {
-		n, _ := rand.Int(rand.Reader, &max)
+		n, err := rand.Int(rand.Reader, &max)
+		if err != nil {
+			panic(fmt.Sprintf("failed to generate random ID : %s", err))
+		}
 		b[i] = randRunes[n.Int64()]
 	}
 

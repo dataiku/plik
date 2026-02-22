@@ -50,7 +50,7 @@ func (file *File) GenerateID() {
 	file.ID = GenerateRandomID(16)
 }
 
-// Sanitize clear some fields to hide sensible information from the API.
+// Sanitize clear some fields to hide sensitive information from the API.
 func (file *File) Sanitize() {
 	file.BackendDetails = ""
 }
