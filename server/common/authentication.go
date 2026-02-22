@@ -124,7 +124,7 @@ func (sa *SessionAuthenticator) ParseSessionCookie(value string) (uid string, xs
 	createdAtValue, ok := session.Claims.(jwt.MapClaims)["created_at"]
 	if ok {
 		createdAtStrValue, ok := createdAtValue.(string)
-		if !ok || createdAtValue == "" {
+		if !ok || createdAtStrValue == "" {
 			return "", "", fmt.Errorf("invalid creation date from session cookie")
 		}
 		createdAt, err := strconv.ParseInt(createdAtStrValue, 10, 64)
@@ -178,6 +178,9 @@ func (sa *SessionAuthenticator) Logout() (sessionCookie *http.Cookie, xsrfCookie
 
 // HashPassword return bcrypt password hash ( with salt )
 func HashPassword(password string) (string, error) {
+	if len(password) > 72 {
+		return "", fmt.Errorf("password is too long, maximum 72 bytes")
+	}
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
 }

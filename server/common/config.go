@@ -233,7 +233,7 @@ func (config *Configuration) Initialize() (err error) {
 	}
 
 	if config.DownloadDomain != "" {
-		strings.Trim(config.DownloadDomain, "/ ")
+		config.DownloadDomain = strings.Trim(config.DownloadDomain, "/ ")
 		var err error
 		if config.downloadDomainURL, err = url.Parse(config.DownloadDomain); err != nil {
 			return fmt.Errorf("invalid download domain URL %s : %s", config.DownloadDomain, err)
@@ -316,7 +316,7 @@ func (config *Configuration) GetDownloadDomain() *url.URL {
 	return config.downloadDomainURL
 }
 
-// IsValidDownloadDomain return weather or not the host is a valid download domain
+// IsValidDownloadDomain return whether or not the host is a valid download domain
 func (config *Configuration) IsValidDownloadDomain(host string) bool {
 	if config.downloadDomainURL == nil {
 		return true
@@ -342,12 +342,12 @@ func (config *Configuration) AutoClean(value bool) {
 	config.clean = value
 }
 
-// IsAutoClean return weather or not to start the cleaning goroutine
+// IsAutoClean return whether or not to start the cleaning goroutine
 func (config *Configuration) IsAutoClean() bool {
 	return config.clean
 }
 
-// IsWhitelisted return weather or not the IP matches of the config upload whitelist
+// IsWhitelisted return whether or not the IP matches of the config upload whitelist
 func (config *Configuration) IsWhitelisted(ip net.IP) bool {
 	if len(config.uploadWhitelist) == 0 {
 		// Empty whitelist == accept all
@@ -402,7 +402,7 @@ func (config *Configuration) GetTlsVersion() uint16 {
 		return tls.VersionTLS13
 	}
 
-	return tls.VersionTLS10
+	return tls.VersionTLS12
 }
 
 // GetPath return the web API/UI root path

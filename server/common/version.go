@@ -116,7 +116,7 @@ func (bi *BuildInfo) String() string {
 	}
 
 	if bi.Date > 0 && bi.GoVersion != "" {
-		v += fmt.Sprintf(" at %s with %s)", time.Unix(bi.Date, 0), bi.GoVersion)
+		v += fmt.Sprintf(" at %s with %s", time.Unix(bi.Date, 0), bi.GoVersion)
 	}
 
 	return v

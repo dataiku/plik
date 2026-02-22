@@ -68,7 +68,7 @@ func NewUploadConfig() (config *CliConfig) {
 func LoadConfigFromFile(path string) (*CliConfig, error) {
 	config := NewUploadConfig()
 	if _, err := toml.DecodeFile(path, config); err != nil {
-		return nil, fmt.Errorf("Failed to deserialize ~/.plickrc : %s", err)
+		return nil, fmt.Errorf("Failed to deserialize ~/.plikrc : %s", err)
 	}
 
 	// Sanitize URL
@@ -236,13 +236,13 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 	// Encode in TOML
 	buf := new(bytes.Buffer)
 	if err = toml.NewEncoder(buf).Encode(config); err != nil {
-		return nil, fmt.Errorf("Failed to serialize ~/.plickrc : %s", err)
+		return nil, fmt.Errorf("Failed to serialize ~/.plikrc : %s", err)
 	}
 
 	// Write file
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to save ~/.plickrc : %s", err)
+		return nil, fmt.Errorf("Failed to save ~/.plikrc : %s", err)
 	}
 
 	_, _ = f.Write(buf.Bytes())

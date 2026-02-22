@@ -3,6 +3,7 @@ package common
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -85,4 +86,17 @@ func TestHashPassword(t *testing.T) {
 
 	ok = CheckPasswordHash("invalid", hash)
 	require.False(t, ok)
+}
+
+func TestHashPasswordTooLong(t *testing.T) {
+	// 72 bytes should work
+	password72 := strings.Repeat("a", 72)
+	_, err := HashPassword(password72)
+	require.NoError(t, err, "72 byte password should be accepted")
+
+	// 73 bytes should fail
+	password73 := password72 + "a"
+	_, err = HashPassword(password73)
+	require.Error(t, err, "73 byte password should be rejected")
+	require.Contains(t, err.Error(), "too long")
 }

@@ -18,9 +18,7 @@ client/
 ├── crypto/        ← crypto backends (openssl, pgp)
 ├── .plikrc        ← example client configuration
 ├── plik.sh        ← bash upload wrapper
-├── test.sh        ← CLI integration tests
-├── test_downgrade.sh  ← client version downgrade tests
-└── test_upgrade.sh    ← client version upgrade tests
+└── test.sh        ← CLI integration tests
 ```
 
 ---
@@ -109,7 +107,6 @@ All upload tools use `plik.UploadParams` via struct embedding and return `Upload
 ## Integration Tests
 
 - `test.sh` — comprehensive CLI integration tests (requires a running server)
-- `test_upgrade.sh` / `test_downgrade.sh` — version compatibility tests (stale, unused since ~2021)
 
 ---
 
