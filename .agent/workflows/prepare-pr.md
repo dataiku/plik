@@ -8,6 +8,8 @@ Prepare local changes for a pull request — lint, test, commit, and draft the P
 
 CRITICAL RULE: NEVER perform any write action on GitHub without explicit user permission. This includes but is not limited to: submitting PR reviews, posting comments, creating/merging pull requests, pushing commits, creating branches, or creating issues. Always draft the content locally and present it to the user for review and approval BEFORE publishing anything to GitHub.
 
+CRITICAL RULE: When UPDATING an existing PR (amending commits, adding follow-up changes), you MUST present the diff to the user for review BEFORE pushing. Do NOT amend and force-push without explicit approval — the same review gate applies whether creating or updating a PR.
+
 ## When to Use
 
 - When the user wants to submit their work as a PR

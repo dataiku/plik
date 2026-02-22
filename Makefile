@@ -89,6 +89,9 @@ lint:
 vuln:
 	@echo "Running govulncheck..."
 	@govulncheck ./... || true
+	@echo ""
+	@echo "Running npm audit..."
+	@cd webapp && npm audit || true
 
 ###
 # Run fmt
