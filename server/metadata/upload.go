@@ -2,8 +2,9 @@ package metadata
 
 import (
 	"fmt"
-	"gorm.io/gorm/clause"
 	"time"
+
+	"gorm.io/gorm/clause"
 
 	"github.com/pilagod/gorm-cursor-paginator/v2/paginator"
 	"gorm.io/gorm"
@@ -146,9 +147,9 @@ func (b *Backend) GetUploadsSortedBySize(userID string, tokenStr string, withFil
 	return uploads, &c, err
 }
 
-// RemoveUpload soft delete upload ( just set upload.DeletedAt field ) and remove all files
+// RemoveUpload soft delete upload ( just set upload.DeletedAt field ) and remove all files.
 // The upload metadata will still be present in the metadata database as well as all the files
-// Until all the files are deleted from the data backend and
+// until all the files are deleted from the data backend and DeleteRemovedUploads purges them.
 func (b *Backend) RemoveUpload(uploadID string) (err error) {
 	err = b.db.Transaction(func(tx *gorm.DB) (err error) {
 		err = b.removeUploadFiles(tx, uploadID)
@@ -185,6 +186,7 @@ func (b *Backend) RemoveExpiredUploads() (removed int, err error) {
 
 		err := b.RemoveUpload(upload.ID)
 		if err != nil {
+			b.log.Warningf("unable to remove expired upload %s : %s", upload.ID, err)
 			errors = append(errors, err)
 			continue
 		}
@@ -212,6 +214,7 @@ func (b *Backend) DeleteRemovedUploads() (removed int, err error) {
 	defer func() { _ = rows.Close() }()
 
 	errors := 0
+	fixups := 0
 	for rows.Next() {
 		upload := &common.Upload{}
 		err = b.db.ScanRows(rows, upload)
@@ -243,9 +246,8 @@ func (b *Backend) DeleteRemovedUploads() (removed int, err error) {
 					return err
 				}
 
-				// Hack the counters
-				errors++
-				removed--
+				// This upload needs another cleaning cycle, don't count it as removed or as an error
+				fixups++
 
 				// We have to return nil to let the transaction commit to update the files status
 				return nil
@@ -272,6 +274,10 @@ func (b *Backend) DeleteRemovedUploads() (removed int, err error) {
 			removed++
 		}
 	}
+
+	// Fixup transactions return nil to commit, so they increment removed.
+	// Subtract them to get the actual purged count.
+	removed -= fixups
 
 	if errors > 0 {
 		return removed, fmt.Errorf("unable to purge %d deleted uploads", errors)

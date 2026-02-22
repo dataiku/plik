@@ -107,11 +107,11 @@ type Backend interface {
 
 | Package | Backend | Notes |
 |---------|---------|-------|
-| `data/file` | Local filesystem | Files stored in configurable directory |
-| `data/s3` | Amazon S3 / MinIO | Supports SSE-C/S3 encryption and optional legacy Content-MD5 compatibility mode |
+| `data/file` | Local filesystem | Files stored in configurable directory. |
+| `data/s3` | Amazon S3 / MinIO | Supports SSE-C/S3 encryption. |
 | `data/swift` | OpenStack Swift | |
 | `data/gcs` | Google Cloud Storage | |
-| `data/stream` | In-memory pipe | Blocks uploader until downloader connects — nothing stored |
+| `data/stream` | In-memory pipe | Blocks uploader until downloader connects — nothing stored. |
 | `data/testing` | In-memory map | For tests only |
 
 ---
@@ -125,7 +125,7 @@ Uses GORM with gormigrate for schema management across SQLite3, PostgreSQL, and 
 - **SQLite3**: WAL mode + foreign keys enabled on connect
 - **Schema init**: Auto-migrates `Upload`, `File`, `User`, `Token`, `Setting`, `CLIAuthSession` tables
 - **Migrations**: Versioned via gormigrate — see `migrations.go`
-- **Cleaning**: `Clean()` removes orphan files, tokens, and expired CLI auth sessions (FK integrity)
+- **Cleaning**: `Clean()` removes orphan files and tokens and CLI auth sessions
 - **Metrics**: GORM Prometheus plugin for DB stats
 
 ### Files
