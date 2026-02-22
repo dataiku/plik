@@ -3,9 +3,10 @@ package handlers
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/dustin/go-humanize"
 	"io"
 	"net/http"
+
+	"github.com/dustin/go-humanize"
 
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
@@ -224,7 +225,7 @@ func preprocessor(ctx *context.Context, file io.Reader, preprocessWriter io.Writ
 	var md5sum string
 
 	md5Hash := md5.New()
-	buf := make([]byte, 1048)
+	buf := make([]byte, 32*1024)
 
 	eof := false
 	for !eof {
@@ -276,7 +277,7 @@ func preprocessor(ctx *context.Context, file io.Reader, preprocessWriter io.Writ
 
 	errClose := preprocessWriter.Close()
 	if errClose != nil {
-		log.Warningf("unable to close preprocessWriter : %s", err)
+		log.Warningf("unable to close preprocessWriter : %s", errClose)
 	}
 
 	if err != nil {

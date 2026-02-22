@@ -60,6 +60,7 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		err := ctx.GetMetadataBackend().UpdateFileStatus(file, file.Status, common.FileRemoved)
 		if err != nil {
 			ctx.InternalServerError("unable to update file status", err)
+			return
 		}
 	}
 
@@ -98,7 +99,7 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 	}
 
 	if file.Size > 0 {
-		resp.Header().Set("Content-Length", strconv.Itoa(int(file.Size)))
+		resp.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
 	}
 
 	// If "dl" GET params is set
@@ -106,9 +107,9 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 	// -> The client should download file instead of displaying it
 	dl := req.URL.Query().Get("dl")
 	if dl != "" {
-		resp.Header().Set("Content-Disposition", fmt.Sprintf(`attachement; filename="%s"`, file.Name))
+		resp.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, common.SanitizeFilenameForDisposition(file.Name)))
 	} else {
-		resp.Header().Set("Content-Disposition", fmt.Sprintf(`filename="%s"`, file.Name))
+		resp.Header().Set("Content-Disposition", fmt.Sprintf(`filename="%s"`, common.SanitizeFilenameForDisposition(file.Name)))
 	}
 
 	// HEAD Request => Do not print file, user just wants http headers

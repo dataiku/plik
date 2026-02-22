@@ -71,9 +71,9 @@ func GetArchive(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 	// -> The client should download file instead of displaying it
 	dl := req.URL.Query().Get("dl")
 	if dl != "" {
-		resp.Header().Set("Content-Disposition", fmt.Sprintf(`attachement; filename="%s"`, fileName))
+		resp.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, common.SanitizeFilenameForDisposition(fileName)))
 	} else {
-		resp.Header().Set("Content-Disposition", fmt.Sprintf(`filename="%s"`, fileName))
+		resp.Header().Set("Content-Disposition", fmt.Sprintf(`filename="%s"`, common.SanitizeFilenameForDisposition(fileName)))
 	}
 
 	// HEAD Request => Do not print file, user just wants http headers
