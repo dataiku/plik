@@ -47,6 +47,8 @@ When `config.feature_authentication` is `"forced"`, a `router.beforeEach` guard 
 
 CLI auth approval (`to.name === 'cli-auth'`) always requires authentication regardless of auth mode.
 
+Admin pages (routes with `meta: { requiresAdmin: true }`) require an authenticated admin user. Non-admin users navigating to `/#/admin` are silently redirected to `/`.
+
 **Redirect preservation**: When the guard redirects to login, it saves the intended destination to `sessionStorage` (`plik-auth-redirect` key) instead of a URL query parameter. This is necessary because OAuth flows do a full-page round-trip through an external provider (Google, OIDC, OVH), and the server callback redirects back to `/#/login` — any hash-fragment query params would be lost during this round-trip. Using sessionStorage solves this uniformly for all auth methods (local login and OAuth).
 
 ---
@@ -699,6 +701,26 @@ For full details on the Docker multi-stage build and release packaging, see [rel
 
 ---
 
+## Markdown Rendering
+
+### Module: `markdown.js`
+
+Shared utility for rendering Markdown comments to sanitized HTML:
+
+```javascript
+import { renderMarkdown } from '../markdown.js'
+```
+
+| Function | Description |
+|----------|-------------|
+| `renderMarkdown(text)` | Parses Markdown via `marked`, sanitizes HTML via `DOMPurify` |
+
+Used by both `UploadView` (comment preview) and `DownloadView` (comment display) via `v-html`. DOMPurify prevents stored XSS from user-supplied Markdown comments that could contain malicious HTML/JS.
+
+> **Rule**: Never use `marked.parse()` directly with `v-html`. Always use `renderMarkdown()` which applies DOMPurify sanitization.
+
+---
+
 ## End-to-End Encryption (E2EE)
 
 ### Module: `crypto.js`
@@ -709,7 +731,7 @@ Provides streaming encryption/decryption using the `age-encryption` npm package:
 |----------|-------------|
 | `encryptFile(file, passphrase)` | Encrypts a `File` object → returns encrypted `File` |
 | `fetchAndDecrypt(url, passphrase)` | Fetches encrypted bytes, decrypts → returns `Blob` |
-| `generatePassphrase()` | Generates a 20-char cryptographically-secure passphrase |
+| `generatePassphrase()` | Generates a 32-char cryptographically-secure passphrase |
 
 ### Upload Flow (E2EE)
 

@@ -8,7 +8,7 @@ import { setPendingFiles } from '../pendingUploadStore.js'
 import { generateRef, ttlToSeconds, secondsToTTL, encodeBasicAuth, humanReadableSize } from '../utils.js'
 import { encryptFile } from '../crypto.js'
 import { auth } from '../authStore.js'
-import { marked } from 'marked'
+import { renderMarkdown } from '../markdown.js'
 import UploadSidebar from '../components/UploadSidebar.vue'
 import FileRow from '../components/FileRow.vue'
 import { defineAsyncComponent } from 'vue'
@@ -63,7 +63,7 @@ const commentText = ref('')
 const commentTab = ref('write') // 'write' | 'preview'
 const renderedComment = computed(() => {
   if (!commentText.value) return ''
-  return marked.parse(commentText.value, { breaks: true })
+  return renderMarkdown(commentText.value)
 })
 
 // File list

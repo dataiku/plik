@@ -21,7 +21,9 @@ const expirationText = computed(() => {
   const diffDays = Math.floor(diffMs / 86400000)
   const diffHours = Math.floor((diffMs % 86400000) / 3600000)
   if (diffDays > 0) return `Expires in ${diffDays}d ${diffHours}h`
-  return `Expires in ${diffHours}h`
+  if (diffHours > 0) return `Expires in ${diffHours}h`
+  const diffMins = Math.max(1, Math.ceil((diffMs % 3600000) / 60000))
+  return `Expires in ${diffMins}m`
 })
 
 const archiveUrl = computed(() => getArchiveURL(props.upload.id))

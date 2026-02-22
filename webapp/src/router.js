@@ -28,6 +28,7 @@ const routes = [
         path: '/admin',
         name: 'admin',
         component: AdminView,
+        meta: { requiresAdmin: true },
     },
     {
         path: '/clients',
@@ -67,6 +68,11 @@ router.beforeEach((to) => {
     if (to.name === 'cli-auth' && !auth.user) {
         sessionStorage.setItem('plik-auth-redirect', to.fullPath)
         return { name: 'login' }
+    }
+
+    // Admin pages require an admin user
+    if (to.meta.requiresAdmin && (!auth.user || !auth.user.admin)) {
+        return '/'
     }
 
     if (config.feature_authentication !== 'forced') return true
