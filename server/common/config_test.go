@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto/tls"
 	"net"
 	"os"
 	"testing"
@@ -410,4 +411,29 @@ func TestConfiguration_IsValidDownloadDomain(t *testing.T) {
 	require.True(t, config.IsValidDownloadDomain("plik.root.gg"))
 	require.True(t, config.IsValidDownloadDomain("dl.root.gg"))
 	require.False(t, config.IsValidDownloadDomain("invalid.domain"))
+}
+
+func TestGetTlsVersionDefault(t *testing.T) {
+	config := NewConfiguration()
+	require.Equal(t, uint16(tls.VersionTLS12), config.GetTlsVersion(), "default TLS version should be TLS 1.2")
+}
+
+func TestGetTlsVersionAllValues(t *testing.T) {
+	config := NewConfiguration()
+
+	config.TlsVersion = "tlsv10"
+	require.Equal(t, uint16(tls.VersionTLS10), config.GetTlsVersion())
+
+	config.TlsVersion = "tlsv11"
+	require.Equal(t, uint16(tls.VersionTLS11), config.GetTlsVersion())
+
+	config.TlsVersion = "tlsv12"
+	require.Equal(t, uint16(tls.VersionTLS12), config.GetTlsVersion())
+
+	config.TlsVersion = "tlsv13"
+	require.Equal(t, uint16(tls.VersionTLS13), config.GetTlsVersion())
+
+	// Unknown value should default to TLS 1.2
+	config.TlsVersion = "invalid"
+	require.Equal(t, uint16(tls.VersionTLS12), config.GetTlsVersion())
 }
