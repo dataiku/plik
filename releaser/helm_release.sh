@@ -30,6 +30,8 @@ if [[ -z "$TAG" ]]; then
   exit 1
 fi
 
+GIT_REMOTE=${GIT_REMOTE:-origin}
+
 echo ""
 echo " Packaging Helm chart for $TAG"
 echo ""
@@ -51,13 +53,13 @@ echo " Updating Helm repo index on gh-pages"
 echo ""
 
 # Fetch gh-pages branch
-git fetch origin gh-pages
+git fetch "$GIT_REMOTE" gh-pages
 
 # Prepare a temp directory with the existing index and new chart
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
-git show origin/gh-pages:index.yaml > "$TMPDIR/index.yaml" 2>/dev/null || true
+git show "$GIT_REMOTE"/gh-pages:index.yaml > "$TMPDIR/index.yaml" 2>/dev/null || true
 cp "releases/plik-helm-${TAG}.tgz" "$TMPDIR/"
 
 # Merge new chart entry into the index
@@ -86,13 +88,13 @@ fi
 WORKTREE=$(mktemp -d)
 trap "rm -rf $TMPDIR $WORKTREE" EXIT
 
-git worktree add --detach "$WORKTREE" origin/gh-pages
+git worktree add --detach "$WORKTREE" "$GIT_REMOTE/gh-pages"
 cp "$TMPDIR/index.yaml" "$WORKTREE/index.yaml"
 
 cd "$WORKTREE"
 git add index.yaml
 git commit -m "Update Helm repo index for $TAG"
-git push origin HEAD:gh-pages
+git push "$GIT_REMOTE" HEAD:gh-pages
 cd -
 
 git worktree remove "$WORKTREE"
