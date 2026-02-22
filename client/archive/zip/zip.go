@@ -1,6 +1,7 @@
 package zip
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -39,9 +40,7 @@ func (zb *Backend) Configure(arguments map[string]any) (err error) {
 // Archive implementation for ZIP Archive Backend
 func (zb *Backend) Archive(files []string) (reader io.Reader, err error) {
 	if len(files) == 0 {
-		fmt.Fprintln(os.Stderr, "Unable to make a zip archive from STDIN")
-		os.Exit(1)
-		return
+		return nil, fmt.Errorf("unable to make a zip archive from STDIN")
 	}
 
 	var args []string
@@ -51,27 +50,27 @@ func (zb *Backend) Archive(files []string) (reader io.Reader, err error) {
 
 	reader, writer := io.Pipe()
 
+	var stderr bytes.Buffer
 	cmd := exec.Command(zb.Config.Zip, args...)
 	cmd.Stdout = writer
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = &stderr
+
 	go func() {
 		err := cmd.Start()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to run zip cmd : %s\n", err)
-			os.Exit(1)
+			_ = writer.CloseWithError(fmt.Errorf("unable to start zip cmd: %w", err))
 			return
 		}
 		err = cmd.Wait()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to run zip cmd : %s\n", err)
-			os.Exit(1)
+			if stderr.Len() > 0 {
+				_ = writer.CloseWithError(fmt.Errorf("zip cmd failed: %w: %s", err, stderr.String()))
+			} else {
+				_ = writer.CloseWithError(fmt.Errorf("zip cmd failed: %w", err))
+			}
 			return
 		}
-		err = writer.Close()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to run zip cmd : %s\n", err)
-			return
-		}
+		_ = writer.Close()
 	}()
 
 	return reader, nil
