@@ -232,7 +232,12 @@ func (ps *PlikServer) start() (err error) {
 			return fmt.Errorf("unable to listen on %s : %s", address, err)
 		}
 
-		ps.httpServer = &http.Server{Handler: handler, TLSConfig: tlsConfig}
+		ps.httpServer = &http.Server{
+			Handler:           handler,
+			TLSConfig:         tlsConfig,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
 	} else {
 		proto = "http"
 		var err error
@@ -241,7 +246,11 @@ func (ps *PlikServer) start() (err error) {
 			return fmt.Errorf("unable to listen on %s : %s", address, err)
 		}
 
-		ps.httpServer = &http.Server{Handler: handler}
+		ps.httpServer = &http.Server{
+			Handler:           handler,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
 	}
 
 	ps.httpListener = listener

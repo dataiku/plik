@@ -63,7 +63,7 @@ func TestGetFile(t *testing.T) {
 	require.NotEmpty(t, rr.Header().Get("X-XSS-Protection"))
 	require.NotEmpty(t, rr.Header().Get("X-Frame-Options"))
 	require.NotEmpty(t, rr.Header().Get("Content-Security-Policy"))
-	require.Equal(t, rr.Header().Get("Content-Disposition"), fmt.Sprintf(`attachement; filename="%s"`, file.Name))
+	require.Equal(t, rr.Header().Get("Content-Disposition"), fmt.Sprintf(`attachment; filename="%s"`, file.Name))
 }
 
 func TestGetOneShotFile(t *testing.T) {

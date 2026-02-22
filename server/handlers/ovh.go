@@ -36,6 +36,10 @@ type ovhUserResponse struct {
 // maxOVHResponseSize is the maximum size of an OVH API response body (1MB).
 const maxOVHResponseSize = 1 << 20
 
+const ovhHTTPTimeout = 10 * time.Second
+
+var ovhHTTPClient = &http.Client{Timeout: ovhHTTPTimeout}
+
 func decodeOVHResponse(resp *http.Response) ([]byte, error) {
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxOVHResponseSize))
 	if err != nil {
@@ -109,8 +113,7 @@ func OvhLogin(ctx *context.Context, resp http.ResponseWriter, req *http.Request)
 	ovhReq.Header.Add("Content-type", "application/json")
 
 	// Do request
-	client := &http.Client{}
-	ovhResp, err := client.Do(ovhReq)
+	ovhResp, err := ovhHTTPClient.Do(ovhReq)
 	if err != nil {
 		ctx.InternalServerError(fmt.Sprintf("error with OVH API %s", u), err)
 		return
@@ -133,6 +136,7 @@ func OvhLogin(ctx *context.Context, resp http.ResponseWriter, req *http.Request)
 	claims := jwt.MapClaims{
 		"ovh-consumer-key": userConsentResponse.ConsumerKey,
 		"ovh-api-endpoint": config.OvhAPIEndpoint,
+		"expire":           time.Now().Add(5 * time.Minute).Unix(),
 	}
 	session := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
@@ -205,6 +209,19 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 			return nil, fmt.Errorf("unexpected signing method : %v", t.Header["alg"])
 		}
 
+		// Verify expiration date
+		if expire, ok := t.Claims.(jwt.MapClaims)["expire"]; ok {
+			if _, ok = expire.(float64); ok {
+				if time.Now().Unix() > (int64)(expire.(float64)) {
+					return nil, fmt.Errorf("state has expired")
+				}
+			} else {
+				return nil, fmt.Errorf("invalid expiration date")
+			}
+		} else {
+			return nil, fmt.Errorf("missing expiration date")
+		}
+
 		return []byte(config.OvhAPISecret), nil
 	})
 	if err != nil {
@@ -253,8 +270,7 @@ func OvhCallback(ctx *context.Context, resp http.ResponseWriter, req *http.Reque
 	ovhReq.Header.Add("X-Ovh-Signature", fmt.Sprintf("$1$%x", h.Sum(nil)))
 
 	// Do request
-	client := &http.Client{}
-	ovhResp, err := client.Do(ovhReq)
+	ovhResp, err := ovhHTTPClient.Do(ovhReq)
 	if err != nil {
 		ctx.InternalServerError(fmt.Sprintf("error with OVH API %s", url), err)
 		return
