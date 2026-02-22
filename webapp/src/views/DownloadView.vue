@@ -6,7 +6,7 @@ import { generateRef, isTextFile } from '../utils.js'
 import { fetchAndDecrypt } from '../crypto.js'
 import { getToken, setToken } from '../tokenStore.js'
 import { consumePendingFiles } from '../pendingUploadStore.js'
-import { marked } from 'marked'
+import { renderMarkdown } from '../markdown.js'
 import DownloadSidebar from '../components/DownloadSidebar.vue'
 import FileRow from '../components/FileRow.vue'
 import CopyButton from '../components/CopyButton.vue'
@@ -568,7 +568,7 @@ watch(activeFiles, (files) => {
               </svg>
               <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider">Comment</h3>
             </div>
-            <div class="prose prose-sm max-w-none" v-html="marked.parse(upload.comments, { breaks: true })" />
+            <div class="prose prose-sm max-w-none" v-html="renderMarkdown(upload.comments)" />
           </div>
 
           <!-- E2EE Indicator -->

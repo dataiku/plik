@@ -27,7 +27,7 @@ const e2eeCopied = ref(false)
 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*'
 
 function generatePassword() {
-  const array = new Uint8Array(20)
+  const array = new Uint32Array(20)
   crypto.getRandomValues(array)
   return Array.from(array, b => chars[b % chars.length]).join('')
 }
