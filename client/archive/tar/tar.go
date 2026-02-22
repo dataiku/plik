@@ -1,6 +1,7 @@
 package tar
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -42,9 +43,7 @@ func (tb *Backend) Configure(arguments map[string]any) (err error) {
 // Archive implementation for TAR Archive Backend
 func (tb *Backend) Archive(files []string) (reader io.Reader, err error) {
 	if len(files) == 0 {
-		fmt.Fprintln(os.Stderr, "Unable to make a tar archive from STDIN")
-		os.Exit(1)
-		return
+		return nil, fmt.Errorf("unable to make a tar archive from STDIN")
 	}
 
 	var args []string
@@ -57,29 +56,27 @@ func (tb *Backend) Archive(files []string) (reader io.Reader, err error) {
 
 	reader, writer := io.Pipe()
 
+	var stderr bytes.Buffer
 	cmd := exec.Command(tb.Config.Tar, args...)
 	cmd.Stdout = writer
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = &stderr
 
 	go func() {
 		err := cmd.Start()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to run tar cmd : %s\n", err)
-			os.Exit(1)
+			_ = writer.CloseWithError(fmt.Errorf("unable to start tar cmd: %w", err))
 			return
 		}
 		err = cmd.Wait()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to run tar cmd : %s\n", err)
-			os.Exit(1)
+			if stderr.Len() > 0 {
+				_ = writer.CloseWithError(fmt.Errorf("tar cmd failed: %w: %s", err, stderr.String()))
+			} else {
+				_ = writer.CloseWithError(fmt.Errorf("tar cmd failed: %w", err))
+			}
 			return
 		}
-		err = writer.Close()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to run tar cmd : %s\n", err)
-			os.Exit(1)
-			return
-		}
+		_ = writer.Close()
 	}()
 
 	return reader, nil

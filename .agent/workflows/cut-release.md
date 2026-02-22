@@ -51,7 +51,26 @@ If vulnerabilities are found, present them to the user and discuss whether to fi
 
 **⏸️ Present the vulnerability scan results. Wait for user confirmation before proceeding.**
 
-### 2. Check build pipeline versions
+### 2. Check dependency freshness
+
+Run a dependency audit to identify available updates:
+
+```bash
+go list -m -u all 2>&1 | grep '\[v'
+```
+
+Categorize the output:
+- **Direct dependencies** — listed in `go.mod` with no `// indirect` comment
+- **Indirect dependencies** — transitive deps, lower priority
+
+This step is **informational only** — it is not a release blocker. If significant updates are available (especially security-related), discuss with the user whether to address them before the release.
+
+> [!TIP]
+> `govulncheck` (from step 1) already flags dependencies with known CVEs. This step complements it by showing all available updates regardless of vulnerability status.
+
+**⏸️ Present the dependency audit summary. Wait for user confirmation before proceeding.**
+
+### 3. Check build pipeline versions
 
 Before starting the release, check if newer versions are available for the base images in the `Dockerfile`:
 
@@ -72,7 +91,7 @@ If any updates are available, propose a Dockerfile update and include it in the 
 
 **⏸️ Present findings to the user. Wait for confirmation before proceeding.**
 
-### 3. Review documentation
+### 4. Review documentation
 
 Verify that documentation is up-to-date with the changes in this release:
 
@@ -93,7 +112,7 @@ git log <previous-tag>..HEAD --oneline
 
 **⏸️ Present the documentation review findings to the user. If updates are needed and approved by the user, make them, run `make docs` and wait for approval. If everything is up to date, confirm with the user before proceeding.**
 
-### 4. Generate the changelog
+### 5. Generate the changelog
 
 Look at `changelog/` for the format convention of existing entries. The format is:
 
@@ -145,7 +164,7 @@ No need to include `Add MCP upload example screenshot` unless it comes from an e
 
 **⏸️ Present the changelog to the user for review. They may want to edit it. Wait for explicit approval before proceeding.**
 
-### 5. Update the Helm chart changelog
+### 6. Update the Helm chart changelog
 
 Open `charts/plik/CHANGELOG.md`. Move all content under `[Unreleased]` into a new `[<VERSION>]` heading, and leave `[Unreleased]` empty for future changes:
 
@@ -170,7 +189,7 @@ No Helm chart changes in this release.
 
 **⏸️ Present the updated Helm CHANGELOG to the user for review. Wait for explicit approval.**
 
-### 6. Update README.md (stable releases only)
+### 7. Update README.md (stable releases only)
 
 **Skip this step entirely for RC releases.**
 
@@ -184,7 +203,7 @@ Search for the previous stable version string and replace with the new version.
 
 **⏸️ Present the README diff to the user for review. Wait for explicit approval.**
 
-### 7. Create the release commit
+### 8. Create the release commit
 
 Stage all changes:
 ```bash
@@ -206,7 +225,7 @@ chore(release): prepare <VERSION>
 
 **⏸️ Present the commit message to the user. Do NOT commit without explicit approval.**
 
-### 8. Create the pull request
+### 9. Create the pull request
 
 1. Create a branch (if not already on one):
    ```bash
@@ -222,7 +241,7 @@ chore(release): prepare <VERSION>
 
 **⏸️ Present the PR draft to the user. Do NOT create the PR on GitHub without explicit approval.**
 
-### 9. Create the GitHub release
+### 10. Create the GitHub release
 
 After the PR is merged, create the GitHub release. This creates the tag and the release in a single operation.
 
@@ -238,7 +257,7 @@ Use the GitHub MCP tools or GH CLI to create a release:
 
 **⏸️ Present the full release content to the user. Do NOT create the GitHub release without explicit approval.**
 
-### 10. Post-Release Checklist
+### 11. Post-Release Checklist
 
 After the release is published:
 

@@ -8,34 +8,44 @@
 
 ```
 client/
-├── plik.go        ← main CLI logic (docopt-based argument parsing + upload flow)
-├── mcp.go         ← MCP (Model Context Protocol) server over stdio for AI assistants
-├── config.go      ← configuration loading (.plikrc)
-├── login.go       ← CLI device auth flow (--login)
-├── progress.go    ← upload progress bar
-├── update.go      ← self-update mechanism
-├── archive/       ← archive backends (tar, zip)
-├── crypto/        ← crypto backends (openssl, pgp)
-├── .plikrc        ← example client configuration
-├── plik.sh        ← bash upload wrapper
-└── test.sh        ← CLI integration tests
+├── plik.go          ← entry point: arg parsing, config loading, dispatch
+├── app.go           ← PlikCLI struct: upload flow, helpers (Run, info, getFileCommand, printf)
+├── mcp.go           ← MCP (Model Context Protocol) server over stdio for AI assistants
+├── config.go        ← configuration loading (.plikrc)
+├── config_test.go   ← unit tests for config parsing (TTL, password, flags, file loading)
+├── login.go         ← CLI device auth flow (--login)
+├── progress.go      ← upload progress bar
+├── update.go        ← self-update mechanism (PlikCLI method)
+├── update_test.go   ← unit tests for update flow (early exits, error handling)
+├── archive/         ← archive backends (tar, zip) — errors via CloseWithError
+├── crypto/          ← crypto backends (openssl, pgp, age) — errors via CloseWithError
+├── .plikrc          ← example client configuration
+├── plik.sh          ← bash upload wrapper
+└── test.sh          ← CLI integration tests
 ```
 
 ---
 
 ## Key Components
 
-### CLI Entry Point (`plik.go`)
+### CLI Entry Point (`plik.go`) and Runtime State (`app.go`)
 
-Uses [docopt-go](https://github.com/docopt/docopt-go) for argument parsing. The main flow:
+`plik.go` is a slim `main()` using [docopt-go](https://github.com/docopt/docopt-go) for argument parsing. It delegates all upload logic to the `PlikCLI` struct defined in `app.go`.
 
-1. Parse CLI args (file paths, options like `--oneshot`, `--stream`, `--ttl`, etc.)
-2. Load config from `.plikrc` (or `PLIKRC` env var)
-3. Handle special modes: `--mcp` (MCP server), `--login` (device auth), `--update` (self-update), `--version`
-4. Create upload via the Go library (`plik/`)
-5. Add files (with optional archive/encrypt preprocessing)
-6. Upload files with progress bars
-7. Output results:
+**`PlikCLI` struct** encapsulates all mutable runtime state:
+- `Config`, `Arguments` — parsed configuration and CLI args
+- `ArchiveBackend`, `CryptoBackend` — initialized lazily during `Run()`
+
+**`main()` flow** (in `plik.go`):
+1. Parse CLI args → early exits: `--version`, `--mcp`, `--info`, `--login`
+2. Load config from `.plikrc` → `NewPlikCLI(config, args)`
+3. Dispatch to `cli.Run(client)` for the upload flow
+
+**`PlikCLI.Run()` flow** (in `app.go`):
+1. Create upload via the Go library (`plik/`)
+2. Add files (with optional archive/encrypt preprocessing)
+3. Upload files with progress bars
+4. Output results:
    - Default: print download URLs/commands to stdout
    - `--quiet`: print only file URLs to stdout
    - `--json`: print `UploadWithURL` as pretty-printed JSON to stdout (implies `--quiet`)
@@ -66,7 +76,7 @@ Triggered by `--login` flag or interactively during first-run when auth is enabl
 | `tar` | Create tar archives with compression (gzip, bzip2, xz, lzip, lzma, lzop) |
 | `zip` | Create zip archives |
 
-Archives wrap multiple files/directories into a single upload file.
+Archives wrap multiple files/directories into a single upload file. Errors are propagated via `io.PipeWriter.CloseWithError()` from the archiving goroutine.
 
 ### Crypto Backends (`crypto/`)
 
@@ -76,7 +86,7 @@ Archives wrap multiple files/directories into a single upload file.
 | `pgp` | Asymmetric encryption via GPG/PGP (recipient-based) |
 | `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
 
-Encryption wraps the file data stream before upload.
+Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine.
 
 When the `age` backend is used, the upload is flagged as E2EE (`upload.E2EE = "age"`). This tells the webapp to prompt for a passphrase on download and decrypt client-side. A cryptographically-secure passphrase is auto-generated when none is provided.
 
@@ -104,8 +114,14 @@ All upload tools use `plik.UploadParams` via struct embedding and return `Upload
 
 ---
 
-## Integration Tests
+## Tests
 
+### Unit Tests
+- `config_test.go` — TTL parsing, password splitting, boolean flags, config file loading, defaults
+- `update_test.go` — auto-update disabled, quiet mode, unreachable server, missing platform binary
+- `crypto/age/age_test.go` — recipient resolution, encryption round-trips
+
+### Integration Tests
 - `test.sh` — comprehensive CLI integration tests (requires a running server)
 
 ---
