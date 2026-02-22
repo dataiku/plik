@@ -360,7 +360,7 @@ type Backend interface {
 | Backend | Package | Storage |
 |---------|---------|---------|
 | `file` | `server/data/file` | Local filesystem directory |
-| `s3` | `server/data/s3` | Amazon S3 / compatible (MinIO) — supports SSE |
+| `s3` | `server/data/s3` | Amazon S3 / compatible (MinIO) — supports SSE. Objects: `{uploadID}.{fileID}` (with legacy `{fileID}` fallback) |
 | `swift` | `server/data/swift` | OpenStack Swift |
 | `gcs` | `server/data/gcs` | Google Cloud Storage |
 | `stream` | `server/data/stream` | In-memory pipe (uploader → downloader, nothing stored) |

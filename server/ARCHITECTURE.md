@@ -107,11 +107,11 @@ type Backend interface {
 
 | Package | Backend | Notes |
 |---------|---------|-------|
-| `data/file` | Local filesystem | Files stored in configurable directory |
-| `data/s3` | Amazon S3 / MinIO | Supports SSE-C/S3 encryption and optional legacy Content-MD5 compatibility mode |
-| `data/swift` | OpenStack Swift | |
-| `data/gcs` | Google Cloud Storage | |
-| `data/stream` | In-memory pipe | Blocks uploader until downloader connects — nothing stored |
+| `data/file` | Local filesystem | Files stored in configurable directory. IDs validated with `^[a-zA-Z0-9]+$` regex (path traversal defense). Backward-compatible with pre-1.3 directory layout via `getPathCompat` |
+| `data/s3` | Amazon S3 / MinIO | Supports SSE-C/S3 encryption. Objects named `{uploadID}.{fileID}` (new), with fallback to legacy `{fileID}` format on read/remove |
+| `data/swift` | OpenStack Swift | Objects named `{uploadID}.{fileID}` |
+| `data/gcs` | Google Cloud Storage | Objects named `{uploadID}.{fileID}` |
+| `data/stream` | In-memory pipe | Blocks uploader until downloader connects — nothing stored. Upload errors propagated to reader via `CloseWithError` |
 | `data/testing` | In-memory map | For tests only |
 
 ---
@@ -125,7 +125,7 @@ Uses GORM with gormigrate for schema management across SQLite3, PostgreSQL, and 
 - **SQLite3**: WAL mode + foreign keys enabled on connect
 - **Schema init**: Auto-migrates `Upload`, `File`, `User`, `Token`, `Setting`, `CLIAuthSession` tables
 - **Migrations**: Versioned via gormigrate — see `migrations.go`
-- **Cleaning**: `Clean()` removes orphan files, tokens, and expired CLI auth sessions (FK integrity)
+- **Cleaning**: `Clean()` removes orphan files and tokens (FK integrity). Expired CLI auth sessions are cleaned separately by `DeleteExpiredCLIAuthSessions()`
 - **Metrics**: GORM Prometheus plugin for DB stats
 
 ### Files

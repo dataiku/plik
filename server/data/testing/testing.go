@@ -91,5 +91,7 @@ func (b *Backend) RemoveFile(file *common.File) (err error) {
 
 // SetError set the error that this backend will return on any subsequent method call
 func (b *Backend) SetError(err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.err = err
 }
