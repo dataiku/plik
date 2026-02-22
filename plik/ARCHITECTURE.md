@@ -106,6 +106,7 @@ Each test gets its own server instance with its own router/middleware stack, but
 | `z3_e2e_authentication_test.go` | Auth flows & token isolation | CLI token auth, multi-token isolation (user can't control uploads from different token), admin token isolation (admin tokens don't grant extra power — by design, to limit impact of token leak), password-protected uploads |
 | `z4_e2e_client_concurrent_test.go` | Concurrency & race conditions | Multiple uploads in parallel, multiple files per upload in parallel, busy-loop upload (continuous `Upload()` calls with concurrent file adds), parallel download of same file, parallel create + get |
 | `z5_e2e_browser_auth_test.go` | Browser-like authentication | Local login (cookie jar + XSRF flow), invalid password, login disabled, OIDC login via Keycloak (full redirect flow with form parsing), OIDC redirect URL validation. Uses `insecureCookieJar` to strip `Secure` flag for HTTP-only test env. Requires Keycloak for OIDC tests (skipped if unavailable). |
+| `z6_e2e_cli_login_test.go` | CLI device auth flow | CLI login init, poll, and token generation via `/auth/cli/*` endpoints |
 
 ### Running
 

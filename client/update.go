@@ -131,18 +131,19 @@ func update(client *plik.Client, updateFlag bool) (err error) {
 				return fmt.Errorf("Unable to get release notes for version %s : %s", release.Name, err)
 			}
 
-			resp, err := client.MakeRequest(req)
+			resp, err := client.HTTPClient.Do(req)
 			if err != nil {
 				return fmt.Errorf("Unable to get release notes for version %s : %s", release.Name, err)
 			}
-			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != 200 {
-				return fmt.Errorf("Unable to get release notes for version %s : %s", release.Name, err)
+				_ = resp.Body.Close()
+				return fmt.Errorf("Unable to get release notes for version %s : %s", release.Name, resp.Status)
 			}
 
 			var body []byte
 			body, err = io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
 			if err != nil {
 				return fmt.Errorf("Unable to get release notes for version %s : %s", release.Name, err)
 			}
@@ -198,7 +199,7 @@ func update(client *plik.Client, updateFlag bool) (err error) {
 	if err != nil {
 		return fmt.Errorf("Unable to download client : %s", err)
 	}
-	resp, err := client.MakeRequest(req)
+	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("Unable to download client : %s", err)
 	}

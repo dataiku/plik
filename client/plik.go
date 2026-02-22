@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"runtime"
 	"time"
 
 	"github.com/docopt/docopt-go"
-	"github.com/olekukonko/ts"
 	"github.com/root-gg/utils"
 
 	"github.com/root-gg/plik/client/archive"
@@ -30,9 +28,6 @@ var err error
 
 // Main
 func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	ts.GetSize() // ?
 
 	// Usage /!\ INDENT THIS WITH SPACES NOT TABS /!\
 	usage := `plik

@@ -213,7 +213,7 @@ func TestMakeRequestDebug(t *testing.T) {
 	req, err := http.NewRequest("GET", pc.URL+"/", bytes.NewBufferString("display this request"))
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	require.NoError(t, err, "missing error")
 
 	os.Stdout = stdout
@@ -261,7 +261,7 @@ func TestMakeRequestDebugFile(t *testing.T) {
 	req, err := http.NewRequest("POST", pc.URL+"/file", bytes.NewBufferString("display this request"))
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	require.NoError(t, err, "missing error")
 
 	os.Stdout = stdout
@@ -309,7 +309,7 @@ func TestMakeRequestDebugStream(t *testing.T) {
 	req, err := http.NewRequest("POST", pc.URL+"/stream", bytes.NewBufferString("display this request"))
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	require.NoError(t, err, "missing error")
 
 	os.Stdout = stdout
@@ -356,7 +356,7 @@ func TestMakeRequestDebugGetFile(t *testing.T) {
 	req, err := http.NewRequest("GET", pc.URL+"/file", bytes.NewBufferString("display this request"))
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	require.NoError(t, err, "missing error")
 
 	os.Stdout = stdout
@@ -403,7 +403,7 @@ func TestMakeRequestDebugGetArchive(t *testing.T) {
 	req, err := http.NewRequest("GET", pc.URL+"/file", bytes.NewBufferString("display this request"))
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	require.NoError(t, err, "missing error")
 
 	os.Stdout = stdout
@@ -440,7 +440,7 @@ func TestMakeRequestErrorParsing(t *testing.T) {
 	req, err := http.NewRequest("GET", pc.URL+"/", nil)
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	common.RequireError(t, err, "500 Internal Server Error : plik_api_error")
 }
 
@@ -460,7 +460,7 @@ func TestMakeRequestErrorParsingInvalidJSON(t *testing.T) {
 	req, err := http.NewRequest("GET", pc.URL+"/", nil)
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	common.RequireError(t, err, "500 Internal Server Error : plik_api_error")
 }
 
@@ -479,6 +479,6 @@ func TestMakeRequestErrorParsingEmpty(t *testing.T) {
 	req, err := http.NewRequest("GET", pc.URL+"/", nil)
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	common.RequireError(t, err, "500 Internal Server Error")
 }
