@@ -103,7 +103,7 @@ func (b *Backend) RemoveUserUploads(userID string, tokenStr string) (removed int
 	f := func(upload *common.Upload) (err error) {
 		err = b.RemoveUpload(upload.ID)
 		if err != nil {
-			// TODO LOG
+			b.log.Warningf("unable to remove upload %s : %s", upload.ID, err)
 			errors = append(errors, err)
 			return nil
 		}
