@@ -36,6 +36,23 @@ jobs:
     - name: Run vulnerability check (report only)
       run: make vuln || true
 
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: webapp/package-lock.json
+
+    - name: Run frontend tests
+      run: make test-frontend
+
   test-backends:
     runs-on: ubuntu-latest
     steps:

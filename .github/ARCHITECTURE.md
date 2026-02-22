@@ -27,7 +27,8 @@
 Runs on every push and pull request. Steps:
 1. Go lint (`make lint`)
 2. Go tests (`make test`)
-3. Docs build (`make docs`) — verifies VitePress builds without errors
+3. Frontend tests (`make test-frontend`) — vitest unit tests for the Vue webapp
+4. Docs build (`make docs`) — verifies VitePress builds without errors
 
 ### `pages.yml` — GitHub Pages (Docs)
 

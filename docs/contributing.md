@@ -40,6 +40,9 @@ make client
 # Go unit tests
 make test
 
+# Frontend unit tests (vitest)
+make test-frontend
+
 # Go linter (golangci-lint)
 make lint
 

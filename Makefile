@@ -114,6 +114,12 @@ test:
 	@echo "cli client integration tests :" && cd client && ./test.sh
 
 ###
+# Run webapp unit tests (vitest)
+###
+test-frontend:
+	@cd webapp && npm ci && npm test
+
+###
 # Open last cover profile in web browser
 ###
 cover:
@@ -203,4 +209,4 @@ clean-all: clean clean-frontend
 # by make, we must declare these targets as phony to avoid :
 # "make: `client' is up to date" cases at compile time
 ###
-.PHONY: client clients server release helm helm-install docs test-backend
+.PHONY: client clients server release helm helm-install docs test-backend test-frontend

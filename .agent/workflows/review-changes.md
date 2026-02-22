@@ -103,6 +103,7 @@ If webapp files were changed:
 
 ```bash
 make frontend 2>&1 | tail -20
+make test-frontend 2>&1 | tail -40
 ```
 
 ### 5. Run tests
@@ -117,6 +118,12 @@ If docs were changed, validate the docs build:
 
 ```bash
 make docs 2>&1 | tail -20
+```
+
+### 5b. Vulnerability check
+
+```bash
+make vuln 2>&1 | tail -40
 ```
 
 ### 6. Produce the review report

@@ -72,6 +72,7 @@ cd server && ./plikd        # Run server on http://127.0.0.1:8080
 
 ```bash
 make test                   # Unit tests + CLI integration tests
+make test-frontend           # Webapp unit tests (vitest)
 make test-backends           # Docker-based backend integration tests (all)
 make test-backend mariadb    # Docker-based test for a single backend
 make lint                   # go fmt + go vet + go fix

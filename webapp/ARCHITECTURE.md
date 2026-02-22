@@ -626,6 +626,28 @@ The `isTextFile()` utility in `utils.js` determines if a file can be viewed in t
 
 ---
 
+## Testing
+
+The webapp uses [Vitest](https://vitest.dev/) with jsdom for unit testing.
+
+```bash
+npm test                    # Run all tests (vitest run)
+make test-frontend          # Same, via Makefile (npm ci + npm test)
+```
+
+Tests live in `src/__tests__/` and cover pure utility functions, config helpers, and stores:
+
+| File | Scope |
+|------|-------|
+| `utils.test.js` | All pure functions in `utils.js` (formatting, conversion, round-trips) |
+| `config.test.js` | Feature flag helpers (`isFeatureEnabled`, `isFeatureForced`, `isFeatureDefaultOn`) |
+| `markdown.test.js` | Markdown rendering + XSS sanitization via DOMPurify |
+| `pendingUploadStore.test.js` | One-shot store semantics (set, consume, double-consume) |
+
+Vitest configuration is in `vite.config.js` under the `test` key (`globals: true`, `environment: 'jsdom'`).
+
+---
+
 ## Build & Release Process
 
 ### Development
@@ -657,6 +679,7 @@ The Go server serves `webapp/dist/` via `http.FileServer`. Default config: `Weba
 | `clients`         | Cross-compile clients for all architectures       |
 | `docker`          | Build Docker image `rootgg/plik:dev`              |
 | `release`         | Create release archives via `releaser/release.sh` |
+| `test-frontend`   | `npm ci && npm test` — run vitest unit tests      |
 | `clean`           | Remove server/client binaries                     |
 | `clean-frontend`  | Remove `webapp/dist/`                             |
 | `clean-all`       | Clean everything including `node_modules`         |
