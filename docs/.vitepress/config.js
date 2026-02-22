@@ -71,8 +71,9 @@ export default withMermaid(defineConfig({
                     text: 'Operations',
                     items: [
                         { text: 'Reverse Proxy', link: '/operations/reverse-proxy' },
-                        { text: 'Cross Compilation', link: '/operations/cross-compilation' },
+                        { text: 'Server CLI', link: '/operations/server-cli' },
                         { text: 'Import / Export', link: '/operations/import-export' },
+                        { text: 'Cross Compilation', link: '/operations/cross-compilation' },
                     ],
                 },
                 {

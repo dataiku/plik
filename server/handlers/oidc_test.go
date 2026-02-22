@@ -374,7 +374,7 @@ func TestOIDCCallback(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -416,7 +416,7 @@ func TestOIDCCallbackCreateUser(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -497,7 +497,7 @@ func TestOIDCCallbackUpdateUserFields(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	updated, err := ctx.GetMetadataBackend().GetUser("oidc:updateuser")
 	require.NoError(t, err)
@@ -773,7 +773,7 @@ func TestOIDCCallbackIDTokenOnly(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	user, err := ctx.GetMetadataBackend().GetUser("oidc:idtoken-user")
 	require.NoError(t, err)
@@ -812,7 +812,7 @@ func TestOIDCCallbackNameFromGivenFamily(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	user, err := ctx.GetMetadataBackend().GetUser("oidc:givenfamily-user")
 	require.NoError(t, err)
@@ -847,7 +847,7 @@ func TestOIDCCallbackRequireVerifiedEmail(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "verified email should allow login")
+	require.Equal(t, 302, rr.Code, "verified email should allow login")
 
 	user, err := ctx.GetMetadataBackend().GetUser("oidc:verified-user")
 	require.NoError(t, err)
@@ -927,7 +927,7 @@ func TestOIDCCallbackRequireVerifiedEmailDisabled(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "login should succeed when email verification is not required")
+	require.Equal(t, 302, rr.Code, "login should succeed when email verification is not required")
 }
 
 func TestOIDCCallbackSubMismatch(t *testing.T) {
@@ -1083,7 +1083,7 @@ func TestOIDCCallbackEmailVerifiedFromUserinfo(t *testing.T) {
 	rr := ctx.NewRecorder(req)
 	OIDCCallback(ctx, rr, req)
 
-	require.Equal(t, 301, rr.Code, "login should succeed when email_verified comes from userinfo")
+	require.Equal(t, 302, rr.Code, "login should succeed when email_verified comes from userinfo")
 
 	user, err := ctx.GetMetadataBackend().GetUser("oidc:userinfo-ev-user")
 	require.NoError(t, err)

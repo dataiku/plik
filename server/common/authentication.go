@@ -59,6 +59,7 @@ func (sa *SessionAuthenticator) GenAuthCookies(user *User) (sessionCookie *http.
 	// Store session jwt in secure cookie
 	sessionCookie = &http.Cookie{}
 	sessionCookie.HttpOnly = true
+	sessionCookie.SameSite = http.SameSiteLaxMode
 	sessionCookie.Name = SessionCookieName
 	sessionCookie.Value = sessionString
 	sessionCookie.MaxAge = sa.SessionTimeout
@@ -67,6 +68,7 @@ func (sa *SessionAuthenticator) GenAuthCookies(user *User) (sessionCookie *http.
 	// Store xsrf token cookie
 	xsrfCookie = &http.Cookie{}
 	xsrfCookie.HttpOnly = false
+	xsrfCookie.SameSite = http.SameSiteLaxMode
 	xsrfCookie.Name = XSRFCookieName
 	xsrfCookie.Value = xsrfToken.String()
 	xsrfCookie.MaxAge = sa.SessionTimeout
@@ -85,7 +87,7 @@ func (sa *SessionAuthenticator) ParseSessionCookie(value string) (uid string, xs
 	session, err := jwt.Parse(value, func(t *jwt.Token) (any, error) {
 		// Verify signing algorithm
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected siging method : %v", t.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method : %v", t.Header["alg"])
 		}
 
 		return []byte(sa.SignatureKey), nil
@@ -109,7 +111,7 @@ func (sa *SessionAuthenticator) ParseSessionCookie(value string) (uid string, xs
 	xsrfValue, ok := session.Claims.(jwt.MapClaims)["xsrf"]
 	if ok {
 		xsrf, ok = xsrfValue.(string)
-		if !ok || uid == "" {
+		if !ok || xsrf == "" {
 			return "", "", fmt.Errorf("invalid xsrf token from session cookie")
 		}
 	} else {
@@ -151,6 +153,7 @@ func (sa *SessionAuthenticator) Logout() (sessionCookie *http.Cookie, xsrfCookie
 	// Delete session cookie
 	sessionCookie = &http.Cookie{}
 	sessionCookie.HttpOnly = true
+	sessionCookie.SameSite = http.SameSiteLaxMode
 	sessionCookie.Name = SessionCookieName
 	sessionCookie.Value = ""
 	sessionCookie.MaxAge = -1
@@ -159,6 +162,7 @@ func (sa *SessionAuthenticator) Logout() (sessionCookie *http.Cookie, xsrfCookie
 	// Store xsrf token cookie
 	xsrfCookie = &http.Cookie{}
 	xsrfCookie.HttpOnly = false
+	xsrfCookie.SameSite = http.SameSiteLaxMode
 	xsrfCookie.Name = XSRFCookieName
 	xsrfCookie.Value = ""
 	xsrfCookie.MaxAge = -1

@@ -29,12 +29,12 @@ The server binary `plikd` uses [cobra](https://github.com/spf13/cobra) for CLI m
 | File | Command | Description |
 |------|---------|-------------|
 | `root.go` | `plikd` | Start the server (default command) |
-| `user.go` | `plikd user create/list/delete` | Manage local users |
+| `user.go` | `plikd user create/show/update/list/delete` | Manage users |
 | `token.go` | `plikd token create/list/delete` | Manage user tokens |
-| `file.go` | `plikd file list/delete` | Manage uploads/files |
+| `file.go` | `plikd file list/show/delete` | Manage uploads/files (`delete` requires `--file`, `--upload`, or `--all`) |
 | `clean.go` | `plikd clean` | Run metadata cleanup |
-| `import.go` | `plikd import` | Import metadata from gob + Snappy binary |
-| `export.go` | `plikd export` | Export metadata to gob + Snappy binary |
+| `import.go` | `plikd import [input-file]` | Import metadata from gob + Snappy binary |
+| `export.go` | `plikd export [output-file]` | Export metadata to gob + Snappy binary |
 
 Config loading order: `--config` flag → `PLIKD_CONFIG` env → `./plikd.cfg` → `/etc/plikd.cfg`.
 

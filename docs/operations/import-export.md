@@ -17,7 +17,7 @@ plikd export /path/to/export.bin
 Sample output:
 
 ```
-Exporting metadata from sqlite3 plik.db to /path/to/export.bin
+Exporting metadata from sqlite3 to /path/to/export.bin
 exported 3 users
 exported 5 tokens
 exported 142 uploads
@@ -38,7 +38,7 @@ plikd import /path/to/export.bin
 Sample output:
 
 ```
-Importing metadata from /path/to/export.bin to postgres host=localhost...
+Importing metadata from /path/to/export.bin to postgres
 imported 3 out of 3 uploads
 imported 287 out of 287 files
 imported 3 out of 3 users
