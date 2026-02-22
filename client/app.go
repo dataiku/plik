@@ -1,0 +1,291 @@
+package main
+
+import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"time"
+
+	"github.com/root-gg/utils"
+
+	"github.com/root-gg/plik/client/archive"
+	"github.com/root-gg/plik/client/crypto"
+	"github.com/root-gg/plik/plik"
+	"github.com/root-gg/plik/server/common"
+)
+
+// PlikCLI holds the CLI runtime state, encapsulating what was
+// previously scattered across package-level variables.
+type PlikCLI struct {
+	Config         *CliConfig
+	Arguments      map[string]any
+	ArchiveBackend archive.Backend
+	CryptoBackend  crypto.Backend
+}
+
+// NewPlikCLI creates a new CLI instance from parsed arguments and config.
+func NewPlikCLI(config *CliConfig, arguments map[string]any) *PlikCLI {
+	return &PlikCLI{
+		Config:    config,
+		Arguments: arguments,
+	}
+}
+
+// Run executes the main upload flow.
+func (cli *PlikCLI) Run(client *plik.Client) error {
+
+	if cli.Config.Debug {
+		fmt.Fprintln(os.Stderr, "Arguments : ")
+		fmt.Fprintln(os.Stderr, utils.Sdump(cli.Arguments))
+		fmt.Fprintln(os.Stderr, "Configuration : ")
+		fmt.Fprintln(os.Stderr, utils.Sdump(cli.Config))
+	}
+
+	upload := client.NewUpload()
+	upload.Token = cli.Config.Token
+	upload.TTL = cli.Config.TTL
+	upload.ExtendTTL = cli.Config.ExtendTTL
+	upload.Stream = cli.Config.Stream
+	upload.OneShot = cli.Config.OneShot
+	upload.Removable = cli.Config.Removable
+	upload.Comments = cli.Config.Comments
+	upload.Login = cli.Config.Login
+	upload.Password = cli.Config.Password
+
+	if len(cli.Config.filePaths) == 0 {
+		if cli.Config.DisableStdin {
+			return fmt.Errorf("stdin is disabled by default, use the --stdin flag to override")
+		}
+		upload.AddFileFromReader("STDIN", bufio.NewReader(os.Stdin))
+	} else {
+		if cli.Config.Archive {
+			var err error
+			cli.ArchiveBackend, err = archive.NewArchiveBackend(cli.Config.ArchiveMethod, cli.Config.ArchiveOptions)
+			if err != nil {
+				return fmt.Errorf("unable to initialize archive backend: %w", err)
+			}
+
+			err = cli.ArchiveBackend.Configure(cli.Arguments)
+			if err != nil {
+				return fmt.Errorf("unable to configure archive backend: %w", err)
+			}
+
+			reader, err := cli.ArchiveBackend.Archive(cli.Config.filePaths)
+			if err != nil {
+				return fmt.Errorf("unable to create archive: %w", err)
+			}
+
+			filename := cli.ArchiveBackend.GetFileName(cli.Config.filePaths)
+			upload.AddFileFromReader(filename, reader)
+		} else {
+			for _, path := range cli.Config.filePaths {
+				_, err := upload.AddFileFromPath(path)
+				if err != nil {
+					return fmt.Errorf("%s: %w", path, err)
+				}
+			}
+		}
+	}
+
+	if cli.Config.filenameOverride != "" {
+		if len(upload.Files()) != 1 {
+			return fmt.Errorf("can't override filename if more than one file to upload")
+		}
+		upload.Files()[0].Name = cli.Config.filenameOverride
+	}
+
+	// Initialize crypto backend
+	if cli.Config.Secure {
+		var err error
+		cli.CryptoBackend, err = crypto.NewCryptoBackend(cli.Config.SecureMethod, cli.Config.SecureOptions)
+		if err != nil {
+			return fmt.Errorf("unable to initialize crypto backend: %w", err)
+		}
+		err = cli.CryptoBackend.Configure(cli.Arguments)
+		if err != nil {
+			return fmt.Errorf("unable to configure crypto backend: %w", err)
+		}
+
+		// Set E2EE metadata on the upload when using age backend with passphrase mode.
+		// Recipient mode (-r <pubkey>) is not webapp-compatible — the webapp can't
+		// ask for the private key, so we don't flag the upload as E2EE.
+		if cli.Config.SecureMethod == "age" && cli.Arguments["--recipient"] == nil {
+			upload.E2EE = "age"
+		}
+	}
+
+	// Initialize progress bar display
+	var progress *Progress
+	if !cli.Config.Quiet && !cli.Config.Debug {
+		progress = NewProgress(upload.Files())
+	}
+
+	// Wrap file readers with crypto and progress
+	for _, file := range upload.Files() {
+		if cli.Config.Secure {
+			file.WrapReader(func(fileReader io.ReadCloser) io.ReadCloser {
+				reader, err := cli.CryptoBackend.Encrypt(fileReader)
+				if err != nil {
+					// TODO: WrapReader's callback signature (func(io.ReadCloser) io.ReadCloser)
+					// does not allow returning an error. Refactor the plik library's WrapReader
+					// API to support error propagation and remove this os.Exit.
+					fmt.Fprintf(os.Stderr, "Unable to encrypt file: %s", err)
+					os.Exit(1)
+				}
+				return io.NopCloser(reader)
+			})
+		}
+
+		if !cli.Config.Quiet && !cli.Config.Debug {
+			progress.register(file)
+		}
+	}
+
+	// Create upload on server
+	err := upload.Create()
+	if err != nil {
+		return fmt.Errorf("unable to create upload: %w", err)
+	}
+
+	// Mon, 02 Jan 2006 15:04:05 MST
+	creationDate := upload.Metadata().CreatedAt.Format(time.RFC1123)
+
+	// Display upload url
+	cli.printf("Upload successfully created at %s : \n", creationDate)
+
+	uploadURL, err := upload.GetURL()
+	if err != nil {
+		return fmt.Errorf("unable to get upload url: %w", err)
+	}
+
+	cli.printf("    %s\n\n", uploadURL)
+
+	if cli.Config.Stream && !cli.Config.Debug {
+		for _, file := range upload.Files() {
+			cmd, err := cli.getFileCommand(file)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to get download command for file %s : %s\n", file.Name, err)
+			}
+			fmt.Fprintln(os.Stderr, cmd)
+		}
+		cli.printf("\n")
+	}
+
+	if !cli.Config.Quiet && !cli.Config.Debug {
+		// Nothing should be printed between this and progress.Stop()
+		progress.start()
+	}
+
+	// Upload files
+	_ = upload.Upload()
+
+	if !cli.Config.Quiet && !cli.Config.Debug {
+		// Finalize the progress bar display
+		progress.stop()
+	}
+
+	// JSON output mode
+	if cli.Config.JSON {
+		data, err := json.MarshalIndent(upload.WithURL(), "", "  ")
+		if err != nil {
+			return fmt.Errorf("unable to marshal upload metadata: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+
+	// Display download commands
+	if !cli.Config.Stream {
+		cli.printf("\nCommands : \n")
+		for _, file := range upload.Files() {
+			// Print file information (only url if quiet mode is enabled)
+			if file.Error() != nil {
+				continue
+			}
+			if cli.Config.Quiet {
+				URL, err := file.GetURL()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Unable to get download command for file %s : %s\n", file.Name, err)
+				}
+				fmt.Println(URL)
+			} else {
+				cmd, err := cli.getFileCommand(file)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Unable to get download command for file %s : %s\n", file.Name, err)
+				}
+				fmt.Println(cmd)
+			}
+		}
+	} else {
+		cli.printf("\n")
+	}
+
+	return nil
+}
+
+func (cli *PlikCLI) info(client *plik.Client) error {
+	fmt.Printf("Plik client version : %s\n\n", common.GetBuildInfo())
+
+	fmt.Printf("Plik server url : %s\n", cli.Config.URL)
+
+	serverBuildInfo, err := client.GetServerVersion()
+	if err != nil {
+		return fmt.Errorf("Plik server unreachable : %s", err)
+	}
+
+	fmt.Printf("Plik server version : %s\n", serverBuildInfo)
+
+	serverConfig, err := client.GetServerConfig()
+	if err != nil {
+		return fmt.Errorf("Plik server unreachable : %s", err)
+	}
+
+	fmt.Printf("\nPlik server configuration :\n")
+	fmt.Printf("%s", serverConfig.String())
+
+	return nil
+}
+
+func (cli *PlikCLI) getFileCommand(file *plik.File) (command string, err error) {
+	// Step one - Downloading file
+	switch cli.Config.DownloadBinary {
+	case "wget":
+		command += "wget -q -O-"
+	case "curl":
+		command += "curl -s"
+	default:
+		command += cli.Config.DownloadBinary
+	}
+
+	URL, err := file.GetURL()
+	if err != nil {
+		return "", err
+	}
+	command += fmt.Sprintf(` "%s"`, URL)
+
+	// If Ssl
+	if cli.Config.Secure {
+		command += fmt.Sprintf(" | %s", cli.CryptoBackend.Comments())
+	}
+
+	// If archive
+	if cli.Config.Archive {
+		if cli.Config.ArchiveMethod == "zip" {
+			command += fmt.Sprintf(` > '%s'`, file.Name)
+		} else {
+			command += fmt.Sprintf(" | %s", cli.ArchiveBackend.Comments())
+		}
+	} else {
+		command += fmt.Sprintf(` > '%s'`, file.Name)
+	}
+
+	return
+}
+
+func (cli *PlikCLI) printf(format string, args ...any) {
+	if !cli.Config.Quiet {
+		fmt.Printf(format, args...)
+	}
+}
