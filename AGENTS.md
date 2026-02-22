@@ -27,7 +27,7 @@ plik/
 ├── README.md               ← project README (concise)
 ├── Makefile                ← build orchestration
 ├── Dockerfile
-├── .agent/                 ← agentic workflows (/review-changes, /prepare-pr)
+├── .agent/                 ← agentic workflows (/review-changes, /prepare-pr, /cut-release)
 ├── server/                 ← Go server (see server/ARCHITECTURE.md)
 │   ├── main.go             ← entry point
 │   ├── plikd.cfg           ← default config
