@@ -102,7 +102,7 @@ Options:
 	if arguments["--info"].(bool) {
 		err = cli.info(client)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Println(err)
 			os.Exit(1)
 		}
 		os.Exit(0)
