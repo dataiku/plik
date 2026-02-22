@@ -373,13 +373,13 @@ func TestSourceIpHeader(t *testing.T) {
 	req, err = http.NewRequest("POST", pc.URL+"/upload", &bytes.Buffer{})
 	require.NoError(t, err, "unable to create request")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	require.Error(t, err, "missing error")
 	require.Contains(t, err.Error(), "untrusted source IP address", "invalid error")
 
 	req.Header.Set("X-Remote-Ip", "1.1.1.1")
 
-	_, err = pc.MakeRequest(req)
+	_, err = pc.makeRequest(req)
 	require.NoError(t, err, "unable to create upload")
 
 }

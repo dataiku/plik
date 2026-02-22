@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strconv"
 	"sync"
 
@@ -317,7 +318,7 @@ func (upload *Upload) Upload() (err error) {
 			if upload.client.Debug {
 				for _, file := range files {
 					if file.Error() != nil {
-						fmt.Println(file.Error().Error())
+						fmt.Fprintln(os.Stderr, file.Error().Error())
 					}
 				}
 			}
@@ -343,7 +344,8 @@ func (upload *Upload) GetURL() (u *url.URL, err error) {
 	return url.Parse(fileURL)
 }
 
-// UploadWithURL wraps common.Upload with computed URLs for the upload page and each file
+// UploadWithURL is a JSON-serializable representation of an upload with pre-computed URLs.
+// It is used for --json output and MCP server responses.
 type UploadWithURL struct {
 	*common.Upload
 	URL   string         `json:"url"`

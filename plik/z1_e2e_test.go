@@ -309,7 +309,7 @@ func TestQuickUpload(t *testing.T) {
 
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 
-	resp, err := pc.MakeRequest(req)
+	resp, err := pc.makeRequest(req)
 	require.NoError(t, err, "unable to make quick request (%s) %s", req.Method, req.URL.String())
 	require.Equal(t, 200, resp.StatusCode, "invalid HTTP response status %s", resp.Status)
 
@@ -321,7 +321,7 @@ func TestQuickUpload(t *testing.T) {
 	require.NoError(t, err, "unable to parse url from response body")
 
 	req, err = http.NewRequest("GET", u.String(), nil)
-	resp, err = pc.MakeRequest(req)
+	resp, err = pc.makeRequest(req)
 	require.NoError(t, err, "unable to make quick request (%s) %s : %s", req.Method, req.URL.String())
 	require.Equal(t, 200, resp.StatusCode, "invalid HTTP response status %s", resp.Status)
 

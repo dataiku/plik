@@ -283,7 +283,10 @@ func generatePassphrase(length int) string {
 	max := big.NewInt(int64(len(randRunes)))
 	b := make([]rune, length)
 	for i := range b {
-		n, _ := rand.Int(rand.Reader, max)
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			panic(fmt.Sprintf("failed to generate random passphrase: %s", err))
+		}
 		b[i] = randRunes[n.Int64()]
 	}
 	return string(b)
