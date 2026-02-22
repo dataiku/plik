@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { formatDate } from '../utils.js'
 import { getArchiveURL, getAdminURL } from '../api.js'
+import { showError } from '../notification.js'
 import CopyButton from './CopyButton.vue'
 
 const passphrase = defineModel('passphrase', { type: String, default: null })
@@ -58,7 +59,7 @@ async function nativeShare() {
   } catch (err) {
     // User cancelled or share failed — ignore
     if (err.name !== 'AbortError') {
-      console.warn('Share failed', err)
+      showError('Share failed')
     }
   }
 }
