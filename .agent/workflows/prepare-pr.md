@@ -97,23 +97,50 @@ git push -u origin <branch-name>
 
 ### 5. Draft the PR
 
-Generate a PR title and description. Structure:
+First, enumerate all commits on the branch:
+
+```bash
+git log --reverse --format='%h %s' <base>..HEAD
+```
+
+#### Single commit
+
+Use the commit subject as the PR title. Use the commit body (if any) plus the template below for the PR description.
+
+#### Multiple commits
+
+- **PR title**: Derive a summary title that covers the overall theme, using Conventional Commits style. Do NOT just use the first or last commit message — synthesize.
+  - Example: 3 commits (`chore(workflow): ...`, `chore(deps): upgrade Go deps`, `chore(deps): upgrade GCP deps`) → title: `chore(deps): upgrade Go and GCP dependencies`
+- **PR body**: Include a **Commits** section that lists each commit with its full message so reviewers can see the logical structure.
+
+#### PR description template
 
 ```markdown
 ## Title
-<type>(<scope>): <short summary>
+<type>(<scope>): <short summary covering all commits>
 
 ## Description
 
 ### What
-Brief description of the change.
+Brief description of the overall change.
 
 ### Why
 Motivation or issue reference.
 
+### Commits
+
+> Only include this section when the branch has multiple commits.
+
+For each commit, list the short SHA, subject, and the key points from its body:
+
+- **`<sha>` `<subject>`**
+  - Key detail from commit body
+  - Another key detail
+
 ### Changes
 - Bullet list of key changes grouped by component
 - Focus on what a reviewer needs to know
+- Deduplicate with the Commits section — put cross-cutting themes here
 
 ### Testing
 - What was tested and how
