@@ -17,14 +17,14 @@ import (
 	"github.com/root-gg/plik/server/common"
 )
 
-func update(client *plik.Client, updateFlag bool) (err error) {
+func (cli *PlikCLI) update(client *plik.Client, updateFlag bool) (err error) {
 	// Do not check for update if AutoUpdate is not enabled
-	if !updateFlag && !config.AutoUpdate {
+	if !updateFlag && !cli.Config.AutoUpdate {
 		return
 	}
 
 	// Do not update when quiet mode is enabled
-	if !updateFlag && config.Quiet {
+	if !updateFlag && cli.Config.Quiet {
 		return
 	}
 
@@ -54,7 +54,7 @@ func update(client *plik.Client, updateFlag bool) (err error) {
 	for _, client := range buildInfo.Clients {
 		if client.OS == runtime.GOOS && client.ARCH == runtime.GOARCH {
 			newMD5 = client.Md5
-			downloadURL = config.URL + "/" + client.Path
+			downloadURL = cli.Config.URL + "/" + client.Path
 			break
 		}
 	}
@@ -68,9 +68,9 @@ func update(client *plik.Client, updateFlag bool) (err error) {
 	if currentMD5 == newMD5 {
 		if updateFlag {
 			if newVersion != "" {
-				printf("Plik client %s is up to date\n", newVersion)
+				cli.printf("Plik client %s is up to date\n", newVersion)
 			} else {
-				printf("Plik client is up to date\n")
+				cli.printf("Plik client is up to date\n")
 			}
 			os.Exit(0)
 		}
@@ -121,7 +121,7 @@ func update(client *plik.Client, updateFlag bool) (err error) {
 		for _, release := range releases {
 			// Get release notes from server
 			var URL *url.URL
-			URL, err = url.Parse(config.URL + "/changelog/" + release.Name)
+			URL, err = url.Parse(cli.Config.URL + "/changelog/" + release.Name)
 			if err != nil {
 				return err
 			}
