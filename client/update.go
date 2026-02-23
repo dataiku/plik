@@ -83,10 +83,11 @@ func (cli *PlikCLI) update(client *plik.Client, updateFlag bool) (err error) {
 	} else {
 		fmt.Printf("Update Plik client to match server version ? [Y/n] ")
 	}
-	if ok, err := common.AskConfirmation(true); err != nil || !ok {
-		if err != nil {
-			return fmt.Errorf("Unable to ask for confirmation : %s", err)
-		}
+	ok, err := cli.askConfirmation(true)
+	if err != nil {
+		return fmt.Errorf("Unable to ask for confirmation : %s", err)
+	}
+	if !ok {
 		if updateFlag {
 			os.Exit(0)
 		}
@@ -150,10 +151,11 @@ func (cli *PlikCLI) update(client *plik.Client, updateFlag bool) (err error) {
 
 			// Ask to display the release notes
 			fmt.Printf("Do you want to browse the release notes of version %s ? [Y/n] ", release.Name)
-			if ok, err := common.AskConfirmation(true); err != nil || !ok {
-				if err != nil {
-					return fmt.Errorf("Unable to ask for confirmation : %s", err)
-				}
+			browseOk, err := cli.askConfirmation(true)
+			if err != nil {
+				return fmt.Errorf("Unable to ask for confirmation : %s", err)
+			}
+			if !browseOk {
 				continue
 			}
 
@@ -165,10 +167,11 @@ func (cli *PlikCLI) update(client *plik.Client, updateFlag bool) (err error) {
 			// Let user review the last release notes and ask to confirm update
 			if release.Name == newVersion {
 				fmt.Printf("\nUpdate Plik client from %s to %s ? [Y/n] ", currentVersion, newVersion)
-				if ok, err := common.AskConfirmation(true); err != nil || !ok {
-					if err != nil {
-						return fmt.Errorf("Unable to ask for confirmation : %s", err)
-					}
+				confirmOk, err := cli.askConfirmation(true)
+				if err != nil {
+					return fmt.Errorf("Unable to ask for confirmation : %s", err)
+				}
+				if !confirmOk {
 					if updateFlag {
 						os.Exit(0)
 					}

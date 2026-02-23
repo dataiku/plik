@@ -41,6 +41,7 @@ type CliConfig struct {
 	Token          string
 	DisableStdin   bool
 	Insecure       bool
+	Yes            bool
 
 	filePaths        []string
 	filenameOverride string
@@ -121,8 +122,8 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 
 	config = NewUploadConfig()
 
-	// Bypass ~/.plikrc file creation if quiet mode and/or --server flag
-	if opts["--quiet"].(bool) || (opts["--server"] != nil && opts["--server"].(string) != "") {
+	// Bypass ~/.plikrc file creation if quiet mode, --yes mode, and/or --server flag
+	if opts["--quiet"].(bool) || opts["--yes"].(bool) || (opts["--server"] != nil && opts["--server"].(string) != "") {
 		return config, nil
 	}
 
@@ -257,6 +258,9 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 func (config *CliConfig) UnmarshalArgs(opts docopt.Opts) (err error) {
 	if opts["--debug"].(bool) {
 		config.Debug = true
+	}
+	if opts["--yes"].(bool) {
+		config.Yes = true
 	}
 	if opts["--quiet"].(bool) {
 		config.Quiet = true

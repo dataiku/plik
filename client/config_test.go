@@ -48,6 +48,7 @@ func makeOpts() docopt.Opts {
 		"--help":            false,
 		"--token":           nil,
 		"--stdin":           false,
+		"--yes":             false,
 	}
 }
 
@@ -152,6 +153,7 @@ func TestUnmarshalArgs_Flags(t *testing.T) {
 		{"--quiet", func(c *CliConfig) bool { return c.Quiet }, "Quiet"},
 		{"--debug", func(c *CliConfig) bool { return c.Debug }, "Debug"},
 		{"--extend-ttl", func(c *CliConfig) bool { return c.ExtendTTL }, "ExtendTTL"},
+		{"--yes", func(c *CliConfig) bool { return c.Yes }, "Yes"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

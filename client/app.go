@@ -33,6 +33,15 @@ func NewPlikCLI(config *CliConfig, arguments map[string]any) *PlikCLI {
 	}
 }
 
+// askConfirmation prompts the user for confirmation.
+// When --yes is set, it returns defaultValue immediately without prompting.
+func (cli *PlikCLI) askConfirmation(defaultValue bool) (bool, error) {
+	if cli.Config.Yes {
+		return defaultValue, nil
+	}
+	return common.AskConfirmation(defaultValue)
+}
+
 // Run executes the main upload flow.
 func (cli *PlikCLI) Run(client *plik.Client) error {
 
