@@ -663,3 +663,31 @@ func TestAddFileMaxUserSizeOK(t *testing.T) {
 func TestAddFileMaxUserSizeKO(t *testing.T) {
 	testAddFileMaxUserSize(t, false)
 }
+
+func TestAddFileE2EEMimeType(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+
+	upload := &common.Upload{IsAdmin: true, E2EE: "age"}
+	file := upload.NewFile()
+	file.Name = "secret.txt"
+	createTestUpload(t, ctx, upload)
+
+	// Even with the E2EE flag, the preprocessor relies on age header sniffing
+	reader, contentType, err := getMultipartFormData(file.Name, bytes.NewBuffer([]byte("age-encryption.org/v1\n-> scrypt ...\nencrypted payload")))
+	require.NoError(t, err, "unable get multipart form data")
+
+	req := getUploadRequest(t, upload, file, reader, contentType)
+
+	rr := ctx.NewRecorder(req)
+	AddFile(ctx, rr, req)
+	context.TestOK(t, rr)
+
+	respBody, err := io.ReadAll(rr.Body)
+	require.NoError(t, err, "unable to read response body")
+
+	var fileResult = &common.File{}
+	err = json.Unmarshal(respBody, fileResult)
+	require.NoError(t, err, "unable to unmarshal response body")
+
+	require.Equal(t, "application/octet-stream", fileResult.Type, "E2EE uploads should always be application/octet-stream")
+}
