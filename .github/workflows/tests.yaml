@@ -21,6 +21,9 @@ jobs:
     - name: Run linter
       run: make lint
 
+    - name: Install age
+      run: sudo apt-get install -y age
+
     - name: Run tests
       run: make test
 
