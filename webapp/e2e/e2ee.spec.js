@@ -51,8 +51,12 @@ test.describe('E2EE', () => {
     test('upload with E2EE shows encrypted badge', async ({ page }) => {
         await uploadE2EEFile(page)
 
-        // Download view should show "Encrypted" badge
-        await expect(page.getByText('Encrypted').first()).toBeVisible({ timeout: 5_000 })
+        // Download view should show E2EE badge with Age link
+        const e2eeBadge = page.locator('text=End-to-End Encrypted').first()
+        await expect(e2eeBadge).toBeVisible({ timeout: 5_000 })
+        const ageLink = page.locator('a[href="https://age-encryption.org"]')
+        await expect(ageLink).toBeVisible()
+        await expect(ageLink).toHaveText('Age')
     })
 
     test('encrypted file content starts with age header', async ({ page }) => {
@@ -143,7 +147,7 @@ test.describe('E2EE', () => {
         await freshPage.close()
     })
 
-    test('passphrase modal cannot be dismissed by clicking overlay', async ({ page, context }) => {
+    test('passphrase modal cannot be dismissed by clicking overlay when passphrase is empty', async ({ page, context }) => {
         const { uploadId } = await uploadE2EEFile(page)
 
         // Open a completely new page to clear Vue state
@@ -161,7 +165,30 @@ test.describe('E2EE', () => {
         // Allow brief time for any dismiss animation
         await freshPage.waitForTimeout(500)
 
-        // Modal should still be visible (no overlay dismiss)
+        // Modal should still be visible (no overlay dismiss when passphrase is empty)
+        await expect(freshPage.getByText('Enter Passphrase')).toBeVisible()
+        await freshPage.close()
+    })
+
+    test('passphrase modal cannot be dismissed with empty passphrase via Decrypt button', async ({ page, context }) => {
+        const { uploadId } = await uploadE2EEFile(page)
+
+        // Open a completely new page to clear Vue state
+        const freshPage = await context.newPage()
+        await freshPage.goto(`/#/?id=${uploadId}`)
+        await freshPage.waitForLoadState('networkidle')
+
+        // Wait for modal
+        await expect(freshPage.getByText('Enter Passphrase')).toBeVisible({ timeout: 10_000 })
+
+        // Decrypt button should be disabled when passphrase is empty
+        const modal = freshPage.locator('.fixed.inset-0.z-50 .glass-card')
+        const decryptBtn = modal.getByRole('button', { name: 'Decrypt', exact: true })
+        await expect(decryptBtn).toBeDisabled()
+
+        // Click it anyway (force) — modal should remain
+        await decryptBtn.click({ force: true })
+        await freshPage.waitForTimeout(500)
         await expect(freshPage.getByText('Enter Passphrase')).toBeVisible()
         await freshPage.close()
     })

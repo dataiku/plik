@@ -12,7 +12,7 @@ import {
 import {
     humanReadableSize, quotaLabel, ttlLabel,
     buildEditForm, buildEditPayload,
-    clampQuota, defaultSizeHint, defaultTTLHint, TTL_UNITS,
+    clampQuota, filterQuotaInput, defaultSizeHint, defaultTTLHint, TTL_UNITS,
 } from '../utils.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import EditUserModal from '../components/EditUserModal.vue'
@@ -598,7 +598,7 @@ onMounted(async () => {
     <Teleport to="body">
       <div v-if="showCreateUser"
            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-           @click.self="showCreateUser = false">
+           @mousedown.self="showCreateUser = false">
         <div class="glass-card p-6 max-w-md w-full space-y-5 animate-fade-in max-h-[90vh] overflow-y-auto">
           <h2 class="text-lg font-semibold text-surface-200">Create User</h2>
 
@@ -647,14 +647,16 @@ onMounted(async () => {
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs text-surface-500 mb-1">Max File Size (GB)</label>
-                <input type="number" step="0.1" min="-1" v-model.number="createForm.maxFileSize"
+                <input type="text" inputmode="decimal" v-model="createForm.maxFileSize"
+                       @input="createForm.maxFileSize = filterQuotaInput($event.target.value, true)"
                        @blur="createForm.maxFileSize = clampQuota(createForm.maxFileSize)"
                        class="input-field w-full" />
                 <p class="text-xs text-surface-600 mt-0.5">{{ defaultSizeHint(config.maxFileSize) }}</p>
               </div>
               <div>
                 <label class="block text-xs text-surface-500 mb-1">Max User Size (GB)</label>
-                <input type="number" step="0.1" min="-1" v-model.number="createForm.maxUserSize"
+                <input type="text" inputmode="decimal" v-model="createForm.maxUserSize"
+                       @input="createForm.maxUserSize = filterQuotaInput($event.target.value, true)"
                        @blur="createForm.maxUserSize = clampQuota(createForm.maxUserSize)"
                        class="input-field w-full" />
                 <p class="text-xs text-surface-600 mt-0.5">{{ defaultSizeHint(config.maxUserSize) }}</p>
@@ -663,7 +665,8 @@ onMounted(async () => {
             <div>
               <label class="block text-xs text-surface-500 mb-1">Max TTL</label>
               <div class="flex gap-2">
-                <input type="number" step="1" min="-1" v-model.number="createForm.maxTTL"
+                <input type="text" inputmode="numeric" v-model="createForm.maxTTL"
+                       @input="createForm.maxTTL = filterQuotaInput($event.target.value, false)"
                        @blur="createForm.maxTTL = clampQuota(createForm.maxTTL)"
                        class="input-field flex-1" />
                 <select v-model.number="createTTLUnit" class="input-field w-28">

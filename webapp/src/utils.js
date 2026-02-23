@@ -176,6 +176,28 @@ export function clampQuota(val) {
 }
 
 /**
+ * Filter raw text input for quota fields.
+ * Allows digits, an optional leading '-', and an optional '.' when allowDecimal is true.
+ * Returns the sanitized string (caller converts to Number on blur via clampQuota).
+ */
+export function filterQuotaInput(raw, allowDecimal = false) {
+    let out = ''
+    let hasDot = false
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i]
+        if (ch === '-' && i === 0 && out === '') {
+            out += ch
+        } else if (ch === '.' && allowDecimal && !hasDot) {
+            hasDot = true
+            out += ch
+        } else if (ch >= '0' && ch <= '9') {
+            out += ch
+        }
+    }
+    return out
+}
+
+/**
  * Hint text for size quota inputs showing the server default
  */
 export function defaultSizeHint(configVal) {

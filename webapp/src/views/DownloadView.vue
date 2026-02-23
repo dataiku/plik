@@ -578,7 +578,7 @@ watch(activeFiles, (files) => {
                     d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <div>
-              <span class="text-sm text-accent-400 font-medium">End-to-End Encrypted</span>
+              <span class="text-sm text-accent-400 font-medium">End-to-End Encrypted with <a href="https://age-encryption.org" target="_blank" rel="noopener noreferrer" class="underline hover:text-accent-300 transition-colors">Age</a></span>
               <p class="text-xs text-surface-400 mt-0.5">Files will be decrypted in your browser</p>
             </div>
           </div>
@@ -741,7 +741,8 @@ watch(activeFiles, (files) => {
                    @cancel="confirmDialog = null" />
 
     <!-- Passphrase Modal -->
-    <div v-if="showPassphraseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div v-if="showPassphraseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+         @mousedown.self="e2eePassphrase ? (showPassphraseModal = false) : null">
       <div class="glass-card p-6 w-full max-w-sm mx-4 space-y-4 animate-fade-in">
         <div class="flex items-center gap-3">
           <svg class="w-6 h-6 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -756,10 +757,7 @@ watch(activeFiles, (files) => {
                class="input-field font-mono text-sm"
                placeholder="Passphrase"
                @keydown.enter="submitPassphrase" />
-        <div class="flex justify-end gap-2">
-          <button class="btn border border-surface-600 bg-surface-700/50 text-surface-300 hover:bg-surface-600/50
-                         px-4 py-1.5 text-sm transition-all"
-                  @click="showPassphraseModal = false">Cancel</button>
+        <div class="flex justify-end">
           <button class="btn-primary px-4 py-1.5 text-sm"
                   :disabled="!passphraseInput.trim()"
                   @click="submitPassphrase">Decrypt</button>
