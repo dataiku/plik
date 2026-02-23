@@ -41,6 +41,8 @@ type CliConfig struct {
 	Token          string
 	DisableStdin   bool
 	Insecure       bool
+	Yes            bool
+	ConfigPath     string `toml:"-"` // path to the config file that was loaded (not serialized)
 
 	filePaths        []string
 	filenameOverride string
@@ -55,11 +57,8 @@ func NewUploadConfig() (config *CliConfig) {
 	config.ArchiveOptions["Tar"] = "/bin/tar"
 	config.ArchiveOptions["Compress"] = "gzip"
 	config.ArchiveOptions["Options"] = ""
-	config.SecureMethod = "openssl"
+	config.SecureMethod = "age"
 	config.SecureOptions = make(map[string]any)
-	config.SecureOptions["Openssl"] = "/usr/bin/openssl"
-	config.SecureOptions["Cipher"] = "aes-256-cbc"
-	config.SecureOptions["Options"] = "-md sha512 -pbkdf2 -iter 120000"
 	config.DownloadBinary = "curl"
 	return
 }
@@ -73,6 +72,8 @@ func LoadConfigFromFile(path string) (*CliConfig, error) {
 
 	// Sanitize URL
 	config.URL = strings.TrimSuffix(config.URL, "/")
+
+	config.ConfigPath = path
 
 	return config, nil
 }
@@ -121,8 +122,8 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 
 	config = NewUploadConfig()
 
-	// Bypass ~/.plikrc file creation if quiet mode and/or --server flag
-	if opts["--quiet"].(bool) || (opts["--server"] != nil && opts["--server"].(string) != "") {
+	// Bypass ~/.plikrc file creation if quiet mode, --yes mode, and/or --server flag
+	if opts["--quiet"].(bool) || opts["--yes"].(bool) || (opts["--server"] != nil && opts["--server"].(string) != "") {
 		return config, nil
 	}
 
@@ -176,7 +177,8 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 		config.Stream = common.IsFeatureDefault(serverConfig.FeatureStream)
 		config.ExtendTTL = common.IsFeatureDefault(serverConfig.FeatureExtendTTL)
 
-		if serverConfig.FeatureAuthentication == common.FeatureForced {
+		switch serverConfig.FeatureAuthentication {
+		case common.FeatureForced:
 			fmt.Printf("\nAuthentication is required on this server.\n")
 			fmt.Printf("Would you like to authenticate with your browser? [Y/n] ")
 			ok, err := common.AskConfirmation(true)
@@ -205,7 +207,7 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 					config.Token = token
 				}
 			}
-		} else if serverConfig.FeatureAuthentication == common.FeatureEnabled {
+		case common.FeatureEnabled:
 			fmt.Printf("\nAuthentication is available on this server.\n")
 			fmt.Printf("Would you like to authenticate with your browser? [y/N] ")
 			ok, err := common.AskConfirmation(false)
@@ -257,6 +259,9 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 func (config *CliConfig) UnmarshalArgs(opts docopt.Opts) (err error) {
 	if opts["--debug"].(bool) {
 		config.Debug = true
+	}
+	if opts["--yes"].(bool) {
+		config.Yes = true
 	}
 	if opts["--quiet"].(bool) {
 		config.Quiet = true

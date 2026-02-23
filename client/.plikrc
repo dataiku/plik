@@ -4,8 +4,8 @@ URL = "https://plik.root.gg"    # URL of the plik server
 OneShot = false                 # Set the uploads to be one shot by default  (if available server side)
 Removable = false               # Set the uploads to be removable by default (if available server side)
 Stream = false                  # Set the uploads to be stream by default    (if available server side)
-Secure = false                  # Set the uploads to be encrypted by defaul
-SecureMethod = "openssl"        # Set the default encryption method
+Secure = false                  # Set the uploads to be encrypted by default
+SecureMethod = "age"            # Set the default encryption method (age|openssl|pgp)
 Archive = false                 # Set the uploads to be archives by default
 ArchiveMethod = "tar"           # Set the default archive method
 DownloadBinary = "curl"         # Set the default download command (curl / wget)
@@ -19,13 +19,7 @@ Token = ""                      # Set the Authentication Token (can be created f
 DisableStdin = false            # Disable STDIN input
 Insecure = false                # Disable HTTPS certificate validation
 
-[SecureOptions]
-  Cipher = "aes-256-cbc"
-  Openssl = "/usr/bin/openssl"
-  Options = "-md sha512 -pbkdf2 -iter 120000"
-
 [ArchiveOptions]
   Compress = "gzip"
   Options = ""
   Tar = "/bin/tar"
-

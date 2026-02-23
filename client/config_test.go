@@ -48,6 +48,7 @@ func makeOpts() docopt.Opts {
 		"--help":            false,
 		"--token":           nil,
 		"--stdin":           false,
+		"--yes":             false,
 	}
 }
 
@@ -152,6 +153,7 @@ func TestUnmarshalArgs_Flags(t *testing.T) {
 		{"--quiet", func(c *CliConfig) bool { return c.Quiet }, "Quiet"},
 		{"--debug", func(c *CliConfig) bool { return c.Debug }, "Debug"},
 		{"--extend-ttl", func(c *CliConfig) bool { return c.ExtendTTL }, "ExtendTTL"},
+		{"--yes", func(c *CliConfig) bool { return c.Yes }, "Yes"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -306,6 +308,7 @@ URL = "https://upload.example.com/"
 	config, err := LoadConfigFromFile(path)
 	require.NoError(t, err)
 	require.Equal(t, "https://upload.example.com", config.URL, "trailing slash should be stripped")
+	require.Equal(t, path, config.ConfigPath, "ConfigPath should be set to the loaded file")
 }
 
 // --- NewUploadConfig defaults ---
@@ -314,7 +317,7 @@ func TestNewUploadConfig_Defaults(t *testing.T) {
 	config := NewUploadConfig()
 	require.Equal(t, "http://127.0.0.1:8080", config.URL)
 	require.Equal(t, "tar", config.ArchiveMethod)
-	require.Equal(t, "openssl", config.SecureMethod)
+	require.Equal(t, "age", config.SecureMethod)
 	require.Equal(t, "curl", config.DownloadBinary)
 	require.False(t, config.Debug)
 	require.False(t, config.Quiet)
