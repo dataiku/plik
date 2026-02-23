@@ -92,7 +92,7 @@ Archives wrap multiple files/directories into a single upload file. Errors are p
 | `pgp` | Asymmetric encryption via GPG/PGP (recipient-based). **Deprecated** — use `age` instead |
 | `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). URLs can serve SSH keys **and** native `age1…` recipients. Plain HTTP URLs trigger a MITM security prompt (default: decline). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
 
-Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine.
+Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine. All backends expose a `Stderr io.Writer` field (default: `os.Stderr`) and a `SetStderr(w io.Writer)` method so that `PlikCLI` can redirect diagnostic output (passphrase display, recipient resolution progress, warnings) through its injectable writer for test capture.
 
 When the `age` backend is used, the upload is flagged as E2EE (`upload.E2EE = "age"`). This tells the webapp to prompt for a passphrase on download and decrypt client-side. A cryptographically-secure passphrase is auto-generated when none is provided.
 

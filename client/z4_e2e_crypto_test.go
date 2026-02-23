@@ -29,12 +29,23 @@ func TestCLI_OpenSSL_AutoPassphrase(t *testing.T) {
 		"--secure": "openssl",
 	})
 
-	// The openssl backend prints "Passphrase : ..." to os.Stderr directly
-	// (crypto backends are not yet wired to cli.Stderr), but the download
-	// command in stdout contains the passphrase value via -pass pass:<passphrase>.
+	// Stderr should contain the auto-generated passphrase
+	require.Contains(t, result.Stderr, "Passphrase : ",
+		"stderr should display the auto-generated passphrase")
+
+	// Stdout should contain the download command with the passphrase
 	require.Contains(t, result.Stdout, "openssl")
 	require.Contains(t, result.Stdout, "pass:",
 		"download command should contain passphrase")
+
+	// Extract passphrase from stderr and verify it matches the download command
+	for line := range strings.SplitSeq(result.Stderr, "\n") {
+		if after, ok := strings.CutPrefix(strings.TrimSpace(line), "Passphrase : "); ok {
+			require.Contains(t, result.Stdout, after,
+				"download command passphrase should match displayed passphrase")
+			break
+		}
+	}
 }
 
 func TestCLI_OpenSSL_CustomPassphrase(t *testing.T) {
@@ -52,8 +63,13 @@ func TestCLI_OpenSSL_CustomPassphrase(t *testing.T) {
 		"--passphrase": "foobar",
 	})
 
-	combined := result.Stdout + result.Stderr
-	require.Contains(t, combined, "foobar", "output should contain the custom passphrase")
+	// Custom passphrase should NOT trigger "Passphrase : " display
+	require.NotContains(t, result.Stderr, "Passphrase : ",
+		"custom passphrase should not be displayed to stderr")
+
+	// But the download command should contain it
+	require.Contains(t, result.Stdout, "pass:foobar",
+		"download command should contain custom passphrase")
 
 	// Full decrypt round-trip
 	fileURL := extractFileURLFromOutput(t, result.Stdout)
@@ -92,8 +108,13 @@ func TestCLI_OpenSSL_PromptedPassphrase(t *testing.T) {
 		"--passphrase": "-",
 	})
 
-	combined := result.Stdout + result.Stderr
-	require.Contains(t, combined, "foobar", "output should contain the prompted passphrase")
+	// Should prompt for passphrase on stderr
+	require.Contains(t, result.Stderr, "Please enter a passphrase",
+		"stderr should contain stdin passphrase prompt")
+
+	// Download command should contain the entered passphrase
+	require.Contains(t, result.Stdout, "pass:foobar",
+		"download command should contain the prompted passphrase")
 }
 
 func TestCLI_OpenSSL_CustomCipher(t *testing.T) {
@@ -112,8 +133,8 @@ func TestCLI_OpenSSL_CustomCipher(t *testing.T) {
 		"--passphrase": "test",
 	})
 
-	combined := result.Stdout + result.Stderr
-	require.Contains(t, combined, "aes-128-cbc", "output should reference the custom cipher")
+	require.Contains(t, result.Stdout, "aes-128-cbc",
+		"download command should reference the custom cipher")
 }
 
 func TestCLI_OpenSSL_CustomOptions(t *testing.T) {
@@ -249,16 +270,33 @@ func TestCLI_Age_AutoPassphrase(t *testing.T) {
 		"--secure": "age",
 	})
 
-	// The age backend prints "Passphrase : ..." to os.Stderr directly
-	// (crypto backends are not yet wired to cli.Stderr), but the download
-	// command in stdout proves the upload succeeded.
-	require.Contains(t, result.Stdout, "age --decrypt", "output should contain age decrypt command")
+	// Stderr should contain the auto-generated passphrase
+	require.Contains(t, result.Stderr, "Passphrase : ",
+		"stderr should display the auto-generated passphrase")
+
+	// Stdout should contain the age decrypt command
+	require.Contains(t, result.Stdout, "age --decrypt",
+		"output should contain age decrypt command")
 
 	// Verify the uploaded file has age encryption header
 	fileURL := extractFileURLFromOutput(t, result.Stdout)
-	encrypted := downloadFileContent(t, fileURL)
-	require.True(t, strings.HasPrefix(encrypted, "age-encryption.org"),
+	encBytes := downloadFileBytes(t, fileURL)
+	require.True(t, strings.HasPrefix(string(encBytes), "age-encryption.org"),
 		"encrypted file should start with age-encryption.org header")
+
+	// Full round-trip: extract passphrase from stderr and decrypt
+	var passphrase string
+	for line := range strings.SplitSeq(result.Stderr, "\n") {
+		if after, ok := strings.CutPrefix(strings.TrimSpace(line), "Passphrase : "); ok {
+			passphrase = strings.TrimSpace(after)
+			break
+		}
+	}
+	require.NotEmpty(t, passphrase, "should have extracted passphrase from stderr")
+
+	decrypted := agePassphraseDecrypt(t, encBytes, passphrase)
+	require.Equal(t, testContent, string(decrypted),
+		"decrypted content should match original")
 }
 
 func TestCLI_Age_CustomPassphrase(t *testing.T) {
@@ -276,10 +314,14 @@ func TestCLI_Age_CustomPassphrase(t *testing.T) {
 		"--passphrase": "foobar",
 	})
 
-	combined := result.Stdout + result.Stderr
-	require.Contains(t, combined, "age --decrypt", "output should contain age decrypt command")
+	// Custom passphrase should NOT trigger "Passphrase : " display
+	require.NotContains(t, result.Stderr, "Passphrase : ",
+		"custom passphrase should not be displayed to stderr")
 
-	// Full decrypt round-trip: verify uploaded content can be decrypted
+	require.Contains(t, result.Stdout, "age --decrypt",
+		"output should contain age decrypt command")
+
+	// Full decrypt round-trip
 	fileURL := extractFileURLFromOutput(t, result.Stdout)
 	encBytes := downloadFileBytes(t, fileURL)
 	require.True(t, strings.HasPrefix(string(encBytes), "age-encryption.org"),
@@ -323,6 +365,10 @@ func TestCLI_Age_Recipient(t *testing.T) {
 		"--secure":    "age",
 		"--recipient": recipient,
 	})
+
+	// Recipient mode should NOT display any passphrase
+	require.NotContains(t, result.Stderr, "Passphrase : ",
+		"recipient mode should not display a passphrase")
 
 	// Download and decrypt with identity file
 	fileURL := extractFileURLFromOutput(t, result.Stdout)

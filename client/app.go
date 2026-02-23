@@ -116,6 +116,7 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 		if err != nil {
 			return fmt.Errorf("unable to initialize crypto backend: %w", err)
 		}
+		cli.CryptoBackend.SetStderr(cli.Stderr)
 
 		// Emit deprecation warnings for legacy backends
 		if cli.Config.SecureMethod == "openssl" || cli.Config.SecureMethod == "pgp" {

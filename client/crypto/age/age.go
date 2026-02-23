@@ -24,6 +24,7 @@ var randRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123
 // Backend object
 type Backend struct {
 	Config *Config
+	Stderr io.Writer // Diagnostic output writer (default: os.Stderr)
 }
 
 // NewAgeBackend instantiate a new Age Backend
@@ -31,7 +32,13 @@ type Backend struct {
 func NewAgeBackend(config map[string]any) (backend *Backend) {
 	backend = new(Backend)
 	backend.Config = NewAgeBackendConfig(config)
+	backend.Stderr = os.Stderr
 	return
+}
+
+// SetStderr sets the writer for diagnostic output.
+func (ab *Backend) SetStderr(w io.Writer) {
+	ab.Stderr = w
 }
 
 // Configure implementation for Age Backend
@@ -63,12 +70,12 @@ func (ab *Backend) Configure(arguments map[string]any) (err error) {
 	// If no passphrase or recipient specified, generate a random passphrase
 	if ab.Config.Passphrase == "" && ab.Config.Recipient == "" {
 		ab.Config.Passphrase = generatePassphrase(32)
-		fmt.Fprintf(os.Stderr, "Passphrase : %s\n\n", ab.Config.Passphrase)
+		fmt.Fprintf(ab.Stderr, "Passphrase : %s\n\n", ab.Config.Passphrase)
 	}
 
 	// Resolve recipient to age.Recipient objects
 	if ab.Config.Recipient != "" {
-		recipients, decryptHint, err := resolveRecipients(ab.Config.Recipient, ab.Config.Yes)
+		recipients, decryptHint, err := resolveRecipients(ab.Stderr, ab.Config.Recipient, ab.Config.Yes)
 		if err != nil {
 			return fmt.Errorf("unable to resolve recipient: %s", err)
 		}
@@ -89,7 +96,7 @@ func (ab *Backend) Configure(arguments map[string]any) (err error) {
 //   - "ssh-rsa ..."     → parse as SSH public key
 //   - "ssh-ed25519 ..." → parse as SSH public key
 //   - "age1..."         → parse as native age X25519 recipient
-func resolveRecipients(recipient string, yes bool) ([]age.Recipient, string, error) {
+func resolveRecipients(stderr io.Writer, recipient string, yes bool) ([]age.Recipient, string, error) {
 	switch {
 	case strings.HasPrefix(recipient, "@"):
 		// GitHub shorthand: @username → https://github.com/{username}.keys
@@ -98,8 +105,8 @@ func resolveRecipients(recipient string, yes bool) ([]age.Recipient, string, err
 			return nil, "", fmt.Errorf("empty GitHub username")
 		}
 		url := fmt.Sprintf("https://github.com/%s.keys", username)
-		fmt.Fprintf(os.Stderr, "Fetching SSH keys for @%s from %s\n", username, url)
-		recipients, err := fetchKeys(url)
+		fmt.Fprintf(stderr, "Fetching SSH keys for @%s from %s\n", username, url)
+		recipients, err := fetchKeys(stderr, url)
 		return recipients, "", err
 
 	case strings.HasPrefix(recipient, "ssh://"):
@@ -111,7 +118,7 @@ func resolveRecipients(recipient string, yes bool) ([]age.Recipient, string, err
 		if !strings.Contains(host, ":") {
 			host = host + ":22"
 		}
-		fmt.Fprintf(os.Stderr, "Scanning SSH host key from %s\n", host)
+		fmt.Fprintf(stderr, "Scanning SSH host key from %s\n", host)
 		key, keyType, err := fetchHostKey(host)
 		if err != nil {
 			return nil, "", err
@@ -123,7 +130,7 @@ func resolveRecipients(recipient string, yes bool) ([]age.Recipient, string, err
 		case ssh.KeyAlgoRSA:
 			keyPath = "/etc/ssh/ssh_host_rsa_key"
 		}
-		fmt.Fprintf(os.Stderr, "Found %s host key\n", keyType)
+		fmt.Fprintf(stderr, "Found %s host key\n", keyType)
 		r, err := agessh.ParseRecipient(key)
 		if err != nil {
 			return nil, "", fmt.Errorf("invalid SSH host key: %s", err)
@@ -133,13 +140,13 @@ func resolveRecipients(recipient string, yes bool) ([]age.Recipient, string, err
 	case strings.HasPrefix(recipient, "https://") || strings.HasPrefix(recipient, "http://"):
 		// Arbitrary URL containing recipient public keys
 		if strings.HasPrefix(recipient, "http://") {
-			fmt.Fprintf(os.Stderr, "\nWARNING: Fetching keys over plain HTTP (%s)\n", recipient)
-			fmt.Fprintf(os.Stderr, "This is vulnerable to man-in-the-middle attacks.\n")
-			fmt.Fprintf(os.Stderr, "An attacker could substitute their own key and decrypt your files.\n")
+			fmt.Fprintf(stderr, "\nWARNING: Fetching keys over plain HTTP (%s)\n", recipient)
+			fmt.Fprintf(stderr, "This is vulnerable to man-in-the-middle attacks.\n")
+			fmt.Fprintf(stderr, "An attacker could substitute their own key and decrypt your files.\n")
 			if yes {
-				fmt.Fprintf(os.Stderr, "Continuing (--yes)\n")
+				fmt.Fprintf(stderr, "Continuing (--yes)\n")
 			} else {
-				fmt.Fprintf(os.Stderr, "Continue? [y/N] : ")
+				fmt.Fprintf(stderr, "Continue? [y/N] : ")
 				ok, err := common.AskConfirmation(false)
 				if err != nil {
 					return nil, "", fmt.Errorf("unable to ask for confirmation: %s", err)
@@ -149,8 +156,8 @@ func resolveRecipients(recipient string, yes bool) ([]age.Recipient, string, err
 				}
 			}
 		}
-		fmt.Fprintf(os.Stderr, "Fetching keys from %s\n", recipient)
-		recipients, err := fetchKeys(recipient)
+		fmt.Fprintf(stderr, "Fetching keys from %s\n", recipient)
+		recipients, err := fetchKeys(stderr, recipient)
 		return recipients, "", err
 
 	case strings.HasPrefix(recipient, "ssh-"):
@@ -174,7 +181,7 @@ func resolveRecipients(recipient string, yes bool) ([]age.Recipient, string, err
 // fetchKeys fetches public keys from a URL and parses them as age recipients.
 // Each line is expected to be either an SSH public key (ssh-rsa, ssh-ed25519)
 // in authorized_keys format, or a native age recipient (age1...).
-func fetchKeys(url string) ([]age.Recipient, error) {
+func fetchKeys(stderr io.Writer, url string) ([]age.Recipient, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch keys from %s: %s", url, err)
@@ -224,7 +231,7 @@ func fetchKeys(url string) ([]age.Recipient, error) {
 		return nil, fmt.Errorf("no supported keys found at %s (supported: ssh-rsa, ssh-ed25519, age1...)", url)
 	}
 
-	fmt.Fprintf(os.Stderr, "Found %d supported key(s)\n", len(recipients))
+	fmt.Fprintf(stderr, "Found %d supported key(s)\n", len(recipients))
 
 	return recipients, nil
 }
