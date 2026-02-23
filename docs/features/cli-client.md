@@ -195,7 +195,7 @@ Token = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 # Encryption defaults
 [Secure]
-    Backend = "openssl"
+    Backend = "age"
     Cipher = "aes-256-cbc"
 ```
 

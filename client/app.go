@@ -112,6 +112,17 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 		if err != nil {
 			return fmt.Errorf("unable to initialize crypto backend: %w", err)
 		}
+
+		// Emit deprecation warnings for legacy backends
+		if cli.Config.SecureMethod == "openssl" || cli.Config.SecureMethod == "pgp" {
+			configHint := "~/.plikrc"
+			if cli.Config.ConfigPath != "" {
+				configHint = cli.Config.ConfigPath
+			}
+			fmt.Fprintf(os.Stderr, "\nWARNING: The %q encryption backend is deprecated.\n", cli.Config.SecureMethod)
+			fmt.Fprintf(os.Stderr, "You can switch to \"age\" by setting SecureMethod = \"age\" in %s\n\n", configHint)
+		}
+
 		err = cli.CryptoBackend.Configure(cli.Arguments)
 		if err != nil {
 			return fmt.Errorf("unable to configure crypto backend: %w", err)

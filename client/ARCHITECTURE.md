@@ -83,8 +83,8 @@ Archives wrap multiple files/directories into a single upload file. Errors are p
 
 | Backend | Description |
 |---------|-------------|
-| `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher) |
-| `pgp` | Asymmetric encryption via GPG/PGP (recipient-based) |
+| `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher). **Deprecated** — use `age` instead |
+| `pgp` | Asymmetric encryption via GPG/PGP (recipient-based). **Deprecated** — use `age` instead |
 | `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). URLs can serve SSH keys **and** native `age1…` recipients. Plain HTTP URLs trigger a MITM security prompt (default: decline). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
 
 Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine.
