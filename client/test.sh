@@ -651,7 +651,7 @@ echo "OK"
 echo -n " - openssl auto passphrase : "
 before
 cp $SPECIMEN $TMPDIR/upload/FILE1
-upload -s && download && check
+upload --secure openssl && download && check
 grep 'Passphrase' $CLIENT_LOG >/dev/null 2>/dev/null
 grep 'openssl.*pass' $CLIENT_LOG >/dev/null 2>/dev/null
 echo "OK"
@@ -661,7 +661,7 @@ echo "OK"
 echo -n " - openssl custom passphrase : "
 before
 cp $SPECIMEN $TMPDIR/upload/FILE1
-upload -s --passphrase foobar && download && check
+upload --secure openssl --passphrase foobar && download && check
 grep 'openssl.*pass.*foobar' $CLIENT_LOG >/dev/null 2>/dev/null
 echo "OK"
 
@@ -670,7 +670,7 @@ echo "OK"
 echo -n " - openssl prompted passphrase : "
 before
 cp $SPECIMEN $TMPDIR/upload/FILE1
-echo "foobar" | upload -s --passphrase - && download && check
+echo "foobar" | upload --secure openssl --passphrase - && download && check
 grep 'openssl.*pass.*foobar' $CLIENT_LOG >/dev/null 2>/dev/null
 echo "OK"
 
@@ -679,7 +679,7 @@ echo "OK"
 echo -n " - openssl custom cipher : "
 before
 cp $SPECIMEN $TMPDIR/upload/FILE1
-echo "foobar" | upload -s --cipher aes-128-cbc && download && check
+echo "foobar" | upload --secure openssl --cipher aes-128-cbc && download && check
 grep 'openssl.*aes-128-cbc' $CLIENT_LOG >/dev/null 2>/dev/null
 echo "OK"
 
@@ -688,7 +688,7 @@ echo "OK"
 echo -n " - openssl custom options : "
 before
 cp $SPECIMEN $TMPDIR/upload/FILE1
-upload -s --secure-options '-a' && download && check
+upload --secure openssl --secure-options '-a' && download && check
 curl $(cat $CLIENT_LOG | grep "curl" | sed -n 's/^.*"\(.*\)".*$/\1/p') >$TMPDIR/download/ARMORED 2>/dev/null
 file $TMPDIR/download/ARMORED | grep "ASCII text\|base64" >/dev/null 2>/dev/null
 echo "OK"

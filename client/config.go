@@ -59,9 +59,6 @@ func NewUploadConfig() (config *CliConfig) {
 	config.ArchiveOptions["Options"] = ""
 	config.SecureMethod = "age"
 	config.SecureOptions = make(map[string]any)
-	config.SecureOptions["Openssl"] = "/usr/bin/openssl"
-	config.SecureOptions["Cipher"] = "aes-256-cbc"
-	config.SecureOptions["Options"] = "-md sha512 -pbkdf2 -iter 120000"
 	config.DownloadBinary = "curl"
 	return
 }
