@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { config, isFeatureForced, isFeatureDefaultOn } from '../config.js'
+import { config, isFeatureEnabled, isFeatureForced, isFeatureDefaultOn } from '../config.js'
 import { createUpload } from '../api.js'
 import { setToken } from '../tokenStore.js'
 import { setPendingFiles } from '../pendingUploadStore.js'
@@ -466,7 +466,7 @@ async function doUpload() {
                 Create empty upload
               </button>
               <span class="text-surface-600 text-xs">·</span>
-              <button class="text-xs text-surface-400 hover:text-accent-400 transition-colors"
+              <button v-if="isFeatureEnabled('text')" class="text-xs text-surface-400 hover:text-accent-400 transition-colors"
                       @click.stop="textMode = true">
                 Paste text
               </button>

@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { formatDate } from '../utils.js'
 import { getArchiveURL, getAdminURL } from '../api.js'
+import { showError } from '../notification.js'
 import CopyButton from './CopyButton.vue'
 
 const passphrase = defineModel('passphrase', { type: String, default: null })
@@ -13,7 +14,7 @@ const props = defineProps({
 const emit = defineEmits(['delete-upload', 'add-files', 'show-qr', 'edit-passphrase'])
 
 const expirationText = computed(() => {
-  if (!props.upload.expireAt) return null
+  if (!props.upload.expireAt) return 'Never expires'
   const d = new Date(props.upload.expireAt)
   const now = new Date()
   if (d <= now) return 'Expired'
@@ -58,7 +59,7 @@ async function nativeShare() {
   } catch (err) {
     // User cancelled or share failed — ignore
     if (err.name !== 'AbortError') {
-      console.warn('Share failed', err)
+      showError('Share failed')
     }
   }
 }
@@ -74,7 +75,17 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
     <div class="sidebar-section">
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Upload Info</h3>
 
-      <div v-if="expirationText" class="text-sm text-surface-300">
+      <div v-if="expirationText === 'Never expires'" class="text-sm text-surface-300">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
+          </svg>
+          <span class="text-emerald-400">Never expires</span>
+        </div>
+      </div>
+
+      <div v-else-if="expirationText" class="text-sm text-surface-300">
         <div class="flex items-center gap-2">
           <svg class="w-4 h-4 text-warning-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

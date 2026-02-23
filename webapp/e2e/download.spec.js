@@ -1,0 +1,449 @@
+import { test, expect, uploadTestFile } from './fixtures.js'
+
+test.describe('Download view', () => {
+    test('shows file list after upload', async ({ page }) => {
+        await uploadTestFile(page, 'readme.txt', 'file content here')
+
+        // Should show the file in the download view
+        await expect(page.getByRole('link', { name: 'readme.txt' })).toBeVisible()
+
+        // Should show file count as an h3 heading (e.g. "1 file")
+        await expect(page.getByRole('heading', { name: /\d+ files?/ })).toBeVisible({ timeout: 5_000 })
+
+        // No comment was set — comment section should not be visible
+        await expect(page.getByRole('heading', { name: 'Comment' })).not.toBeVisible()
+    })
+
+    test('file download link is present', async ({ page }) => {
+        await uploadTestFile(page, 'download-me.txt', 'download content')
+
+        // The file row should contain a download link/button
+        // FileRow component renders the file name as a clickable link
+        const fileLink = page.getByRole('link', { name: 'download-me.txt' })
+            .or(page.getByText('download-me.txt'))
+        await expect(fileLink.first()).toBeVisible()
+    })
+
+    test('sidebar shows upload metadata', async ({ page }) => {
+        await uploadTestFile(page, 'meta-test.txt', 'metadata test content')
+
+        // Download sidebar should show expiration info
+        await expect(page.getByText(/expire|remaining|never/i).first()).toBeVisible()
+    })
+
+    test('share URL is copyable', async ({ page }) => {
+        await uploadTestFile(page, 'share-test.txt', 'share content')
+
+        // The sidebar should have a "Share" section or copy link button
+        const shareSection = page.getByText(/share|link/i)
+        await expect(shareSection.first()).toBeVisible()
+    })
+
+    test('upload comment is displayed on the download page', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Add a file
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'commented.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('file with comment'),
+        })
+
+        // Enable comment toggle and write a comment
+        const toggle = page.getByText('Comment').first().locator('xpath=..').locator('.toggle-switch')
+        await toggle.click()
+        await page.locator('textarea').fill('This is a **test comment**')
+
+        // Upload
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // The download view should show the comment section
+        await expect(page.getByRole('heading', { name: 'Comment' })).toBeVisible({ timeout: 5_000 })
+        // The rendered markdown should contain the bold text
+        await expect(page.locator('.prose strong')).toHaveText('test comment')
+    })
+})
+
+test.describe('Text viewer', () => {
+    test('shows file content when View button is clicked', async ({ page }) => {
+        const fileContent = 'Hello from the text viewer test'
+        await uploadTestFile(page, 'viewer-test.txt', fileContent)
+
+        const panel = page.locator('#file-viewer-panel')
+        const viewBtn = page.getByRole('button', { name: 'View' })
+
+        // Single text file auto-opens the viewer — wait for it to fully render
+        await expect(panel).toBeVisible({ timeout: 5_000 })
+
+        // Click View to toggle it off
+        await viewBtn.click()
+        await expect(panel).not.toBeVisible()
+
+        // Click View again — this time it's a manual open
+        await viewBtn.click()
+
+        // Viewer panel should re-appear with the correct content
+        await expect(panel).toBeVisible({ timeout: 5_000 })
+        await expect(panel).toContainText(fileContent)
+    })
+
+    test('auto-opens for a single text file upload', async ({ page }) => {
+        const fileContent = 'Auto-viewed single file content'
+        await uploadTestFile(page, 'auto-view.txt', fileContent)
+
+        // Viewer panel should appear automatically
+        const panel = page.locator('#file-viewer-panel')
+        await expect(panel).toBeVisible({ timeout: 5_000 })
+        await expect(panel).toContainText(fileContent)
+        // Panel header should show the filename
+        await expect(panel).toContainText('auto-view.txt')
+    })
+
+    test('does NOT auto-open for multiple file uploads', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Add two text files
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles([
+            { name: 'file1.txt', mimeType: 'text/plain', buffer: Buffer.from('content one') },
+            { name: 'file2.txt', mimeType: 'text/plain', buffer: Buffer.from('content two') },
+        ])
+
+        // Upload
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Both files should be listed
+        await expect(page.getByRole('link', { name: 'file1.txt' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'file2.txt' })).toBeVisible()
+
+        // Viewer panel should NOT be open automatically
+        await expect(page.locator('#file-viewer-panel')).not.toBeVisible()
+    })
+
+    test('View button is not shown for non-text uploads', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Upload a binary file (PNG)
+        const input = page.locator('input[type="file"]')
+        // Minimal 1×1 transparent PNG
+        const png = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAB' +
+            'Nl7BcQAAAABJRU5ErkJggg==',
+            'base64'
+        )
+        await input.setInputFiles({
+            name: 'image.png',
+            mimeType: 'image/png',
+            buffer: png,
+        })
+
+        // Upload
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // File should be listed
+        await expect(page.getByRole('link', { name: 'image.png' })).toBeVisible()
+
+        // No "View" button should be present (only appears for text files)
+        await expect(page.getByRole('button', { name: 'View' })).not.toBeVisible()
+
+        // Viewer panel should not be open
+        await expect(page.locator('#file-viewer-panel')).not.toBeVisible()
+    })
+})
+
+test.describe('Add files', () => {
+    test('Add Files button visible for admin', async ({ page }) => {
+        await uploadTestFile(page)
+
+        // Admin (has uploadToken) should see the "Add Files" button
+        await expect(page.getByRole('button', { name: /Add Files/i })).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('add files stages and uploads', async ({ page }) => {
+        await uploadTestFile(page, 'first.txt', 'first file')
+
+        // Click "Add Files" — triggers the hidden file input
+        const addBtn = page.getByRole('button', { name: /Add Files/i })
+        await expect(addBtn).toBeVisible({ timeout: 5_000 })
+
+        // Add a second file via the input
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'second.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('second file content'),
+        })
+
+        // Pending section should show the new file
+        await expect(page.getByText('second.txt')).toBeVisible({ timeout: 5_000 })
+
+        // Click Upload button to add the file
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+
+        // Wait for the file to appear in the main file list
+        await page.waitForTimeout(2_000)
+
+        // Both files should be in the list now
+        await expect(page.getByRole('link', { name: 'first.txt' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'second.txt' })).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('duplicate file names are skipped', async ({ page }) => {
+        await uploadTestFile(page, 'unique.txt', 'unique content')
+
+        // Try adding a file with the same name
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'unique.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('duplicate content'),
+        })
+
+        // The app should reject the duplicate — wait for any warning/toast
+        // or verify the pending file count stays at 0
+        await page.waitForTimeout(1_000)
+
+        // Verify there's no pending file row (only the existing uploaded file)
+        // The file should still just be in the uploaded list, no new pending items
+        const pendingItems = page.locator('.pending-upload, [class*="pending"]')
+        await expect(pendingItems).toHaveCount(0)
+    })
+
+    test('Add Files hidden for streaming uploads', async ({ page, withConfig }) => {
+        await withConfig({ feature_stream: 'enabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Enable streaming toggle — the label contains 'Streaming' text and a .toggle-switch button
+        const streamingLabel = page.locator('label').filter({ hasText: 'Streaming' })
+        await streamingLabel.locator('.toggle-switch').click()
+
+        // Add a file
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'stream-test.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('stream content'),
+        })
+
+        // Upload
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 15_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Add Files should NOT be visible for streaming uploads
+        await expect(page.getByRole('button', { name: /Add Files/i })).not.toBeVisible()
+    })
+})
+
+test.describe('Delete file/upload', () => {
+    test('delete file removes it from list', async ({ page }) => {
+        // Upload two files so we can delete one
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles([
+            { name: 'keep.txt', mimeType: 'text/plain', buffer: Buffer.from('keep me') },
+            { name: 'remove.txt', mimeType: 'text/plain', buffer: Buffer.from('remove me') },
+        ])
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Both files visible
+        await expect(page.getByRole('link', { name: 'remove.txt' })).toBeVisible()
+
+        // Click the remove button on the file (× button)
+        const removeBtn = page.getByTitle('Remove file').last()
+        await removeBtn.click()
+
+        // Confirm dialog should appear
+        const dialog = page.locator('.fixed.inset-0.z-50 .glass-card')
+        await expect(dialog).toBeVisible({ timeout: 3_000 })
+        await dialog.getByRole('button', { name: 'Delete' }).click()
+
+        // File should disappear
+        await expect(page.getByRole('link', { name: 'remove.txt' })).not.toBeVisible({ timeout: 5_000 })
+        // Other file still there
+        await expect(page.getByRole('link', { name: 'keep.txt' })).toBeVisible()
+    })
+
+    test('delete upload redirects to home', async ({ page }) => {
+        await uploadTestFile(page, 'delete-me.txt', 'delete content')
+
+        // Click "Delete Upload" in sidebar
+        const deleteUploadBtn = page.locator('aside').getByRole('button', { name: /Delete Upload/i })
+        await deleteUploadBtn.click()
+
+        // Confirm dialog
+        const dialog = page.locator('.fixed.inset-0.z-50 .glass-card')
+        await expect(dialog).toBeVisible({ timeout: 3_000 })
+        await dialog.getByRole('button', { name: 'Delete' }).click()
+
+        // Should redirect to home
+        await page.waitForURL(/\/$|#\/$|#$/, { timeout: 5_000 })
+    })
+
+    test('delete file confirm can be cancelled', async ({ page }) => {
+        await uploadTestFile(page, 'cancel-delete.txt', 'keep me')
+
+        // Click remove button
+        const removeBtn = page.getByTitle('Remove file').first()
+        await removeBtn.click()
+
+        // Confirm dialog appears
+        await expect(page.getByText(/Delete File/i)).toBeVisible({ timeout: 3_000 })
+
+        // Click Cancel
+        await page.getByRole('button', { name: 'Cancel' }).click()
+
+        // File still visible
+        await expect(page.getByRole('link', { name: 'cancel-delete.txt' })).toBeVisible()
+    })
+})
+
+test.describe('Unauthenticated download permissions', () => {
+    test('no Delete Upload button without token', async ({ page, context }) => {
+        const url = await uploadTestFile(page, 'perm-test.txt', 'permission content')
+        const uploadId = new URL(url.replace('#/', '')).searchParams.get('id')
+            || new URLSearchParams(url.split('?')[1] || '').get('id')
+
+        // Open a fresh page without upload token
+        const freshPage = await context.newPage()
+        await freshPage.goto(`/#/?id=${uploadId}`)
+        await freshPage.waitForLoadState('networkidle')
+
+        // Wait for the file to load
+        await expect(freshPage.getByRole('link', { name: 'perm-test.txt' })).toBeVisible({ timeout: 5_000 })
+
+        // Delete Upload button should NOT be visible
+        await expect(freshPage.getByRole('button', { name: /Delete Upload/i })).not.toBeVisible()
+        await freshPage.close()
+    })
+
+    test('no file remove buttons without token', async ({ page, context }) => {
+        const url = await uploadTestFile(page, 'no-remove.txt', 'no remove')
+        const uploadId = new URLSearchParams(url.split('?')[1] || '').get('id')
+
+        const freshPage = await context.newPage()
+        await freshPage.goto(`/#/?id=${uploadId}`)
+        await freshPage.waitForLoadState('networkidle')
+        await expect(freshPage.getByRole('link', { name: 'no-remove.txt' })).toBeVisible({ timeout: 5_000 })
+
+        // Remove buttons should NOT be visible
+        await expect(freshPage.getByTitle('Remove file')).not.toBeVisible()
+        await freshPage.close()
+    })
+
+    test('no Add Files button without token', async ({ page, context }) => {
+        const url = await uploadTestFile(page, 'no-add.txt', 'no add')
+        const uploadId = new URLSearchParams(url.split('?')[1] || '').get('id')
+
+        const freshPage = await context.newPage()
+        await freshPage.goto(`/#/?id=${uploadId}`)
+        await freshPage.waitForLoadState('networkidle')
+        await expect(freshPage.getByRole('link', { name: 'no-add.txt' })).toBeVisible({ timeout: 5_000 })
+
+        // Add Files should NOT be visible
+        await expect(freshPage.getByRole('button', { name: /Add Files/i })).not.toBeVisible()
+        await freshPage.close()
+    })
+
+    test('removable upload shows Delete button without token', async ({ page, context, withConfig }) => {
+        await withConfig({ feature_removable: 'default' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Removable should be on by default with this config
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'removable.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('removable content'),
+        })
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+        const url = page.url()
+        const uploadId = new URLSearchParams(url.split('?')[1] || '').get('id')
+
+        // Open fresh page without token
+        const freshPage = await context.newPage()
+        await freshPage.goto(`/#/?id=${uploadId}`)
+        await freshPage.waitForLoadState('networkidle')
+        await expect(freshPage.getByRole('link', { name: 'removable.txt' })).toBeVisible({ timeout: 5_000 })
+
+        // Delete Upload IS visible for removable uploads
+        await expect(freshPage.getByRole('button', { name: /Delete Upload/i })).toBeVisible()
+        await freshPage.close()
+    })
+
+    test('removable upload shows file remove buttons without token', async ({ page, context, withConfig }) => {
+        await withConfig({ feature_removable: 'default' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'removable2.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('removable content 2'),
+        })
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+        const url = page.url()
+        const uploadId = new URLSearchParams(url.split('?')[1] || '').get('id')
+
+        const freshPage = await context.newPage()
+        await freshPage.goto(`/#/?id=${uploadId}`)
+        await freshPage.waitForLoadState('networkidle')
+        await expect(freshPage.getByRole('link', { name: 'removable2.txt' })).toBeVisible({ timeout: 5_000 })
+
+        // File remove buttons ARE visible for removable uploads
+        await expect(freshPage.getByTitle('Remove file').first()).toBeVisible()
+        await freshPage.close()
+    })
+
+    test('admin URL panel visible and link grants admin access', async ({ page, context }) => {
+        await uploadTestFile(page, 'admin-access.txt', 'admin content')
+
+        // Admin URL section should be visible in the sidebar
+        const adminSection = page.locator('aside').getByText('Admin URL')
+        await expect(adminSection).toBeVisible({ timeout: 5_000 })
+
+        // Extract the admin URL text from the sidebar
+        const adminUrlText = await page.locator('aside').locator('.sidebar-section').filter({ hasText: 'Admin URL' })
+            .locator('.text-surface-300.truncate').textContent()
+        expect(adminUrlText).toBeTruthy()
+        expect(adminUrlText).toContain('uploadToken=')
+
+        // Open the admin URL in a fresh page (no prior token in memory)
+        const freshPage = await context.newPage()
+        // Convert absolute URL to hash route if needed
+        const hashPart = adminUrlText.includes('#') ? adminUrlText.substring(adminUrlText.indexOf('#')) : adminUrlText
+        await freshPage.goto(hashPart)
+        await freshPage.waitForLoadState('networkidle')
+
+        // File should load
+        await expect(freshPage.getByRole('link', { name: 'admin-access.txt' })).toBeVisible({ timeout: 5_000 })
+
+        // Admin buttons should be visible (the token grants admin access)
+        await expect(freshPage.getByRole('button', { name: /Delete Upload/i })).toBeVisible({ timeout: 3_000 })
+        await expect(freshPage.getByRole('button', { name: /Add Files/i })).toBeVisible()
+        await freshPage.close()
+    })
+})
+

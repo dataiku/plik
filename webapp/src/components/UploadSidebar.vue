@@ -311,7 +311,7 @@ const hasAnySettings = computed(() =>
              class="flex items-center justify-between py-1 mb-2 cursor-pointer group">
         <span class="text-sm text-surface-200 group-hover:text-white transition-colors flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 11-12.728 0M12 2v10" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
           </svg>
           Never expires
         </span>

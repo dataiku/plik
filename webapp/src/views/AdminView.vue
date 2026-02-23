@@ -3,17 +3,20 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { auth, impersonate as doImpersonate, clearImpersonate } from '../authStore.js'
 import { config } from '../config.js'
+import { showError } from '../notification.js'
 import {
     getServerStats, getAdminUsers, getAdminUploads,
     createUser as apiCreateUser, deleteUser as apiDeleteUser,
-    updateUser, removeUpload, getFileURL, getVersion
+    updateUser, removeUpload, getVersion
 } from '../api.js'
 import {
-    humanReadableSize, getUploadUrl, quotaLabel, ttlLabel,
+    humanReadableSize, quotaLabel, ttlLabel,
+    buildEditForm, buildEditPayload,
     clampQuota, defaultSizeHint, defaultTTLHint, TTL_UNITS,
-    formatDate, buildEditForm, buildEditPayload,
 } from '../utils.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import EditUserModal from '../components/EditUserModal.vue'
+import UploadCard from '../components/UploadCard.vue'
 
 const router = useRouter()
 
@@ -68,7 +71,7 @@ async function loadStats() {
     try {
         stats.value = await getServerStats()
     } catch (err) {
-        console.error('Failed to load stats', err)
+        showError('Could not load server stats')
     } finally {
         statsLoading.value = false
     }
@@ -88,7 +91,7 @@ async function loadUsers(more = false) {
         }
         usersCursor.value = data.after || null
     } catch (err) {
-        console.error('Failed to load users', err)
+        showError('Could not load users')
     } finally {
         usersLoading.value = false
     }
@@ -114,7 +117,7 @@ async function loadUploads(more = false) {
         }
         uploadsCursor.value = data.after || null
     } catch (err) {
-        console.error('Failed to load uploads', err)
+        showError('Could not load uploads')
     } finally {
         uploadsLoading.value = false
     }
@@ -220,7 +223,7 @@ function handleDeleteUser(user) {
                 await apiDeleteUser(user.id)
                 users.value = users.value.filter(u => u.id !== user.id)
             } catch (err) {
-                console.error('Failed to delete user', err)
+                showError('Could not delete user')
             }
             confirm.value = null
         }
@@ -235,7 +238,7 @@ function handleDeleteUpload(upload) {
                 await removeUpload(upload.id, upload.uploadToken)
                 uploads.value = uploads.value.filter(u => u.id !== upload.id)
             } catch (err) {
-                console.error('Failed to delete upload', err)
+                showError('Could not delete upload')
             }
             confirm.value = null
         }
@@ -272,7 +275,7 @@ onMounted(async () => {
     try {
         version.value = await getVersion()
     } catch (err) {
-        console.error('Failed to get version', err)
+        showError('Could not load version info')
     }
     loadStats()
 })
@@ -564,57 +567,12 @@ onMounted(async () => {
           </div>
 
           <div class="space-y-3">
-            <div v-for="upload in uploads" :key="upload.id" class="glass-card p-4">
-              <div class="flex flex-col sm:flex-row gap-4">
-                <!-- Upload meta -->
-                <div class="sm:w-1/3 text-sm space-y-1">
-                  <a :href="getUploadUrl(upload)"
-                     class="font-mono text-accent-400 hover:text-accent-300 transition-colors">
-                    {{ upload.id }}
-                  </a>
-                  <p class="text-surface-500">uploaded: {{ formatDate(upload.createdAt) }}</p>
-                  <p class="text-surface-500">expires: {{ formatDate(upload.expireAt) }}</p>
-                  <p v-if="upload.user" class="text-surface-500">
-                    user:
-                    <button @click="filterUploadsByUser(upload.user)"
-                            class="text-accent-400 hover:text-accent-300 transition-colors">
-                      {{ upload.user }}
-                    </button>
-                  </p>
-                  <p v-if="upload.token" class="text-surface-500">
-                    token:
-                    <button @click="filterUploadsByToken(upload.token)"
-                            class="font-mono text-accent-400/70 hover:text-accent-300 transition-colors">
-                      {{ upload.token.substring(0, 8) }}...
-                    </button>
-                  </p>
-                </div>
-
-                <!-- Files -->
-                <div class="flex-1 min-w-0 text-sm space-y-1">
-                  <div v-for="file in (upload.files || []).filter(f => f.status === 'uploaded')"
-                       :key="file.id"
-                       class="flex items-center justify-between gap-2">
-                    <a :href="getFileURL(upload.id, file.id, file.fileName)"
-                       class="text-surface-300 hover:text-white transition-colors truncate">
-                      {{ file.fileName }}
-                    </a>
-                    <span class="text-surface-500 shrink-0">{{ humanReadableSize(file.fileSize) }}</span>
-                  </div>
-                  <p v-if="!upload.files || upload.files.length === 0"
-                     class="text-surface-500 italic">No files</p>
-                </div>
-
-                <!-- Actions -->
-                <div class="sm:w-20 flex sm:flex-col items-center sm:justify-center gap-2">
-                  <button @click="handleDeleteUpload(upload)"
-                          class="text-xs text-red-400 hover:text-red-300 border border-red-500/30
-                                 rounded-lg px-3 py-1.5 hover:bg-red-500/10 transition-colors">
-                    Remove
-                  </button>
-                </div>
-              </div>
-            </div>
+            <UploadCard v-for="upload in uploads" :key="upload.id"
+                        :upload="upload"
+                        :show-user="true"
+                        @delete="handleDeleteUpload"
+                        @filter-token="filterUploadsByToken"
+                        @filter-user="filterUploadsByUser" />
           </div>
 
           <!-- Load more -->
@@ -736,94 +694,14 @@ onMounted(async () => {
     </Teleport>
 
     <!-- ═══════ Edit User Modal ═══════ -->
-    <Teleport to="body">
-      <div v-if="showEditUser"
-           class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-           @click.self="showEditUser = false">
-        <div class="glass-card p-6 max-w-md w-full space-y-5 animate-fade-in max-h-[90vh] overflow-y-auto">
-          <h2 class="text-lg font-semibold text-surface-200">Edit User</h2>
-
-          <div v-if="editError" class="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">
-            {{ editError }}
-          </div>
-
-          <!-- Provider & Login (read-only) -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs text-surface-500 mb-1">Provider</label>
-              <div class="input-field bg-surface-800/50 text-surface-400 cursor-not-allowed">{{ editForm.provider }}</div>
-            </div>
-            <div>
-              <label class="block text-xs text-surface-500 mb-1">Login</label>
-              <div class="input-field bg-surface-800/50 text-surface-400 cursor-not-allowed">{{ editForm.login }}</div>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Name</label>
-            <input type="text" v-model="editForm.name" class="input-field w-full" placeholder="Display name" />
-          </div>
-
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Email</label>
-            <input type="email" v-model="editForm.email" class="input-field w-full" placeholder="Email" />
-          </div>
-
-          <div v-if="editForm.provider === 'local'">
-            <label class="block text-xs text-surface-500 mb-1">Password</label>
-            <input type="password" v-model="editForm.password" class="input-field w-full"
-                   placeholder="Leave blank to keep current" />
-          </div>
-
-          <!-- Quotas -->
-          <div class="border-t border-surface-700/50 pt-4 space-y-4">
-            <p class="text-xs text-surface-500 uppercase tracking-wider">Quotas</p>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs text-surface-500 mb-1">Max File Size (GB)</label>
-                <input type="number" step="0.1" min="-1" v-model.number="editForm.maxFileSize"
-                       @blur="editForm.maxFileSize = clampQuota(editForm.maxFileSize)"
-                       class="input-field w-full" />
-                <p class="text-xs text-surface-600 mt-0.5">{{ defaultSizeHint(config.maxFileSize) }}</p>
-              </div>
-              <div>
-                <label class="block text-xs text-surface-500 mb-1">Max User Size (GB)</label>
-                <input type="number" step="0.1" min="-1" v-model.number="editForm.maxUserSize"
-                       @blur="editForm.maxUserSize = clampQuota(editForm.maxUserSize)"
-                       class="input-field w-full" />
-                <p class="text-xs text-surface-600 mt-0.5">{{ defaultSizeHint(config.maxUserSize) }}</p>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs text-surface-500 mb-1">Max TTL</label>
-              <div class="flex gap-2">
-                <input type="number" step="1" min="-1" v-model.number="editForm.maxTTL"
-                       @blur="editForm.maxTTL = clampQuota(editForm.maxTTL)"
-                       class="input-field flex-1" />
-                <select v-model.number="editTTLUnit" class="input-field w-28">
-                  <option v-for="u in TTL_UNITS" :key="u.seconds" :value="u.seconds">{{ u.label }}</option>
-                </select>
-              </div>
-              <p class="text-xs text-surface-600 mt-0.5">{{ defaultTTLHint(config.maxTTL) }}</p>
-            </div>
-
-            <label class="flex items-center gap-2 text-sm text-surface-300 cursor-pointer">
-              <input type="checkbox" v-model="editForm.admin"
-                     class="w-4 h-4 rounded border-surface-600 bg-surface-800
-                            text-accent-500 focus:ring-accent-500/30" />
-              Admin
-            </label>
-          </div>
-
-          <div class="flex justify-end gap-2 pt-2">
-            <button @click="showEditUser = false" class="btn-ghost text-sm px-4 py-2">Cancel</button>
-            <button @click="submitEditUser" :disabled="editSaving"
-                    class="btn-primary px-4 py-2 text-sm">
-              {{ editSaving ? 'Saving...' : 'Save' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <EditUserModal v-model="showEditUser"
+                   v-model:form="editForm"
+                   v-model:ttl-unit="editTTLUnit"
+                   :error="editError"
+                   :saving="editSaving"
+                   title="Edit User"
+                   quota-header="Quotas"
+                   :show-quotas="true"
+                   @save="submitEditUser" />
   </div>
 </template>
