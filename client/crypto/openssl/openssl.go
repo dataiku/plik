@@ -14,6 +14,7 @@ import (
 // Backend object
 type Backend struct {
 	Config *Config
+	Stderr io.Writer // Diagnostic output writer (default: os.Stderr)
 }
 
 // NewOpenSSLBackend instantiate a new PGP Crypto Backend
@@ -21,7 +22,13 @@ type Backend struct {
 func NewOpenSSLBackend(config map[string]any) (ob *Backend) {
 	ob = new(Backend)
 	ob.Config = NewOpenSSLBackendConfig(config)
+	ob.Stderr = os.Stderr
 	return
+}
+
+// SetStderr sets the writer for diagnostic output.
+func (ob *Backend) SetStderr(w io.Writer) {
+	ob.Stderr = w
 }
 
 // Configure implementation for OpenSSL Crypto Backend
@@ -35,7 +42,7 @@ func (ob *Backend) Configure(arguments map[string]any) (err error) {
 	if arguments["--passphrase"] != nil && arguments["--passphrase"].(string) != "" {
 		ob.Config.Passphrase = arguments["--passphrase"].(string)
 		if ob.Config.Passphrase == "-" {
-			fmt.Fprintf(os.Stderr, "Please enter a passphrase : ")
+			fmt.Fprintf(ob.Stderr, "Please enter a passphrase : ")
 			_, err = fmt.Scanln(&ob.Config.Passphrase)
 			if err != nil {
 				return err
@@ -43,7 +50,7 @@ func (ob *Backend) Configure(arguments map[string]any) (err error) {
 		}
 	} else {
 		ob.Config.Passphrase = common.GenerateRandomID(25)
-		fmt.Fprintln(os.Stderr, "Passphrase : "+ob.Config.Passphrase)
+		fmt.Fprintln(ob.Stderr, "Passphrase : "+ob.Config.Passphrase)
 	}
 	if arguments["--secure-options"] != nil && arguments["--secure-options"].(string) != "" {
 		ob.Config.Options = arguments["--secure-options"].(string)

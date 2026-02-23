@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -24,9 +25,10 @@ const envPrefix = "PLIKD_"
 
 // Configuration object
 type Configuration struct {
-	Debug         bool   `json:"-"`
-	DebugRequests bool   `json:"-"`
-	LogLevel      string `json:"-"`
+	Debug         bool      `json:"-"`
+	DebugRequests bool      `json:"-"`
+	LogLevel      string    `json:"-"`
+	LogOutput     io.Writer `json:"-"` // Destination for server logs (default: os.Stdout)
 
 	ListenAddress  string `json:"-"`
 	ListenPort     int    `json:"-"`
@@ -155,6 +157,7 @@ func NewConfiguration() (config *Configuration) {
 	config.ClientsDirectory = "../clients"
 	config.ChangelogDirectory = "../changelog"
 
+	config.LogOutput = os.Stdout
 	config.clean = true
 	return
 }
@@ -303,7 +306,7 @@ func (config *Configuration) NewLogger() (log *logger.Logger) {
 	if config.Debug {
 		level = "DEBUG"
 	}
-	return logger.NewLogger().SetMinLevelFromString(level).SetFlags(logger.Fdate | logger.Flevel | logger.FfixedSizeLevel)
+	return logger.NewLogger().SetMinLevelFromString(level).SetFlags(logger.Fdate | logger.Flevel | logger.FfixedSizeLevel).SetOutput(config.LogOutput)
 }
 
 // GetUploadWhitelist return the parsed IP upload whitelist

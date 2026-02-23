@@ -16,6 +16,7 @@ type Backend interface {
 	Encrypt(in io.Reader) (out io.Reader, err error)
 	Comments() string
 	GetConfiguration() any
+	SetStderr(w io.Writer)
 }
 
 // NewCryptoBackend instantiate the wanted archive backend with the name provided in configuration file

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,13 +13,13 @@ import (
 
 func TestResolveRecipients_X25519(t *testing.T) {
 	// Valid native age recipient
-	recipients, _, err := resolveRecipients("age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p", false)
+	recipients, _, err := resolveRecipients(io.Discard, "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p", false)
 	require.NoError(t, err)
 	require.Len(t, recipients, 1)
 }
 
 func TestResolveRecipients_InvalidX25519(t *testing.T) {
-	_, _, err := resolveRecipients("not-a-valid-recipient", false)
+	_, _, err := resolveRecipients(io.Discard, "not-a-valid-recipient", false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid age recipient")
 }
@@ -26,13 +27,13 @@ func TestResolveRecipients_InvalidX25519(t *testing.T) {
 func TestResolveRecipients_SSHKey(t *testing.T) {
 	// Valid SSH ed25519 key
 	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN6urz7ksxlezuqXw40WL7AK++XKSGAFZG95NZFgpzev test@example"
-	recipients, _, err := resolveRecipients(key, false)
+	recipients, _, err := resolveRecipients(io.Discard, key, false)
 	require.NoError(t, err)
 	require.Len(t, recipients, 1)
 }
 
 func TestResolveRecipients_InvalidSSHKey(t *testing.T) {
-	_, _, err := resolveRecipients("ssh-ed25519 invalid-key-data", false)
+	_, _, err := resolveRecipients(io.Discard, "ssh-ed25519 invalid-key-data", false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid SSH key")
 }
@@ -45,7 +46,7 @@ func TestFetchKeys_SSHKey(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recipients, err := fetchKeys(server.URL)
+	recipients, err := fetchKeys(os.Stderr, server.URL)
 	require.NoError(t, err)
 	require.Len(t, recipients, 1)
 }
@@ -56,7 +57,7 @@ func TestFetchKeys_NotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := fetchKeys(server.URL)
+	_, err := fetchKeys(io.Discard, server.URL)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "404 Not Found")
 }
@@ -68,7 +69,7 @@ func TestFetchKeys_NoSupportedKeys(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := fetchKeys(server.URL)
+	_, err := fetchKeys(io.Discard, server.URL)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no supported keys")
 }
@@ -83,7 +84,7 @@ func TestFetchKeys_MultipleSSHKeys(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recipients, err := fetchKeys(server.URL)
+	recipients, err := fetchKeys(os.Stderr, server.URL)
 	require.NoError(t, err)
 	require.Len(t, recipients, 2)
 }
@@ -96,7 +97,7 @@ func TestFetchKeys_AgeKey(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recipients, err := fetchKeys(server.URL)
+	recipients, err := fetchKeys(io.Discard, server.URL)
 	require.NoError(t, err)
 	require.Len(t, recipients, 1)
 }
@@ -113,7 +114,7 @@ func TestFetchKeys_MixedKeys(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recipients, err := fetchKeys(server.URL)
+	recipients, err := fetchKeys(os.Stderr, server.URL)
 	require.NoError(t, err)
 	require.Len(t, recipients, 2) // SSH key + age key, ecdsa skipped
 }
@@ -125,7 +126,7 @@ func TestResolveRecipients_HTTPPromptDeclined(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, _, err := resolveRecipients(server.URL, false)
+	_, _, err := resolveRecipients(io.Discard, server.URL, false)
 	require.Error(t, err)
 	// AskConfirmation returns EOF from empty stdin in test → treated as error
 	require.Contains(t, err.Error(), "unable to ask for confirmation")
@@ -139,7 +140,7 @@ func TestResolveRecipients_HTTPYesFlag(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recipients, _, err := resolveRecipients(server.URL, true)
+	recipients, _, err := resolveRecipients(os.Stderr, server.URL, true)
 	require.NoError(t, err)
 	require.Len(t, recipients, 1)
 }
@@ -157,32 +158,32 @@ func TestResolveRecipients_HTTPS(t *testing.T) {
 	http.DefaultTransport = server.Client().Transport
 	defer func() { http.DefaultTransport = origTransport }()
 
-	recipients, _, err := resolveRecipients(server.URL, false)
+	recipients, _, err := resolveRecipients(os.Stderr, server.URL, false)
 	require.NoError(t, err)
 	require.Len(t, recipients, 1)
 }
 
 func TestResolveRecipients_SSHHostEmpty(t *testing.T) {
-	_, _, err := resolveRecipients("ssh://", false)
+	_, _, err := resolveRecipients(io.Discard, "ssh://", false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty SSH hostname")
 }
 
 func TestResolveRecipients_SSHHostUnreachable(t *testing.T) {
 	// Port 1 should not have an SSH server
-	_, _, err := resolveRecipients("ssh://127.0.0.1:1", false)
+	_, _, err := resolveRecipients(os.Stderr, "ssh://127.0.0.1:1", false)
 	require.Error(t, err)
 }
 
 func TestResolveRecipients_GitHubShorthand(t *testing.T) {
-	_, _, err := resolveRecipients("@", false)
+	_, _, err := resolveRecipients(io.Discard, "@", false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty GitHub username")
 }
 
 func TestEncryptWithSSHRecipient(t *testing.T) {
 	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN6urz7ksxlezuqXw40WL7AK++XKSGAFZG95NZFgpzev test"
-	recipients, _, err := resolveRecipients(key, false)
+	recipients, _, err := resolveRecipients(io.Discard, key, false)
 	require.NoError(t, err)
 
 	backend := &Backend{Config: &Config{Recipients: recipients}}

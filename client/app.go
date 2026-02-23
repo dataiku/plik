@@ -23,6 +23,8 @@ type PlikCLI struct {
 	Arguments      map[string]any
 	ArchiveBackend archive.Backend
 	CryptoBackend  crypto.Backend
+	Stdout         io.Writer // Output writer (default: os.Stdout)
+	Stderr         io.Writer // Error/diagnostic writer (default: os.Stderr)
 }
 
 // NewPlikCLI creates a new CLI instance from parsed arguments and config.
@@ -30,6 +32,8 @@ func NewPlikCLI(config *CliConfig, arguments map[string]any) *PlikCLI {
 	return &PlikCLI{
 		Config:    config,
 		Arguments: arguments,
+		Stdout:    os.Stdout,
+		Stderr:    os.Stderr,
 	}
 }
 
@@ -46,10 +50,10 @@ func (cli *PlikCLI) askConfirmation(defaultValue bool) (bool, error) {
 func (cli *PlikCLI) Run(client *plik.Client) error {
 
 	if cli.Config.Debug {
-		fmt.Fprintln(os.Stderr, "Arguments : ")
-		fmt.Fprintln(os.Stderr, utils.Sdump(cli.Arguments))
-		fmt.Fprintln(os.Stderr, "Configuration : ")
-		fmt.Fprintln(os.Stderr, utils.Sdump(cli.Config))
+		cli.errorf("Arguments : \n")
+		cli.errorf("%s\n", utils.Sdump(cli.Arguments))
+		cli.errorf("Configuration : \n")
+		cli.errorf("%s\n", utils.Sdump(cli.Config))
 	}
 
 	upload := client.NewUpload()
@@ -112,6 +116,7 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 		if err != nil {
 			return fmt.Errorf("unable to initialize crypto backend: %w", err)
 		}
+		cli.CryptoBackend.SetStderr(cli.Stderr)
 
 		// Emit deprecation warnings for legacy backends
 		if cli.Config.SecureMethod == "openssl" || cli.Config.SecureMethod == "pgp" {
@@ -119,8 +124,8 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 			if cli.Config.ConfigPath != "" {
 				configHint = cli.Config.ConfigPath
 			}
-			fmt.Fprintf(os.Stderr, "\nWARNING: The %q encryption backend is deprecated.\n", cli.Config.SecureMethod)
-			fmt.Fprintf(os.Stderr, "You can switch to \"age\" by setting SecureMethod = \"age\" in %s\n\n", configHint)
+			cli.errorf("\nWARNING: The %q encryption backend is deprecated.\n", cli.Config.SecureMethod)
+			cli.errorf("You can switch to \"age\" by setting SecureMethod = \"age\" in %s\n\n", configHint)
 		}
 
 		err = cli.CryptoBackend.Configure(cli.Arguments)
@@ -151,7 +156,7 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 					// TODO: WrapReader's callback signature (func(io.ReadCloser) io.ReadCloser)
 					// does not allow returning an error. Refactor the plik library's WrapReader
 					// API to support error propagation and remove this os.Exit.
-					fmt.Fprintf(os.Stderr, "Unable to encrypt file: %s", err)
+					cli.errorf("Unable to encrypt file: %s", err)
 					os.Exit(1)
 				}
 				return io.NopCloser(reader)
@@ -186,9 +191,9 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 		for _, file := range upload.Files() {
 			cmd, err := cli.getFileCommand(file)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Unable to get download command for file %s : %s\n", file.Name, err)
+				cli.errorf("Unable to get download command for file %s : %s\n", file.Name, err)
 			}
-			fmt.Fprintln(os.Stderr, cmd)
+			cli.errorf("%s\n", cmd)
 		}
 		cli.printf("\n")
 	}
@@ -212,7 +217,7 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 		if err != nil {
 			return fmt.Errorf("unable to marshal upload metadata: %w", err)
 		}
-		fmt.Println(string(data))
+		cli.printAlways("%s\n", string(data))
 		return nil
 	}
 
@@ -227,15 +232,15 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 			if cli.Config.Quiet {
 				URL, err := file.GetURL()
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Unable to get download command for file %s : %s\n", file.Name, err)
+					cli.errorf("Unable to get download command for file %s : %s\n", file.Name, err)
 				}
-				fmt.Println(URL)
+				cli.printAlways("%s\n", URL)
 			} else {
 				cmd, err := cli.getFileCommand(file)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Unable to get download command for file %s : %s\n", file.Name, err)
+					cli.errorf("Unable to get download command for file %s : %s\n", file.Name, err)
 				}
-				fmt.Println(cmd)
+				cli.printAlways("%s\n", cmd)
 			}
 		}
 	} else {
@@ -246,24 +251,24 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 }
 
 func (cli *PlikCLI) info(client *plik.Client) error {
-	fmt.Printf("Plik client version : %s\n\n", common.GetBuildInfo())
+	cli.printAlways("Plik client version : %s\n\n", common.GetBuildInfo())
 
-	fmt.Printf("Plik server url : %s\n", cli.Config.URL)
+	cli.printAlways("Plik server url : %s\n", cli.Config.URL)
 
 	serverBuildInfo, err := client.GetServerVersion()
 	if err != nil {
 		return fmt.Errorf("Plik server unreachable : %s", err)
 	}
 
-	fmt.Printf("Plik server version : %s\n", serverBuildInfo)
+	cli.printAlways("Plik server version : %s\n", serverBuildInfo)
 
 	serverConfig, err := client.GetServerConfig()
 	if err != nil {
 		return fmt.Errorf("Plik server unreachable : %s", err)
 	}
 
-	fmt.Printf("\nPlik server configuration :\n")
-	fmt.Printf("%s", serverConfig.String())
+	cli.printAlways("\nPlik server configuration :\n")
+	cli.printAlways("%s", serverConfig.String())
 
 	return nil
 }
@@ -306,6 +311,16 @@ func (cli *PlikCLI) getFileCommand(file *plik.File) (command string, err error) 
 
 func (cli *PlikCLI) printf(format string, args ...any) {
 	if !cli.Config.Quiet {
-		fmt.Printf(format, args...)
+		fmt.Fprintf(cli.Stdout, format, args...)
 	}
+}
+
+func (cli *PlikCLI) errorf(format string, args ...any) {
+	fmt.Fprintf(cli.Stderr, format, args...)
+}
+
+// printAlways writes to stdout regardless of quiet mode.
+// Use for interactive prompts and status messages that must always be visible.
+func (cli *PlikCLI) printAlways(format string, args ...any) {
+	fmt.Fprintf(cli.Stdout, format, args...)
 }
