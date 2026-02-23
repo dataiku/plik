@@ -34,6 +34,10 @@ const statsLoading = ref(false)
 const users = ref([])
 const usersCursor = ref(null)
 const usersLoading = ref(false)
+const usersProviderFilter = ref('')
+const usersAdminFilter = ref('')   // '' | 'true' | 'false'
+const usersSortBy = ref('date')    // 'date' | 'size'
+const usersSortOrder = ref('desc') // 'desc' | 'asc'
 
 // ── Uploads ──
 const uploads = ref([])
@@ -81,7 +85,13 @@ async function loadStats() {
 async function loadUsers(more = false) {
     usersLoading.value = true
     try {
-        const opts = { limit: 50 }
+        const opts = {
+            limit: 50,
+            sort: usersSortBy.value,
+            order: usersSortOrder.value,
+        }
+        if (usersProviderFilter.value) opts.provider = usersProviderFilter.value
+        if (usersAdminFilter.value) opts.admin = usersAdminFilter.value
         if (more && usersCursor.value) opts.after = usersCursor.value
         const data = await getAdminUsers(opts)
         if (more) {
@@ -95,6 +105,34 @@ async function loadUsers(more = false) {
     } finally {
         usersLoading.value = false
     }
+}
+
+function changeUsersProviderFilter(val) {
+    usersProviderFilter.value = val
+    users.value = []
+    usersCursor.value = null
+    loadUsers()
+}
+
+function changeUsersAdminFilter(val) {
+    usersAdminFilter.value = val
+    users.value = []
+    usersCursor.value = null
+    loadUsers()
+}
+
+function changeUsersSortBy(val) {
+    usersSortBy.value = val
+    users.value = []
+    usersCursor.value = null
+    loadUsers()
+}
+
+function changeUsersSortOrder(val) {
+    usersSortOrder.value = val
+    users.value = []
+    usersCursor.value = null
+    loadUsers()
 }
 
 // ── Uploads API ──
@@ -254,6 +292,9 @@ function showStatsView() {
 function showUsersView() {
     display.value = 'users'
     users.value = []
+    usersProviderFilter.value = ''
+    usersAdminFilter.value = ''
+    usersCursor.value = null
     loadUsers()
 }
 
@@ -428,12 +469,59 @@ onMounted(async () => {
 
         <!-- ─── Users View ─── -->
         <template v-if="display === 'users'">
+
+          <!-- Sort / filter controls -->
+          <div class="glass-card p-3 mb-4 space-y-2 text-sm">
+            <div class="flex flex-wrap items-center gap-4">
+              <!-- Sort by -->
+              <div class="flex items-center gap-2 text-surface-400">
+                <span>Sort:</span>
+                <button @click="changeUsersSortBy('date')"
+                        :class="usersSortBy === 'date' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
+                        class="transition-colors">Date</button>
+              </div>
+              <!-- Order -->
+              <div class="flex items-center gap-2 text-surface-400">
+                <span>Order:</span>
+                <button @click="changeUsersSortOrder('desc')"
+                        :class="usersSortOrder === 'desc' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
+                        class="transition-colors">Desc</button>
+                <span class="text-surface-600">|</span>
+                <button @click="changeUsersSortOrder('asc')"
+                        :class="usersSortOrder === 'asc' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
+                        class="transition-colors">Asc</button>
+              </div>
+            </div>
+
+            <!-- Provider filter -->
+            <div class="flex flex-wrap items-center gap-2 text-surface-400">
+              <span>Provider:</span>
+              <button v-for="p in ['', 'local', 'google', 'ovh', 'oidc']" :key="p"
+                      @click="changeUsersProviderFilter(p)"
+                      :class="usersProviderFilter === p ? 'text-accent-400 bg-accent-500/10' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded-full text-xs transition-colors">
+                {{ p || 'All' }}
+              </button>
+            </div>
+
+            <!-- Admin filter -->
+            <div class="flex flex-wrap items-center gap-2 text-surface-400">
+              <span>Role:</span>
+              <button v-for="a in ['', 'true', 'false']" :key="a"
+                      @click="changeUsersAdminFilter(a)"
+                      :class="usersAdminFilter === a ? 'text-accent-400 bg-accent-500/10' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded-full text-xs transition-colors">
+                {{ a === '' ? 'All' : a === 'true' ? 'Admin' : 'Non-Admin' }}
+              </button>
+            </div>
+          </div>
+
           <div v-if="usersLoading && users.length === 0" class="text-center py-12 text-surface-500">
             Loading users...
           </div>
 
           <div v-else-if="users.length === 0" class="text-center py-12 text-surface-500">
-            No users yet
+            No users
           </div>
 
           <div class="space-y-3">
@@ -454,6 +542,9 @@ onMounted(async () => {
                         class="inline-block text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
                     admin
                   </span>
+                  <p v-if="user.createdAt" class="text-xs text-surface-600" :title="new Date(user.createdAt).toLocaleString()">
+                    {{ new Date(user.createdAt).toLocaleDateString() }}
+                  </p>
                 </div>
 
                 <!-- Name / Email -->
@@ -471,6 +562,12 @@ onMounted(async () => {
 
                 <!-- Actions -->
                 <div class="sm:w-1/4 flex flex-wrap items-center justify-end gap-2">
+                  <button @click="filterUploadsByUser(user.id)"
+                          class="text-xs text-surface-400 hover:text-surface-200 border border-surface-600/50
+                                 rounded-lg px-3 py-1.5 hover:bg-surface-700/50 transition-colors"
+                          title="View uploads">
+                    📁
+                  </button>
                   <button @click="doImpersonate(user)"
                           :disabled="user.id === auth.originalUser?.id"
                           :class="user.id === auth.originalUser?.id ? 'opacity-30 cursor-not-allowed' : 'hover:text-green-300 hover:bg-green-500/10'"

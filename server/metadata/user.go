@@ -42,7 +42,8 @@ func (b *Backend) GetUser(ID string) (user *common.User, err error) {
 
 // GetUsers return all users
 // provider is an optional filter
-func (b *Backend) GetUsers(provider string, withTokens bool, pagingQuery *common.PagingQuery) (users []*common.User, cursor *paginator.Cursor, err error) {
+// admin is an optional filter ( nil = no filter, true = admins only, false = non-admins only )
+func (b *Backend) GetUsers(provider string, admin *bool, withTokens bool, pagingQuery *common.PagingQuery) (users []*common.User, cursor *paginator.Cursor, err error) {
 	if pagingQuery == nil {
 		return nil, nil, fmt.Errorf("missing paging query")
 	}
@@ -58,6 +59,13 @@ func (b *Backend) GetUsers(provider string, withTokens bool, pagingQuery *common
 
 	if provider != "" {
 		stmt = stmt.Where(&common.User{Provider: provider})
+	}
+
+	if admin != nil {
+		// Use raw SQL instead of struct-based Where because GORM ignores zero-value
+		// fields in structs, and false is the zero value for bool. Using the struct
+		// pattern would silently skip the filter when querying for non-admin users.
+		stmt = stmt.Where("is_admin = ?", *admin)
 	}
 
 	result, c, err := p.Paginate(stmt, &users)

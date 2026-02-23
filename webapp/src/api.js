@@ -128,8 +128,12 @@ export function getServerStats() {
     return apiCall(`${base}/stats`)
 }
 
-export function getAdminUsers({ after, limit } = {}) {
+export function getAdminUsers({ provider, admin, sort, order, after, limit } = {}) {
     const params = new URLSearchParams()
+    if (provider) params.set('provider', provider)
+    if (admin !== undefined && admin !== '') params.set('admin', admin)
+    if (sort) params.set('sort', sort)
+    if (order) params.set('order', order)
     if (after) params.set('after', after)
     if (limit) params.set('limit', limit)
     const qs = params.toString()

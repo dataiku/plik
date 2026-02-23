@@ -20,8 +20,16 @@ func GetUsers(ctx *context.Context, resp http.ResponseWriter, req *http.Request)
 
 	pagingQuery := ctx.GetPagingQuery()
 
-	// Get uploads
-	users, cursor, err := ctx.GetMetadataBackend().GetUsers("", false, pagingQuery)
+	provider := req.URL.Query().Get("provider")
+
+	var admin *bool
+	if adminStr := req.URL.Query().Get("admin"); adminStr != "" {
+		isAdmin := adminStr == "true"
+		admin = &isAdmin
+	}
+
+	// Get users
+	users, cursor, err := ctx.GetMetadataBackend().GetUsers(provider, admin, false, pagingQuery)
 	if err != nil {
 		ctx.InternalServerError("unable to get users : %s", err)
 		return

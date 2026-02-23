@@ -103,18 +103,57 @@ func TestBackend_GetUsers(t *testing.T) {
 		createUser(t, b, user)
 	}
 
-	users, cursor, err := b.GetUsers("", false, common.NewPagingQuery().WithLimit(100))
+	users, cursor, err := b.GetUsers("", nil, false, common.NewPagingQuery().WithLimit(100))
 	require.NoError(t, err, "get user error")
 	require.NotNil(t, cursor, "invalid nil cursor")
 	require.Len(t, users, 10, "invalid user length")
 
-	users, cursor, err = b.GetUsers(common.ProviderGoogle, false, common.NewPagingQuery().WithLimit(100))
+	users, cursor, err = b.GetUsers(common.ProviderGoogle, nil, false, common.NewPagingQuery().WithLimit(100))
 	require.NoError(t, err, "get user error")
 	require.NotNil(t, cursor, "invalid nil cursor")
 	require.Len(t, users, 5, "invalid user length")
 
-	users, cursor, err = b.GetUsers("", false, nil)
+	users, cursor, err = b.GetUsers("", nil, false, nil)
 	require.Error(t, err, "get user error expected")
+}
+
+func TestBackend_GetUsers_AdminFilter(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	for i := range 3 {
+		user := common.NewUser(common.ProviderLocal, fmt.Sprintf("admin_%d", i))
+		user.IsAdmin = true
+		createUser(t, b, user)
+	}
+
+	for i := range 5 {
+		user := common.NewUser(common.ProviderLocal, fmt.Sprintf("user_%d", i))
+		createUser(t, b, user)
+	}
+
+	// Filter admins only
+	adminTrue := true
+	users, _, err := b.GetUsers("", &adminTrue, false, common.NewPagingQuery().WithLimit(100))
+	require.NoError(t, err, "get admin users error")
+	require.Len(t, users, 3, "invalid admin user count")
+	for _, u := range users {
+		require.True(t, u.IsAdmin, "expected admin user")
+	}
+
+	// Filter non-admins only
+	adminFalse := false
+	users, _, err = b.GetUsers("", &adminFalse, false, common.NewPagingQuery().WithLimit(100))
+	require.NoError(t, err, "get non-admin users error")
+	require.Len(t, users, 5, "invalid non-admin user count")
+	for _, u := range users {
+		require.False(t, u.IsAdmin, "expected non-admin user")
+	}
+
+	// No filter (nil) returns all
+	users, _, err = b.GetUsers("", nil, false, common.NewPagingQuery().WithLimit(100))
+	require.NoError(t, err, "get all users error")
+	require.Len(t, users, 8, "invalid total user count")
 }
 
 func TestBackend_DeleteUser(t *testing.T) {

@@ -250,7 +250,7 @@ When processing a request, limits are resolved via the custom `Context`:
 |--------|------|---------|-------------|
 | POST | `/user` | `CreateUser` | Create user |
 | GET | `/stats` | `GetServerStatistics` | Server stats |
-| GET | `/users` | `GetUsers` | List all users (paginated) |
+| GET | `/users` | `GetUsers` | List users (paginated, filterable by `provider` and `admin` status) |
 | GET | `/uploads` | `GetUploads` | List all uploads (paginated) |
 
 ---
