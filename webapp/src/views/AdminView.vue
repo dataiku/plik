@@ -5,7 +5,7 @@ import { auth, impersonate as doImpersonate, clearImpersonate } from '../authSto
 import { config } from '../config.js'
 import { showError } from '../notification.js'
 import {
-    getServerStats, getAdminUsers, getAdminUploads,
+    getServerStats, getAdminUsers, getAdminUploads, searchUsers,
     createUser as apiCreateUser, deleteUser as apiDeleteUser,
     updateUser, removeUpload, getVersion
 } from '../api.js'
@@ -38,6 +38,12 @@ const usersProviderFilter = ref('')
 const usersAdminFilter = ref('')   // '' | 'true' | 'false'
 const usersSortBy = ref('date')    // 'date' | 'size'
 const usersSortOrder = ref('desc') // 'desc' | 'asc'
+
+// ── User search ──
+const usersSearchQuery = ref('')
+const usersSearchResults = ref([])
+const usersSearchOpen = ref(false)
+let usersSearchTimer = null
 
 // ── Uploads ──
 const uploads = ref([])
@@ -133,6 +139,40 @@ function changeUsersSortOrder(val) {
     users.value = []
     usersCursor.value = null
     loadUsers()
+}
+
+// ── User search ──
+function onUsersSearchInput() {
+    clearTimeout(usersSearchTimer)
+    const q = usersSearchQuery.value.trim()
+    if (q.length < 2) {
+        usersSearchResults.value = []
+        usersSearchOpen.value = false
+        return
+    }
+    usersSearchTimer = setTimeout(async () => {
+        try {
+            const opts = { q, limit: 5 }
+            if (usersProviderFilter.value) opts.provider = usersProviderFilter.value
+            if (usersAdminFilter.value) opts.admin = usersAdminFilter.value
+            usersSearchResults.value = await searchUsers(opts)
+            usersSearchOpen.value = usersSearchResults.value.length > 0
+        } catch (e) {
+            usersSearchResults.value = []
+            usersSearchOpen.value = false
+        }
+    }, 300)
+}
+
+function selectSearchResult(user) {
+    usersSearchQuery.value = ''
+    usersSearchResults.value = []
+    usersSearchOpen.value = false
+    filterUploadsByUser(user.id)
+}
+
+function closeSearch() {
+    usersSearchOpen.value = false
 }
 
 // ── Uploads API ──
@@ -469,6 +509,35 @@ onMounted(async () => {
 
         <!-- ─── Users View ─── -->
         <template v-if="display === 'users'">
+
+          <!-- User search -->
+          <div class="relative mb-4">
+            <input v-model="usersSearchQuery"
+                   @input="onUsersSearchInput"
+                   @keydown.escape="closeSearch"
+                   type="text"
+                   placeholder="Search users by login, name, or email…"
+                   class="w-full bg-surface-800/60 border border-surface-600/50 rounded-xl
+                          px-4 py-2.5 text-sm text-surface-200 placeholder-surface-500
+                          focus:outline-none focus:border-accent-400/50 focus:ring-1 focus:ring-accent-400/30
+                          transition-colors" />
+            <!-- Search dropdown -->
+            <div v-if="usersSearchOpen"
+                 class="absolute z-20 top-full mt-1 w-full bg-surface-800 border border-surface-600/50
+                        rounded-xl shadow-xl overflow-hidden">
+              <button v-for="u in usersSearchResults" :key="u.id"
+                      @click="selectSearchResult(u)"
+                      class="w-full text-left px-4 py-2.5 text-sm hover:bg-surface-700/60
+                             transition-colors flex items-center gap-3">
+                <span class="text-accent-400 font-mono text-xs truncate max-w-[120px]"
+                      :title="u.id">{{ u.login || u.id }}</span>
+                <span v-if="u.name" class="text-surface-300 truncate">{{ u.name }}</span>
+                <span v-if="u.email" class="text-surface-500 text-xs truncate ml-auto">{{ u.email }}</span>
+                <span v-if="u.admin"
+                      class="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">admin</span>
+              </button>
+            </div>
+          </div>
 
           <!-- Sort / filter controls -->
           <div class="glass-card p-3 mb-4 space-y-2 text-sm">

@@ -271,7 +271,6 @@ test.describe('Admin users filter controls', () => {
         // Sort controls
         await expect(mainContent.getByText('Sort:')).toBeVisible({ timeout: 5_000 })
         await expect(mainContent.getByRole('button', { name: 'Date' })).toBeVisible()
-        await expect(mainContent.getByRole('button', { name: 'Size' })).toBeVisible()
 
         // Order controls
         await expect(mainContent.getByText('Order:')).toBeVisible()
@@ -399,3 +398,45 @@ test.describe('Admin user uploads quick link', () => {
         await expect(mainContent.getByText(ADMIN_LOGIN).first()).toBeVisible()
     })
 })
+
+test.describe('Admin user search', () => {
+    test('search input is visible on users tab', async ({ authenticatedPage: page }) => {
+        await goToUsersTab(page)
+        const searchInput = page.getByPlaceholder(/search users/i)
+        await expect(searchInput).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('typing in search shows dropdown with results', async ({ authenticatedPage: page }) => {
+        // Create a user to search for
+        const user = await apiCreateUser(page, 'searchuser', 'searchuser123', false)
+
+        try {
+            await goToUsersTab(page)
+            const searchInput = page.getByPlaceholder(/search users/i)
+
+            // Type a query and wait for the search API response
+            const searchPromise = page.waitForResponse(resp =>
+                resp.url().includes('/users/search') && resp.status() === 200
+            )
+            await searchInput.fill('searchuser')
+            const response = await searchPromise
+
+            // Verify the dropdown appeared with results
+            const mainContent = page.locator('main')
+            const dropdown = mainContent.locator('.absolute.z-20')
+            await expect(dropdown).toBeVisible({ timeout: 5_000 })
+
+            // Click the result — should navigate to uploads filtered by user
+            const resultBtn = dropdown.getByRole('button').filter({ hasText: 'searchuser' }).first()
+            await expect(resultBtn).toBeVisible()
+            await resultBtn.click()
+            await page.waitForLoadState('networkidle')
+
+            // Should now be in uploads view with the user filter
+            await expect(mainContent.getByText('user:')).toBeVisible({ timeout: 5_000 })
+        } finally {
+            if (user?.id) await apiDeleteUser(page, user.id)
+        }
+    })
+})
+

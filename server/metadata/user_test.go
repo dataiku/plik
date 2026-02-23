@@ -156,6 +156,124 @@ func TestBackend_GetUsers_AdminFilter(t *testing.T) {
 	require.Len(t, users, 8, "invalid total user count")
 }
 
+func TestBackend_SearchUsers(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	// Create test users with varied logins / names / emails
+	alice := common.NewUser(common.ProviderLocal, "alice")
+	alice.Login = "alice"
+	alice.Name = "Alice Wonderland"
+	alice.Email = "alice@example.com"
+	createUser(t, b, alice)
+
+	bob := common.NewUser(common.ProviderLocal, "bob")
+	bob.Login = "bob"
+	bob.Name = "Bob Builder"
+	bob.Email = "bob@example.com"
+	createUser(t, b, bob)
+
+	charlie := common.NewUser(common.ProviderGoogle, "charlie")
+	charlie.Login = "charlie"
+	charlie.Name = "Charlie Chaplin"
+	charlie.Email = "charlie@example.com"
+	charlie.IsAdmin = true
+	createUser(t, b, charlie)
+
+	// Search by login prefix
+	users, err := b.SearchUsers("ali", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+
+	// Search matches name
+	users, err = b.SearchUsers("Builder", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "bob", users[0].Login)
+
+	// Search matches email
+	users, err = b.SearchUsers("charlie@", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "charlie", users[0].Login)
+
+	// Search matches multiple — results sorted by login
+	users, err = b.SearchUsers("example.com", "", nil, 10)
+	require.NoError(t, err)
+	require.Len(t, users, 3)
+	require.Equal(t, "alice", users[0].Login)
+	require.Equal(t, "bob", users[1].Login)
+	require.Equal(t, "charlie", users[2].Login)
+
+	// No results
+	users, err = b.SearchUsers("zzz_no_match", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 0)
+
+	// Empty query returns error
+	_, err = b.SearchUsers("", "", nil, 5)
+	require.Error(t, err)
+}
+
+func TestBackend_SearchUsers_WithFilters(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	alice := common.NewUser(common.ProviderLocal, "alice")
+	alice.Login = "alice"
+	createUser(t, b, alice)
+
+	bob := common.NewUser(common.ProviderGoogle, "bob")
+	bob.Login = "bob"
+	bob.IsAdmin = true
+	createUser(t, b, bob)
+
+	// Both have "l" or "b" in their ID — search for common substring "local:" or just use broad search
+	// Search all, filter by provider
+	users, err := b.SearchUsers("alice", "local", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+
+	users, err = b.SearchUsers("alice", "google", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 0)
+
+	// Search all, filter by admin
+	adminTrue := true
+	users, err = b.SearchUsers("bob", "", &adminTrue, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "bob", users[0].Login)
+
+	adminFalse := false
+	users, err = b.SearchUsers("bob", "", &adminFalse, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 0)
+}
+
+func TestBackend_SearchUsers_Limit(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	for i := range 10 {
+		user := common.NewUser(common.ProviderLocal, fmt.Sprintf("user_%02d", i))
+		user.Login = fmt.Sprintf("user_%02d", i)
+		createUser(t, b, user)
+	}
+
+	// Limit 3
+	users, err := b.SearchUsers("user_", "", nil, 3)
+	require.NoError(t, err)
+	require.Len(t, users, 3)
+
+	// Limit > 20 gets capped to 20
+	users, err = b.SearchUsers("user_", "", nil, 50)
+	require.NoError(t, err)
+	require.Len(t, users, 10) // only 10 exist
+}
+
 func TestBackend_DeleteUser(t *testing.T) {
 	b := newTestMetadataBackend()
 	defer shutdownTestMetadataBackend(b)

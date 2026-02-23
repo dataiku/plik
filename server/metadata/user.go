@@ -79,6 +79,43 @@ func (b *Backend) GetUsers(provider string, admin *bool, withTokens bool, paging
 	return users, &c, err
 }
 
+// SearchUsers returns users matching a LIKE query on id, login, name, and email.
+// Results are always sorted by login and hard-capped at limit (max 20).
+// provider and admin are optional filters, same as GetUsers.
+func (b *Backend) SearchUsers(query string, provider string, admin *bool, limit int) (users []*common.User, err error) {
+	if query == "" {
+		return nil, fmt.Errorf("missing search query")
+	}
+	if limit <= 0 || limit > 20 {
+		limit = 20
+	}
+
+	pattern := "%" + query + "%"
+	stmt := b.db.Model(&common.User{}).
+		Where("id LIKE ? OR login LIKE ? OR name LIKE ? OR email LIKE ?", pattern, pattern, pattern, pattern)
+
+	if provider != "" {
+		stmt = stmt.Where(&common.User{Provider: provider})
+	}
+
+	if admin != nil {
+		stmt = stmt.Where("is_admin = ?", *admin)
+	}
+
+	stmt = stmt.Order("login ASC").Limit(limit)
+
+	err = stmt.Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if users == nil {
+		users = []*common.User{}
+	}
+
+	return users, nil
+}
+
 // ForEachUserUploads execute f for all upload matching the user and token filters
 func (b *Backend) ForEachUserUploads(userID string, tokenStr string, f func(upload *common.Upload) error) (err error) {
 	stmt := b.db.Model(&common.Upload{}).Where(&common.Upload{User: userID, Token: tokenStr})

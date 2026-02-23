@@ -251,6 +251,7 @@ When processing a request, limits are resolved via the custom `Context`:
 | POST | `/user` | `CreateUser` | Create user |
 | GET | `/stats` | `GetServerStatistics` | Server stats |
 | GET | `/users` | `GetUsers` | List users (paginated, filterable by `provider` and `admin` status) |
+| GET | `/users/search` | `SearchUsers` | Search users by login/name/email (LIKE query, `q`, `limit`, `provider`, `admin`) |
 | GET | `/uploads` | `GetUploads` | List all uploads (paginated) |
 
 ---

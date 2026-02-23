@@ -140,6 +140,16 @@ export function getAdminUsers({ provider, admin, sort, order, after, limit } = {
     return apiCall(`${base}/users${qs ? '?' + qs : ''}`)
 }
 
+export function searchUsers({ q, provider, admin, limit } = {}) {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (provider) params.set('provider', provider)
+    if (admin !== undefined && admin !== '') params.set('admin', admin)
+    if (limit) params.set('limit', limit)
+    const qs = params.toString()
+    return apiCall(`${base}/users/search${qs ? '?' + qs : ''}`)
+}
+
 export function createUser(userData) {
     return apiCall(`${base}/user`, 'POST', userData)
 }

@@ -182,6 +182,111 @@ func TestGetUsersMetadataBackendError(t *testing.T) {
 	context.TestInternalServerError(t, rr, "database is closed")
 }
 
+func TestSearchUsers(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	user1 := common.NewUser(common.ProviderLocal, "alice")
+	user1.Login = "alice"
+	user1.Name = "Alice Wonderland"
+	err := ctx.GetMetadataBackend().CreateUser(user1)
+	require.NoError(t, err)
+
+	user2 := common.NewUser(common.ProviderLocal, "bob")
+	user2.Login = "bob"
+	err = ctx.GetMetadataBackend().CreateUser(user2)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("GET", "/users/search?q=ali", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestOK(t, rr)
+
+	respBody, err := io.ReadAll(rr.Body)
+	require.NoError(t, err)
+
+	var users []*common.User
+	err = json.Unmarshal(respBody, &users)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+}
+
+func TestSearchUsersEmptyQuery(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	req, err := http.NewRequest("GET", "/users/search", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestBadRequest(t, rr, "search query must be at least 2 characters")
+}
+
+func TestSearchUsersShortQuery(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	req, err := http.NewRequest("GET", "/users/search?q=a", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestBadRequest(t, rr, "search query must be at least 2 characters")
+}
+
+func TestSearchUsersWithProvider(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	user1 := common.NewUser(common.ProviderLocal, "alice")
+	user1.Login = "alice"
+	err := ctx.GetMetadataBackend().CreateUser(user1)
+	require.NoError(t, err)
+
+	user2 := common.NewUser(common.ProviderGoogle, "alicia")
+	user2.Login = "alicia"
+	err = ctx.GetMetadataBackend().CreateUser(user2)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("GET", "/users/search?q=ali&provider=local", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestOK(t, rr)
+
+	respBody, err := io.ReadAll(rr.Body)
+	require.NoError(t, err)
+
+	var users []*common.User
+	err = json.Unmarshal(respBody, &users)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+}
+
+func TestSearchUsersNotAdmin(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+	ctx.GetUser().IsAdmin = false
+
+	req, err := http.NewRequest("GET", "/users/search?q=test", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestForbidden(t, rr, "you need administrator privileges")
+}
+
 func createTestUploads(t *testing.T, ctx *context.Context) {
 	upload1 := common.NewUpload()
 	upload1.Comments = "1"
