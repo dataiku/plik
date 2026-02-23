@@ -7,6 +7,7 @@ import {
     secondsToTTL,
     generateRef,
     clampQuota,
+    filterQuotaInput,
     bytesToGB,
     gbToBytes,
     secondsToBestUnit,
@@ -194,6 +195,51 @@ describe('clampQuota', () => {
     it('preserves positive values', () => {
         expect(clampQuota(10)).toBe(10)
         expect(clampQuota(0.5)).toBe(0.5)
+    })
+})
+
+// ── filterQuotaInput ──
+
+describe('filterQuotaInput', () => {
+    it('allows digits', () => {
+        expect(filterQuotaInput('123')).toBe('123')
+    })
+
+    it('allows leading minus', () => {
+        expect(filterQuotaInput('-1')).toBe('-1')
+    })
+
+    it('strips minus not at start', () => {
+        expect(filterQuotaInput('1-2')).toBe('12')
+    })
+
+    it('strips letters and symbols', () => {
+        expect(filterQuotaInput('a1b2c')).toBe('12')
+        expect(filterQuotaInput('!@#')).toBe('')
+    })
+
+    it('allows decimal point when allowDecimal is true', () => {
+        expect(filterQuotaInput('1.5', true)).toBe('1.5')
+    })
+
+    it('allows only one decimal point', () => {
+        expect(filterQuotaInput('1.2.3', true)).toBe('1.23')
+    })
+
+    it('strips decimal point when allowDecimal is false', () => {
+        expect(filterQuotaInput('1.5', false)).toBe('15')
+    })
+
+    it('handles negative decimal', () => {
+        expect(filterQuotaInput('-0.5', true)).toBe('-0.5')
+    })
+
+    it('returns empty string for empty input', () => {
+        expect(filterQuotaInput('')).toBe('')
+    })
+
+    it('handles just minus sign', () => {
+        expect(filterQuotaInput('-')).toBe('-')
     })
 })
 

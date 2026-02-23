@@ -742,7 +742,7 @@ watch(activeFiles, (files) => {
 
     <!-- Passphrase Modal -->
     <div v-if="showPassphraseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-         @click.self="e2eePassphrase ? (showPassphraseModal = false) : null">
+         @mousedown.self="e2eePassphrase ? (showPassphraseModal = false) : null">
       <div class="glass-card p-6 w-full max-w-sm mx-4 space-y-4 animate-fade-in">
         <div class="flex items-center gap-3">
           <svg class="w-6 h-6 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

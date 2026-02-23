@@ -1,6 +1,6 @@
 <script setup>
 import { config } from '../config.js'
-import { clampQuota, defaultSizeHint, defaultTTLHint, TTL_UNITS } from '../utils.js'
+import { clampQuota, filterQuotaInput, defaultSizeHint, defaultTTLHint, TTL_UNITS } from '../utils.js'
 
 const props = defineProps({
     modelValue: { type: Boolean, required: true },     // visibility (v-model)
@@ -23,6 +23,11 @@ function updateField(field, value) {
     emit('update:form', { ...props.form, [field]: value })
 }
 
+function updateQuotaField(field, raw, allowDecimal = false) {
+    const filtered = filterQuotaInput(raw, allowDecimal)
+    emit('update:form', { ...props.form, [field]: filtered })
+}
+
 function clampField(field) {
     emit('update:form', { ...props.form, [field]: clampQuota(props.form[field]) })
 }
@@ -32,7 +37,7 @@ function clampField(field) {
   <Teleport to="body">
     <div v-if="modelValue"
          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-         @click.self="close">
+         @mousedown.self="close">
       <div class="glass-card p-6 max-w-md w-full space-y-5 animate-fade-in max-h-[90vh] overflow-y-auto">
         <h2 class="text-lg font-semibold text-surface-200">{{ title }}</h2>
 
@@ -82,16 +87,16 @@ function clampField(field) {
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs text-surface-500 mb-1">Max File Size (GB)</label>
-                <input type="number" step="0.1" min="-1" :value="form.maxFileSize"
-                       @input="updateField('maxFileSize', Number($event.target.value))"
+                <input type="text" inputmode="decimal" :value="form.maxFileSize"
+                       @input="updateQuotaField('maxFileSize', $event.target.value, true)"
                        @blur="clampField('maxFileSize')"
                        class="input-field w-full" />
                 <p class="text-xs text-surface-600 mt-0.5">{{ defaultSizeHint(config.maxFileSize) }}</p>
               </div>
               <div>
                 <label class="block text-xs text-surface-500 mb-1">Max User Size (GB)</label>
-                <input type="number" step="0.1" min="-1" :value="form.maxUserSize"
-                       @input="updateField('maxUserSize', Number($event.target.value))"
+                <input type="text" inputmode="decimal" :value="form.maxUserSize"
+                       @input="updateQuotaField('maxUserSize', $event.target.value, true)"
                        @blur="clampField('maxUserSize')"
                        class="input-field w-full" />
                 <p class="text-xs text-surface-600 mt-0.5">{{ defaultSizeHint(config.maxUserSize) }}</p>
@@ -101,8 +106,8 @@ function clampField(field) {
             <div>
               <label class="block text-xs text-surface-500 mb-1">Max TTL</label>
               <div class="flex gap-2">
-                <input type="number" step="1" min="-1" :value="form.maxTTL"
-                       @input="updateField('maxTTL', Number($event.target.value))"
+                <input type="text" inputmode="numeric" :value="form.maxTTL"
+                       @input="updateQuotaField('maxTTL', $event.target.value, false)"
                        @blur="clampField('maxTTL')"
                        class="input-field flex-1" />
                 <select :value="ttlUnit" @change="$emit('update:ttlUnit', Number($event.target.value))"
