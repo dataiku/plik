@@ -18,7 +18,11 @@ plik --secure -r ssh://myserver.example.com     # Encrypt for a server's SSH hos
 plik --secure -r age1...              # Native age X25519 recipient
 ```
 
-The `@username` shorthand fetches SSH keys from `https://github.com/{username}.keys`. You can also provide any URL that serves SSH public keys in `authorized_keys` format (one key per line). The `ssh://hostname` format scans the server's SSH host key directly. Supported key types: `ssh-rsa` and `ssh-ed25519`.
+The `@username` shorthand fetches SSH keys from `https://github.com/{username}.keys`. You can also provide any URL that serves public keys (one key per line). Supported key types: `ssh-rsa`, `ssh-ed25519`, and native `age1…` X25519 recipients. The `ssh://hostname` format scans the server's SSH host key directly.
+
+::: warning Plain HTTP
+Fetching keys over plain `http://` triggers a security warning — an attacker could substitute their own key (MITM). Use `https://` whenever possible. The prompt defaults to **No**; use `--yes` to bypass it in non-interactive scripts.
+:::
 
 ## Interoperability
 

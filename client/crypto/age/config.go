@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Passphrase string
 	Recipient  string
+	Yes        bool // auto-accept confirmation prompts (--yes flag)
 
 	// Recipients holds resolved age.Recipient objects (SSH or X25519).
 	// Populated during Configure() when Recipient is set.

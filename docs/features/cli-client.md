@@ -81,6 +81,7 @@ Options:
   --mcp                     Start as MCP (Model Context Protocol) server over stdio
   -j --json                Output upload metadata as JSON (implies --quiet)
   -q --quiet                Enable quiet mode
+  -y --yes                  Auto-accept confirmation prompts (non-interactive mode)
   -d --debug                Enable debug mode
   -v --version              Show client version
   -i --info                 Show client and server information
@@ -154,6 +155,10 @@ When running `plik` for the first time and the server has authentication enabled
 - If authentication is **enabled**: you'll be prompted with a default of **No**
 
 You can always authenticate later with `plik --login`.
+
+::: tip Non-interactive mode
+Use `plik --yes` to auto-accept all confirmation prompts (first-run wizard, updates, HTTP key fetch warnings). This is useful for scripting and CI/CD pipelines.
+:::
 
 ### Manual token configuration
 

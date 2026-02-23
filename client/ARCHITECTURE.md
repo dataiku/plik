@@ -39,6 +39,7 @@ client/
 **`main()` flow** (in `plik.go`):
 1. Parse CLI args → early exits: `--version`, `--mcp`, `--info`, `--login`
 2. Load config from `.plikrc` → `NewPlikCLI(config, args)`
+   - First-run wizard is skipped when `--quiet`, `--yes`, or `--server` is set
 3. Dispatch to `cli.Run(client)` for the upload flow
 
 **`PlikCLI.Run()` flow** (in `app.go`):
@@ -84,7 +85,7 @@ Archives wrap multiple files/directories into a single upload file. Errors are p
 |---------|-------------|
 | `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher) |
 | `pgp` | Asymmetric encryption via GPG/PGP (recipient-based) |
-| `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
+| `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). URLs can serve SSH keys **and** native `age1…` recipients. Plain HTTP URLs trigger a MITM security prompt (default: decline). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
 
 Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine.
 
