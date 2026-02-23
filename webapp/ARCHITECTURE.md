@@ -40,14 +40,18 @@ Admin link (upload-level): `/#/?id=<uploadId>&uploadToken=<token>`
 
 ### Auth Navigation Guard
 
-When `config.feature_authentication` is `"forced"`, a `router.beforeEach` guard redirects unauthenticated users to `/#/login`. Exceptions:
-- The login page itself (`to.name === 'login'`)
-- CLI client downloads (`to.name === 'clients'`) — so users can get the CLI without logging in
-- Download pages (`to.name === 'root' && to.query.id`) — so shared links still work
+The router's `beforeEach` guard enforces authentication in three layers (checked in order):
+
+1. **`requiresAuth` routes** (`/#/home`, `/#/admin`): Unauthenticated users are redirected to `/#/login` with the intended destination saved in `sessionStorage` (survives OAuth round-trips).
+2. **`requiresAdmin` routes** (`/#/admin`): Authenticated non-admin users are redirected to `/`.
+3. **Forced authentication** (`config.feature_authentication === "forced"`): All other routes redirect unauthenticated users to `/#/login`, except:
+   - The login page itself (`to.name === 'login'`)
+   - CLI client downloads (`to.name === 'clients'`) — so users can get the CLI without logging in
+   - Download pages (`to.name === 'root' && to.query.id`) — so shared links still work
 
 CLI auth approval (`to.name === 'cli-auth'`) always requires authentication regardless of auth mode.
 
-Admin pages (routes with `meta: { requiresAdmin: true }`) require an authenticated admin user. Non-admin users navigating to `/#/admin` are silently redirected to `/`.
+> **Gotcha**: In `main.js`, `app.use(router)` is called inside the `Promise.all([loadConfig(), checkSession()]).then(...)` callback, NOT before it. This is critical because the router's navigation guards rely on `config.feature_authentication` being loaded. Installing the router before config loads would cause the forced-auth guard to see the default value (`"disabled"`) instead of the server-configured value.
 
 **Redirect preservation**: When the guard redirects to login, it saves the intended destination to `sessionStorage` (`plik-auth-redirect` key) instead of a URL query parameter. This is necessary because OAuth flows do a full-page round-trip through an external provider (Google, OIDC, OVH), and the server callback redirects back to `/#/login` — any hash-fragment query params would be lost during this round-trip. Using sessionStorage solves this uniformly for all auth methods (local login and OAuth).
 
@@ -658,6 +662,36 @@ Tests live in `src/__tests__/` and cover pure utility functions, config helpers,
 | `notification.test.js` | Notification store (show/dismiss, auto-dismiss timer, replacement) |
 
 Vitest configuration is in `vite.config.js` under the `test` key (`globals: true`, `environment: 'jsdom'`).
+
+### E2E Testing (Playwright)
+
+End-to-end tests use [Playwright](https://playwright.dev/) to drive a real Chromium browser against a running `plikd` instance.
+
+```bash
+make test-frontend-e2e          # Full self-contained run (builds server+frontend, starts fresh plikd)
+cd webapp && npx playwright test           # Quick run (assumes plikd is already running)
+cd webapp && npx playwright test --ui      # Interactive UI mode
+```
+
+Tests live in `webapp/e2e/` and cover core flows:
+
+| File | Scope |
+|------|-------|
+| `settings.spec.js` | Feature flags, TTL, toggles, abuse contact, header links |
+| `upload.spec.js` | File upload via input, multi-file, text paste |
+| `admin.spec.js` | Server info, config, stats, version badges |
+| `download.spec.js` | Download page, text viewer, paste upload |
+| `navigation.spec.js` | Routing, auth redirects, OAuth |
+| `e2ee.spec.js` | End-to-end encryption flows |
+| `password.spec.js` | Password protection |
+| `home.spec.js` | User info, config, stats panels |
+| `qrcode.spec.js` | QR code modal |
+| `retry.spec.js` | Upload failure/retry, cancel |
+| `streaming.spec.js` | Stream upload, URL path, hidden actions |
+
+**Server lifecycle**: Playwright's `webServer` launches `e2e/start-server.sh` which creates a fresh temp directory with clean SQLite DB + data backend, seeds an admin user, and starts `plikd`. The `globalTeardown` cleans up after the suite.
+
+**Fixtures** (`e2e/fixtures.js`): `authenticatedPage` provides a pre-logged-in admin session; `withConfig(overrides)` intercepts `/config` API to test feature flags; `withVersion(overrides)` intercepts `/version` API for badge testing; `uploadTestFile()` creates a quick upload through the UI.
 
 ---
 

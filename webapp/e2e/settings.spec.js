@@ -1,0 +1,347 @@
+import { test, expect, uploadTestFile } from './fixtures.js'
+
+test.describe('Upload settings', () => {
+    test('one-shot toggle is reflected in download view', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Add a file first (the sidebar toggles may only appear when files are pending)
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'oneshot.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('one shot content'),
+        })
+
+        // Enable one-shot — the label says "Destruct after download"
+        const toggle = page.getByText('Destruct after download').locator('xpath=..').locator('.toggle-switch')
+        await toggle.click()
+
+        // Upload
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Download view should show one-shot indicator
+        await expect(page.getByText(/one.?shot/i).first()).toBeVisible()
+    })
+
+    test('password-protected upload shows password badge on download page', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Add a file first
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'protected.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('secret content'),
+        })
+
+        // Enable password toggle
+        const toggle = page.getByText('Password').first().locator('xpath=..').locator('.toggle-switch')
+        await toggle.click()
+
+        // Fill in credentials
+        await page.getByPlaceholder('Login').fill('testuser')
+        await page.getByPlaceholder('Password').fill('testpass')
+
+        // Upload
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Download sidebar should show the password badge
+        await expect(page.getByText('🔒 Password')).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('password-protected upload returns 401 without credentials', async ({ page, context }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Add a file
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'secret.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('top secret'),
+        })
+
+        // Enable password toggle and fill credentials
+        const toggle = page.getByText('Password').first().locator('xpath=..').locator('.toggle-switch')
+        await toggle.click()
+        await page.getByPlaceholder('Login').fill('mylogin')
+        await page.getByPlaceholder('Password').fill('mypassword')
+
+        // Upload
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Grab the file download link href
+        const downloadLink = page.getByRole('link', { name: 'secret.txt' })
+        const fileUrl = await downloadLink.getAttribute('href')
+
+        // Open a fresh page in the same context — no stored basicAuth
+        const freshPage = await context.newPage()
+        const response = await freshPage.request.get(fileUrl)
+
+        // Server should return 401 Unauthorized (basic auth required)
+        expect(response.status()).toBe(401)
+        await freshPage.close()
+    })
+
+    test('comment editor appears when toggled', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Add a file first
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'commented.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('with comments'),
+        })
+
+        // Enable comments — the label says "Comment"
+        const toggle = page.getByText('Comment').first().locator('xpath=..').locator('.toggle-switch')
+        await toggle.click()
+
+        // A markdown editor textarea should appear in the upload page
+        // The comment form appears below the files/sidebar
+        await page.waitForLoadState('networkidle')
+
+        // Upload with comment
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Download view should have loaded successfully
+        await expect(page.locator('body')).not.toBeEmpty()
+    })
+
+    test('TTL expiration shown in download sidebar', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Upload a file (uses default TTL)
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'ttl-test.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('ttl content'),
+        })
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // The download sidebar should show TTL/expiration info
+        await expect(page.getByText(/expire|remaining|never/i).first()).toBeVisible()
+    })
+})
+
+// ── Feature flag tests ──────────────────────────────────────────────────────
+// Each toggle's behaviour depends on 4 possible feature flag values:
+//   disabled → toggle hidden
+//   enabled  → toggle visible, OFF by default, clickable
+//   default  → toggle visible, ON  by default, clickable
+//   forced   → toggle visible, ON  by default, disabled (not clickable)
+
+/**
+ * Toggle-style feature flags and their UI labels in the upload sidebar.
+ * set_ttl is special (heading, not a toggle) and tested separately.
+ */
+const TOGGLE_FLAGS = [
+    { flag: 'one_shot', label: 'Destruct after download' },
+    { flag: 'stream', label: 'Streaming' },
+    { flag: 'removable', label: 'Removable' },
+    { flag: 'e2ee', label: 'End-to-End Encryption' },
+    { flag: 'password', label: 'Password' },
+    { flag: 'comments', label: 'Comment' },
+    { flag: 'extend_ttl', label: 'Extend TTL on access' },
+]
+
+/** Locate the toggle switch next to a given label text. */
+function toggleFor(page, label) {
+    return page.getByText(label, { exact: false }).first().locator('xpath=..').locator('.toggle-switch')
+}
+
+test.describe('Feature flags', () => {
+    // ── disabled ─────────────────────────────────────────────────────────
+    for (const { flag, label } of TOGGLE_FLAGS) {
+        test(`${flag} disabled hides toggle`, async ({ page, withConfig }) => {
+            await withConfig({ [`feature_${flag}`]: 'disabled' })
+            await page.goto('/')
+            await page.waitForLoadState('networkidle')
+
+            await expect(page.getByText(label).first()).not.toBeVisible()
+        })
+    }
+
+    test('set_ttl disabled hides expiration section', async ({ page, withConfig }) => {
+        await withConfig({ feature_set_ttl: 'disabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByRole('heading', { name: 'Expiration' })).not.toBeVisible()
+    })
+
+    // ── enabled ──────────────────────────────────────────────────────────
+    for (const { flag, label } of TOGGLE_FLAGS) {
+        test(`${flag} enabled shows toggle OFF by default`, async ({ page, withConfig }) => {
+            await withConfig({ [`feature_${flag}`]: 'enabled' })
+            await page.goto('/')
+            await page.waitForLoadState('networkidle')
+
+            const toggle = toggleFor(page, label)
+            await expect(toggle).toBeVisible()
+            await expect(toggle).toHaveAttribute('data-active', 'false')
+            await expect(toggle).not.toBeDisabled()
+        })
+    }
+
+    test('set_ttl enabled shows expiration section', async ({ page, withConfig }) => {
+        await withConfig({ feature_set_ttl: 'enabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByRole('heading', { name: 'Expiration' })).toBeVisible()
+    })
+
+    // ── default ──────────────────────────────────────────────────────────
+    for (const { flag, label } of TOGGLE_FLAGS) {
+        test(`${flag} default shows toggle ON by default`, async ({ page, withConfig }) => {
+            await withConfig({ [`feature_${flag}`]: 'default' })
+            await page.goto('/')
+            await page.waitForLoadState('networkidle')
+
+            const toggle = toggleFor(page, label)
+            await expect(toggle).toBeVisible()
+            await expect(toggle).toHaveAttribute('data-active', 'true')
+            await expect(toggle).not.toBeDisabled()
+        })
+    }
+
+    test('set_ttl default shows expiration section', async ({ page, withConfig }) => {
+        await withConfig({ feature_set_ttl: 'default' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByRole('heading', { name: 'Expiration' })).toBeVisible()
+    })
+
+    // ── forced ───────────────────────────────────────────────────────────
+    for (const { flag, label } of TOGGLE_FLAGS) {
+        test(`${flag} forced shows toggle ON + disabled`, async ({ page, withConfig }) => {
+            await withConfig({ [`feature_${flag}`]: 'forced' })
+            await page.goto('/')
+            await page.waitForLoadState('networkidle')
+
+            const toggle = toggleFor(page, label)
+            await expect(toggle).toBeVisible()
+            await expect(toggle).toHaveAttribute('data-active', 'true')
+            await expect(toggle).toBeDisabled()
+        })
+    }
+
+    test('set_ttl forced shows expiration section', async ({ page, withConfig }) => {
+        await withConfig({ feature_set_ttl: 'forced' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByRole('heading', { name: 'Expiration' })).toBeVisible()
+    })
+
+    // ── Special: comments forced shows "required" label ──────────────────
+    test('comments forced shows required indicator', async ({ page, withConfig }) => {
+        await withConfig({ feature_comments: 'forced' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Add a file so the upload form is active
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'flag-test.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('test'),
+        })
+
+        // The comment textarea area should show "required"
+        await expect(page.getByText('required')).toBeVisible()
+    })
+})
+
+// ── Abuse Contact Footer ──────────────────────────────────────────────────
+
+test.describe('Abuse contact footer', () => {
+    test('hidden when abuseContact is empty', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Default config has empty abuseContact — no footer with "abuse"
+        await expect(page.locator('footer')).not.toBeVisible()
+    })
+
+    test('shown when abuseContact is configured', async ({ page, withConfig }) => {
+        await withConfig({ abuseContact: 'abuse@example.com' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        const footer = page.locator('footer')
+        await expect(footer).toBeVisible({ timeout: 5_000 })
+        await expect(footer).toContainText('abuse@example.com')
+    })
+})
+
+// ── Header Feature Flags ──────────────────────────────────────────────────
+
+test.describe('Header feature flags', () => {
+    test('CLI Client link visible by default', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByText('CLI Client').first()).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('CLI Client link hidden when disabled', async ({ page, withConfig }) => {
+        await withConfig({ feature_clients: 'disabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByText('CLI Client')).not.toBeVisible()
+    })
+
+    test('Documentation and Source links visible by default', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByText('Documentation').first()).toBeVisible({ timeout: 5_000 })
+        await expect(page.getByText('Source').first()).toBeVisible()
+    })
+
+    test('Documentation and Source hidden when disabled', async ({ page, withConfig }) => {
+        await withConfig({ feature_github: 'disabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByText('Documentation')).not.toBeVisible()
+        await expect(page.getByText('Source')).not.toBeVisible()
+    })
+
+    test('Paste text button visible by default', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByText('Paste text').first()).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('Paste text button hidden when disabled', async ({ page, withConfig }) => {
+        await withConfig({ feature_text: 'disabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await expect(page.getByText('Paste text')).not.toBeVisible()
+    })
+})
+

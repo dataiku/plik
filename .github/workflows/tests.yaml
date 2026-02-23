@@ -53,6 +53,41 @@ jobs:
     - name: Run frontend tests
       run: make test-frontend
 
+  test-frontend-e2e:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: webapp/package-lock.json
+
+    - name: Fetch tags
+      run: git fetch --prune --unshallow --tags
+
+    - name: Run e2e tests
+      run: make test-frontend-e2e
+      env:
+        CI: "true"
+
+    - name: Upload test artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: webapp/test-results/
+        retention-days: 7
+
   test-backends:
     runs-on: ubuntu-latest
     steps:

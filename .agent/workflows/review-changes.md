@@ -106,9 +106,15 @@ make frontend 2>&1 | tail -20
 make test-frontend 2>&1 | tail -40
 ```
 
+If webapp e2e tests or source files that affect UI behavior were changed (ask for confirmation as this takes ~3 min):
+
+```bash
+make test-frontend-e2e 2>&1 | tail -20
+```
+
 ### 5. Run tests
 
-If there are some code changes (ask the for confirmation)
+If there are some code changes (ask the for confirmation as this takes ~3 min)
 
 ```bash
 make test 2>&1 | tail -40

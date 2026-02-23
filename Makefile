@@ -120,6 +120,13 @@ test-frontend:
 	@cd webapp && npm ci && npm test
 
 ###
+# Run webapp e2e tests (playwright — builds frontend+server, starts fresh plikd)
+###
+test-frontend-e2e: frontend server
+	@cd webapp && npm ci && npx playwright install chromium
+	@cd webapp && npx playwright test $(if $(HEADED),--headed)
+
+###
 # Open last cover profile in web browser
 ###
 cover:
@@ -209,4 +216,4 @@ clean-all: clean clean-frontend
 # by make, we must declare these targets as phony to avoid :
 # "make: `client' is up to date" cases at compile time
 ###
-.PHONY: client clients server release helm helm-install docs test-backend test-frontend
+.PHONY: client clients server release helm helm-install docs test-backend test-frontend test-frontend-e2e
