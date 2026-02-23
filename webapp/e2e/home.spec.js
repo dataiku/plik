@@ -127,3 +127,20 @@ test.describe('User statistics panel', () => {
     })
 })
 
+test.describe('Edit account button', () => {
+    test('visible for local provider', async ({ authenticatedPage: page }) => {
+        await page.goto('/#/home')
+        await page.waitForLoadState('networkidle')
+
+        const btn = page.getByRole('button', { name: 'Edit account', exact: true })
+        await expect(btn).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('opens edit account modal', async ({ authenticatedPage: page }) => {
+        await page.goto('/#/home')
+        await page.waitForLoadState('networkidle')
+
+        await page.getByRole('button', { name: 'Edit account', exact: true }).click()
+        await expect(page.getByRole('heading', { name: 'Edit Account' })).toBeVisible({ timeout: 5_000 })
+    })
+})

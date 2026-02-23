@@ -358,7 +358,8 @@ onMounted(() => {
             Sign out
           </button>
 
-          <button @click="openEditAccount"
+          <button v-if="auth.user?.provider === 'local'"
+                  @click="openEditAccount"
                   class="w-full py-2.5 rounded-lg flex items-center gap-3 px-3 text-sm
                          text-surface-300 hover:text-white hover:bg-surface-700/50 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
