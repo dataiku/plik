@@ -7,6 +7,11 @@ export default defineConfig({
     vue(),
     tailwindcss(),
   ],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    exclude: ['e2e/**', 'node_modules/**'],
+  },
   server: {
     proxy: {
       '/config': 'http://localhost:8080',

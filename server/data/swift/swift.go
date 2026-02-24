@@ -65,6 +65,9 @@ func (b *Backend) AddFile(file *common.File, fileReader io.Reader) (err error) {
 
 	objectID := objectID(file)
 	object, err := b.connection.ObjectCreate(b.config.Container, objectID, true, "", "", nil)
+	if err != nil {
+		return fmt.Errorf("unable to create swift object %s : %s", objectID, err)
+	}
 
 	_, err = io.Copy(object, fileReader)
 	if err != nil {
@@ -112,7 +115,7 @@ func (b *Backend) auth() (err error) {
 	// Authenticate
 	err = connection.Authenticate()
 	if err != nil {
-		return fmt.Errorf("unable to autenticate : %s", err)
+		return fmt.Errorf("unable to authenticate : %s", err)
 	}
 	b.connection = connection
 

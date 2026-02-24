@@ -74,9 +74,10 @@ func (p *Progress) register(file *plik.File) {
 // Start the progress bar pool
 func (p *Progress) start() {
 	once := func() {
-		p.pool, err = pb.StartPool(p.bars...)
-		if err != nil {
-			panic(err)
+		var startErr error
+		p.pool, startErr = pb.StartPool(p.bars...)
+		if startErr != nil {
+			panic(startErr)
 		}
 	}
 	p.once.Do(once)

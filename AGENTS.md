@@ -4,7 +4,7 @@
 
 ## What is Plik?
 
-Plik is a temporary file upload system (WeTransfer-like) written in Go, with a Vue 3 web UI and a cross-platform CLI client. It supports multiple storage and metadata backends, authentication providers, and features like one-shot downloads, streaming, and server-side encryption.
+Plik is a temporary file upload system (WeTransfer-like) written in Go, with a Vue 3 web UI and a cross-platform CLI client. It supports multiple storage and metadata backends, authentication providers, and features like one-shot downloads, streaming, end-to-end encryption (E2EE via age), and server-side encryption.
 
 ## Tech Stack
 
@@ -27,6 +27,7 @@ plik/
 ├── README.md               ← project README (concise)
 ├── Makefile                ← build orchestration
 ├── Dockerfile
+├── .agent/                 ← agentic workflows (/review-changes, /prepare-pr, /cut-release)
 ├── server/                 ← Go server (see server/ARCHITECTURE.md)
 │   ├── main.go             ← entry point
 │   ├── plikd.cfg           ← default config
@@ -58,6 +59,8 @@ make server                 # Build server only → server/plikd
 make client                 # Build CLI client only → client/plik
 make frontend               # Build Vue webapp → webapp/dist
 make docker                 # Build Docker image (rootgg/plik:dev)
+make helm                   # Package Helm chart locally (dry-run)
+make helm-install           # Package and install Helm chart locally
 cd server && ./plikd        # Run server on http://127.0.0.1:8080
 
 #### Pull Request Deployments (GitHub Actions)
@@ -69,6 +72,8 @@ cd server && ./plikd        # Run server on http://127.0.0.1:8080
 
 ```bash
 make test                   # Unit tests + CLI integration tests
+make test-frontend           # Webapp unit tests (vitest)
+make test-frontend-e2e       # Webapp e2e tests (playwright — builds + starts fresh plikd)
 make test-backends           # Docker-based backend integration tests (all)
 make test-backend mariadb    # Docker-based test for a single backend
 make lint                   # go fmt + go vet + go fix
@@ -101,12 +106,15 @@ make vuln                   # govulncheck (report only)
 
 - **Always update docs**: When changing code, update the relevant `ARCHITECTURE.md` and VitePress docs
 - **Keep Helm chart in sync with plikd config**: When adding, removing, or renaming configuration fields in `server/common/config.go` or `server/plikd.cfg`, you **must** also update the Helm chart:
-  - `charts/plik/values.yaml` — add/update the field under `plikd:`
-  - `charts/plik/templates/configmap.yaml` — add/update the explicit key in the template
-  - `charts/plik/templates/secret.yaml` — if the field is sensitive, add env var injection
+  - `charts/plik/values.yaml` — add/update the field under `plikd:` (non-sensitive) or `secrets:` (sensitive)
+  - `charts/plik/templates/configmap.yaml` — add/update the explicit key in the template (non-sensitive config only; never put secrets here)
+  - `charts/plik/templates/secret.yaml` — if the field is a credential, add it under `secrets:` in `values.yaml` and a corresponding key in `secret.yaml`
+- **Helm secrets pattern**: All sensitive credentials must live in the `secrets:` top-level block of `values.yaml`. They are rendered into a `Secret` resource by `secret.yaml`, and injected into the pod via `envFrom.secretRef` (`optional: true`). Never put secrets in the ConfigMap.
+- **BYO Secret (existingSecret)**: Set `secrets.existingSecret: "my-secret-name"` to skip Secret creation and reference an external secret (e.g., Vault, Sealed Secrets, ESO). Use the `plik.secretName` helper in templates to resolve the correct name.
 - **Helm persistence**: the chart has two independent PVCs — `persistence` for uploaded files (`/home/plik/server/files`) and `dbPersistence` for the SQLite database (`/home/plik/server/db`). Both default to `emptyDir` when disabled. The default `MetadataBackendConfig.ConnectionString` is `/home/plik/server/db/plik.db`.
 - **Run tests before committing**: `make lint && make test`
 - **Keep ARCHITECTURE.md files in sync**: Each root folder has its own — update the one closest to your change
+- **Release process**: Before creating a GitHub release, update the version in `README.md` and move `charts/plik/CHANGELOG.md` entries from `[Unreleased]` to the new version heading
 
 ## Documentation
 
@@ -136,4 +144,5 @@ make docs                    # Build docs (validates links, injects version)
 | [webapp/ARCHITECTURE.md](webapp/ARCHITECTURE.md) | Vue 3 SPA: components, routing, API layer, state |
 | [testing/ARCHITECTURE.md](testing/ARCHITECTURE.md) | Backend integration tests: docker-based test scripts |
 | [releaser/ARCHITECTURE.md](releaser/ARCHITECTURE.md) | Release tooling: build pipeline, Docker stages, client/server compilation |
+| [charts/plik/ARCHITECTURE.md](charts/plik/ARCHITECTURE.md) | Helm chart: structure, config/secrets separation, persistence, versioning |
 | [.github/ARCHITECTURE.md](.github/ARCHITECTURE.md) | GitHub Actions workflows, CI/CD, Helm chart release flow |

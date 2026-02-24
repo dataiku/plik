@@ -87,7 +87,8 @@ func (file *File) Metadata() (details *common.File) {
 	return file.metadata
 }
 
-// FileWithURL wraps common.File with its computed download URL
+// FileWithURL is a JSON-serializable representation of a file with a pre-computed download URL.
+// It is used for --json output and MCP server responses.
 type FileWithURL struct {
 	*common.File
 	URL string `json:"url"`
@@ -118,7 +119,7 @@ func (file *File) getParams() (params *common.File) {
 	return params
 }
 
-// ID return the file ID if any
+// Error returns the file upload error, if any
 func (file *File) Error() error {
 	file.lock.Lock()
 	defer file.lock.Unlock()
@@ -145,7 +146,6 @@ func (file *File) ready() (done chan struct{}, abort bool) {
 	}
 
 	// File does not need to be uploaded
-	// TODO : maybe it would be better/simpler to rely only on file.reader == nil ?
 	if file.metadata.Status != common.FileMissing || file.reader == nil {
 		return nil, true
 	}

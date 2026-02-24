@@ -8,9 +8,18 @@
 
 ```
 releaser/
-├── release.sh        ← top-level entry point: orchestrates multi-arch Docker build + optional push
-├── build_clients.sh  ← builds CLI client binaries for all target platforms (pure Go cross-compilation)
-└── build_server_release.sh  ← runs inside Docker: builds server and assembles the release archive
+├── release.sh              ← top-level entry point: orchestrates multi-arch Docker build + optional push
+├── helm_release.sh         ← packages Helm chart + updates gh-pages index.yaml
+├── apt_release.sh          ← builds .deb packages + updates gh-pages APT repository
+├── build_clients.sh        ← builds CLI client binaries for all target platforms (pure Go cross-compilation)
+├── build_server_release.sh ← runs inside Docker: builds server and assembles the release archive
+├── plikd.service           ← systemd unit file for plik-server .deb package
+├── nfpm-server.yaml        ← nfpm config for plik-server .deb (binary, config, webapp, clients, systemd)
+├── nfpm-client.yaml        ← nfpm config for plik-client .deb (CLI binary only)
+└── scripts/
+    ├── server-postinstall.sh  ← creates plik user, adjusts config paths, enables service
+    ├── server-preremove.sh    ← stops and disables service
+    └── server-postremove.sh   ← reloads systemd
 ```
 
 Supporting files referenced by the release process:
@@ -33,6 +42,8 @@ Dockerfile                 ← multi-stage build: frontend → clients → Go cr
 | `make release-and-push-to-docker-hub` | `PUSH_TO_DOCKER_HUB=true releaser/release.sh` | Build + push multi-arch Docker images |
 | `make docker` | `docker buildx build --load -t rootgg/plik:dev .` | Quick local Docker image (single arch) |
 | `make clients` | `releaser/build_clients.sh` | Build CLI clients for all platforms |
+| `make deb` | Cross-compile + nfpm | Build `.deb` packages for all Linux architectures |
+| `make deb-publish` | `SKIP_BUILD=true releaser/apt_release.sh` | Publish existing `.deb` files to gh-pages APT repo |
 
 ### `release.sh` — Orchestrator
 
@@ -168,14 +179,92 @@ Key fields:
 
 ---
 
+## `helm_release.sh` — Helm Chart Packager
+
+Called by the `release.yaml` GitHub Actions workflow after `release.sh`. Takes the release tag as argument:
+
+1. **Replace placeholders**: Substitutes `__VERSION__` in `Chart.yaml` with the release tag (unified versioning)
+2. **Package chart**: Runs `helm package`, producing `plik-helm-{tag}.tgz` in `releases/`
+3. **Update Helm repo index**: Fetches existing `index.yaml` from `gh-pages`, merges the new chart entry via `helm repo index --merge`, and commits the updated `index.yaml` back to `gh-pages`
+
+The packaged `.tgz` file is left in `releases/` so it gets uploaded alongside other release artifacts by the workflow.
+
+Set `DRY_RUN=true` to test locally — packages the chart, generates `index.yaml`, prints both, then reverts `Chart.yaml`.
+
+---
+
+## `apt_release.sh` — Debian Package Builder & APT Repo Publisher
+
+Called by the `release.yaml` workflow after `helm_release.sh`. Takes the release tag as argument. Builds `.deb` packages and maintains an APT repository on `gh-pages`:
+
+1. **Build `.deb` packages**: For each release archive (`releases/plik-server-*.tar.gz`), extracts the contents into `release/`, runs `nfpm pkg` with the nfpm configs to produce `plik-server` and `plik-client` `.deb` files for each architecture
+2. **Update APT repo**: Checks out `gh-pages` via git worktree, copies `.deb` files into `apt/pool/main/`, generates `Packages`, `Release`, signs with GPG → `InRelease` + `Release.gpg`, and pushes
+
+### Two packages
+
+| Package | Contents |
+|---------|----------|
+| `plik-server` | `plikd` binary, `plikd.cfg` (conffile), systemd service, webapp, client binaries, changelog |
+| `plik-client` | `plik` CLI binary |
+
+### FHS layout (plik-server)
+
+```
+/usr/bin/plikd                    ← server binary
+/etc/plik/plikd.cfg               ← configuration (conffile, preserved on upgrade)
+/usr/lib/systemd/system/plikd.service
+/usr/share/plik/webapp/dist/      ← web UI
+/usr/share/plik/clients/          ← downloadable client binaries
+/usr/share/plik/changelog/
+/var/lib/plik/                    ← data directory (plik user)
+/var/lib/plik/files/              ← default file storage backend
+```
+
+### Packaging scripts
+
+- **postinstall**: Creates `plik` system user, adjusts config paths for FHS layout, enables systemd service
+- **preremove**: Stops and disables service
+- **postremove**: Reloads systemd
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DRY_RUN` | *(unset)* | Skip gh-pages push, print repo structure |
+| `SKIP_BUILD` | *(unset)* | Skip nfpm build, use existing `.deb` files in `releases/` |
+| `GPG_PRIVATE_KEY` | *(required)* | Armored GPG private key for signing |
+| `GIT_REMOTE` | `origin` | Git remote for gh-pages |
+
+### APT repo structure on gh-pages
+
+```
+apt/
+├── gpg.key
+├── dists/stable/
+│   ├── main/binary-{amd64,arm64,armhf,i386}/
+│   │   ├── Packages
+│   │   └── Packages.gz
+│   ├── Release
+│   ├── Release.gpg
+│   └── InRelease
+└── pool/main/
+    ├── plik-server_{version}_{arch}.deb
+    └── plik-client_{version}_{arch}.deb
+```
+
+---
+
 ## How to Cut a Release
 
 1. Update `changelog/{version}` with release notes
-2. Update `charts/plik/Chart.yaml` — bump `appVersion` to the new version
-3. Create a release from GitHub (this creates the tag)
-4. The `release` GitHub Actions workflow runs automatically — it builds archives, client binaries, Docker images, and uploads everything to the release page
+2. Create a release from GitHub (this creates the tag)
+3. The `release` GitHub Actions workflow runs automatically — it builds archives, client binaries, Docker images, packages the Helm chart, builds `.deb` packages, updates both the Helm repo index and APT repository on `gh-pages`, and uploads everything to the release page
 
-> The Helm chart is published separately via the `pages.yml` workflow when `charts/` changes are pushed to `master`. See [.github/ARCHITECTURE.md](../.github/ARCHITECTURE.md) for details.
+> The Helm chart version and `.deb` package versions are automatically synchronized with the release tag — no manual update needed.
+
+### Prerequisites
+
+- **GPG key**: A `GPG_PRIVATE_KEY` secret must be configured in the GitHub repo for APT repository signing
 
 ## Testing the Release Process Locally
 
@@ -195,4 +284,22 @@ For a quick **single-platform** test (no special builder needed):
 
 ```bash
 TARGETS=linux/amd64 make release
+```
+
+### Testing Debian packages locally
+
+Build `.deb` packages without a full release (requires [nfpm](https://nfpm.goreleaser.com/) and cross-compilers):
+
+```bash
+# Install nfpm
+go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
+# Build .deb packages for all architectures (skips arches without cross-compiler)
+make deb
+
+# Build for a single architecture
+make deb DEB_TARGETS=amd64
+
+# Publish existing .deb files to gh-pages APT repository
+make deb-publish
 ```

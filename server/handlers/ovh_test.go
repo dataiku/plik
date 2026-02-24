@@ -211,6 +211,7 @@ func TestOVHCallback(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
@@ -262,7 +263,7 @@ func TestOVHCallback(t *testing.T) {
 	OvhCallback(ctx, rr, req)
 
 	// Check the status code is what we expect.
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -308,6 +309,7 @@ func TestOVHCallbackCreateUser(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
@@ -351,7 +353,7 @@ func TestOVHCallbackCreateUser(t *testing.T) {
 	OvhCallback(ctx, rr, req)
 
 	// Check the status code is what we expect.
-	require.Equal(t, 301, rr.Code, "handler returned wrong status code")
+	require.Equal(t, 302, rr.Code, "handler returned wrong status code")
 
 	respBody, err := io.ReadAll(rr.Body)
 	require.NoError(t, err, "unable to read response body")
@@ -395,6 +397,7 @@ func TestOVHCallbackCreateUserNotWhitelisted(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -457,6 +460,7 @@ func TestOVHCallbackMissingOvhAPIConfigParam(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 
 	ctx.GetConfig().FeatureAuthentication = common.FeatureEnabled
+	ctx.GetConfig().OvhAuthentication = true
 
 	req, err := http.NewRequest("GET", "/auth/ovh/callback", bytes.NewBuffer([]byte{}))
 	require.NoError(t, err, "unable to create new request")
@@ -498,6 +502,7 @@ func TestOVHCallbackMissingSessionString(t *testing.T) {
 
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -531,6 +536,7 @@ func TestOVHCallbackMissingOvhApiEndpoint(t *testing.T) {
 
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -564,6 +570,7 @@ func TestOVHCallbackMissingOvhApi(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
 
@@ -623,6 +630,7 @@ func TestOVHCallbackInvalidOvhApiResponse(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")
@@ -664,6 +672,7 @@ func TestOVHCallbackInvalidOvhApiResponseJson(t *testing.T) {
 	session := jwt.New(jwt.SigningMethodHS256)
 	session.Claims.(jwt.MapClaims)["ovh-consumer-key"] = "consumerKey"
 	session.Claims.(jwt.MapClaims)["ovh-api-endpoint"] = "http://127.0.0.1:" + strconv.Itoa(common.APIMockServerDefaultPort)
+	session.Claims.(jwt.MapClaims)["expire"] = time.Now().Add(5 * time.Minute).Unix()
 
 	sessionString, err := session.SignedString([]byte(ctx.GetConfig().OvhAPISecret))
 	require.NoError(t, err, "unable to generate session string")

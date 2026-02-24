@@ -27,6 +27,15 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		panic("missing upload from context")
 	}
 
+	// For E2EE uploads, redirect the webapp to the download page
+	// so decryption can happen client-side
+	if upload.E2EE != "" && common.IsPlikWebapp(req) {
+		config := ctx.GetConfig()
+		redirectURL := fmt.Sprintf("%s/#/?id=%s", config.Path, upload.ID)
+		http.Redirect(resp, req, redirectURL, http.StatusTemporaryRedirect)
+		return
+	}
+
 	// Get file from context
 	file := ctx.GetFile()
 	if file == nil {
@@ -52,6 +61,7 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		err := ctx.GetMetadataBackend().UpdateFileStatus(file, file.Status, common.FileRemoved)
 		if err != nil {
 			ctx.InternalServerError("unable to update file status", err)
+			return
 		}
 	}
 
@@ -62,6 +72,12 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 
 	// Force the download of the following types as they are blocked by the CSP Header and won't display properly.
 	if file.Type == "" || strings.Contains(file.Type, "flash") || strings.Contains(file.Type, "pdf") {
+		file.Type = "application/octet-stream"
+	}
+
+	// For E2EE uploads, always serve as binary data — content-type detection
+	// on encrypted bytes is meaningless
+	if upload.E2EE != "" {
 		file.Type = "application/octet-stream"
 	}
 
@@ -84,7 +100,7 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 	}
 
 	if file.Size > 0 {
-		resp.Header().Set("Content-Length", strconv.Itoa(int(file.Size)))
+		resp.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
 	}
 
 	// If "dl" GET params is set
@@ -92,9 +108,9 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 	// -> The client should download file instead of displaying it
 	dl := req.URL.Query().Get("dl")
 	if dl != "" {
-		resp.Header().Set("Content-Disposition", fmt.Sprintf(`attachement; filename="%s"`, file.Name))
+		resp.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, common.SanitizeFilenameForDisposition(file.Name)))
 	} else {
-		resp.Header().Set("Content-Disposition", fmt.Sprintf(`filename="%s"`, file.Name))
+		resp.Header().Set("Content-Disposition", fmt.Sprintf(`filename="%s"`, common.SanitizeFilenameForDisposition(file.Name)))
 	}
 
 	// HEAD Request => Do not print file, user just wants http headers

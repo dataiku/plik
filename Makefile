@@ -1,6 +1,7 @@
 SHELL = bash
 
 BUILD_INFO = $(shell server/gen_build_info.sh base64)
+VERSION = $(shell server/gen_build_info.sh version)
 
 # External ldflags: default to -static for static builds on linux.
 # macOS (Darwin) does not support full static linking; avoid -static there.
@@ -88,6 +89,9 @@ lint:
 vuln:
 	@echo "Running govulncheck..."
 	@govulncheck ./... || true
+	@echo ""
+	@echo "Running npm audit..."
+	@cd webapp && npm audit || true
 
 ###
 # Run fmt
@@ -107,7 +111,19 @@ gofix:
 test:
 	@if curl -s 127.0.0.1:8080 > /dev/null ; then echo "Plik server probably already running" ; exit 1 ; fi
 	@$(GO_TEST) ./... 2>&1 | grep -v "no test files"; test $${PIPESTATUS[0]} -eq 0
-	@echo "cli client integration tests :" && cd client && ./test.sh
+
+###
+# Run webapp unit tests (vitest)
+###
+test-frontend:
+	@cd webapp && npm ci && npm test
+
+###
+# Run webapp e2e tests (playwright — builds frontend+server, starts fresh plikd)
+###
+test-frontend-e2e: frontend server
+	@cd webapp && npm ci && npx playwright install chromium
+	@cd webapp && npx playwright test $(if $(HEADED),--headed)
 
 ###
 # Open last cover profile in web browser
@@ -160,6 +176,70 @@ release-and-push-to-docker-hub:
 	@PUSH_TO_DOCKER_HUB=true releaser/release.sh
 
 ###
+# Package Helm chart locally (auto-detects version from git tags)
+###
+helm:
+	@DRY_RUN=true releaser/helm_release.sh $(VERSION)
+
+###
+# Package and install Helm chart locally
+###
+helm-install: helm
+	@helm install plik releases/plik-helm-$(VERSION).tgz
+
+###
+# Build Debian packages locally for all Linux architectures
+# Requires: nfpm (go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest)
+# Requires: cross-compilers (apt install crossbuild-essential-{armhf,arm64,i386})
+# Set DEB_TARGETS to override (e.g. DEB_TARGETS=amd64)
+###
+DEB_TARGETS ?= amd64 386 arm64 arm
+
+deb: frontend clients
+	@echo ""
+	@echo " Building Debian packages for $(VERSION)"
+	@echo ""
+	@mkdir -p releases
+	@for GOARCH in $(DEB_TARGETS); do \
+		DEB_ARCH=$$GOARCH ; \
+		CROSS_CC="" ; \
+		case "$$GOARCH" in \
+			amd64) CROSS_CC="" ;; \
+			386)   DEB_ARCH="i386"  ; CROSS_CC="i686-linux-gnu-gcc" ;; \
+			arm64) CROSS_CC="aarch64-linux-gnu-gcc" ;; \
+			arm)   DEB_ARCH="armhf" ; CROSS_CC="arm-linux-gnueabihf-gcc" ;; \
+		*)     echo " Error: unknown GOARCH $$GOARCH, update the case statement in the deb target" ; exit 1 ;; \
+		esac ; \
+		if [ -n "$$CROSS_CC" ] && ! command -v "$$CROSS_CC" >/dev/null 2>&1; then \
+			echo " Skipping $$DEB_ARCH ($$CROSS_CC not found)" ; \
+			continue ; \
+		fi ; \
+		echo "" ; \
+		echo " Building plik server ($$DEB_ARCH)" ; \
+		GOOS=linux GOARCH=$$GOARCH CGO_ENABLED=1 CC=$$CROSS_CC $(GO_BUILD) -o server/plikd ./server ; \
+		rm -rf release && mkdir -p release/server release/webapp ; \
+		cp server/plikd release/server/plikd ; \
+		cp server/plikd.cfg release/server/plikd.cfg ; \
+		cp -r webapp/dist release/webapp/dist ; \
+		cp -r clients release/clients ; \
+		cp -r changelog release/changelog ; \
+		echo " Packaging plik-server ($$DEB_ARCH)" ; \
+		VERSION=$(VERSION) DEB_ARCH=$$DEB_ARCH \
+			nfpm pkg --config releaser/nfpm-server.yaml --packager deb --target releases/ ; \
+		if [ -f "release/clients/linux-$$GOARCH/plik" ]; then \
+			echo " Packaging plik-client ($$DEB_ARCH)" ; \
+			mkdir -p release/client ; \
+			cp "release/clients/linux-$$GOARCH/plik" release/client/plik ; \
+			VERSION=$(VERSION) DEB_ARCH=$$DEB_ARCH \
+				nfpm pkg --config releaser/nfpm-client.yaml --packager deb --target releases/ ; \
+		fi ; \
+	done
+	@rm -rf release
+	@echo ""
+	@echo " Packages built:"
+	@ls -l releases/*.deb
+
+###
 # Remove server build files
 ###
 clean:
@@ -183,8 +263,15 @@ clean-all: clean clean-frontend
 	@rm -rf webapp/node_modules
 
 ###
+# Publish existing .deb packages to the gh-pages APT repository
+# Run after "make deb" to push packages without a full release
+###
+deb-publish:
+	@SKIP_BUILD=true releaser/apt_release.sh $(VERSION)
+
+###
 # Since the client/server/version directories are not generated
 # by make, we must declare these targets as phony to avoid :
 # "make: `client' is up to date" cases at compile time
 ###
-.PHONY: client clients server release docs test-backend
+.PHONY: client clients server release helm helm-install deb deb-publish docs test-backend test-frontend test-frontend-e2e

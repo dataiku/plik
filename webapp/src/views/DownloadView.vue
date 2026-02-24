@@ -3,9 +3,10 @@ import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getUpload, removeUpload, removeFile as apiRemoveFile, uploadFile, getFileURL } from '../api.js'
 import { generateRef, isTextFile } from '../utils.js'
+import { fetchAndDecrypt } from '../crypto.js'
 import { getToken, setToken } from '../tokenStore.js'
 import { consumePendingFiles } from '../pendingUploadStore.js'
-import { marked } from 'marked'
+import { renderMarkdown } from '../markdown.js'
 import DownloadSidebar from '../components/DownloadSidebar.vue'
 import FileRow from '../components/FileRow.vue'
 import CopyButton from '../components/CopyButton.vue'
@@ -35,6 +36,12 @@ let pendingBasicAuth = null
 
 // Track whether uploads were cancelled
 let uploadsCancelled = false
+
+// E2EE passphrase (extracted from URL fragment or pending store, or prompted)
+const e2eePassphrase = ref(null)
+const showPassphraseModal = ref(false)
+const passphraseInput = ref('')
+const isDecrypting = ref(false)
 
 // QR code dialog
 const showQr = ref(false)
@@ -272,7 +279,9 @@ function uploadFileEntry(fileEntry) {
   return promise.then((result) => {
     fileEntry.status = 'uploaded'
     fileEntry.id = result.id
-    setServerFileStatus(result.id, 'uploaded')
+    // Merge all server-detected metadata (fileType, fileSize, fileMd5)
+    const serverFile = upload.value?.files?.find(f => f.id === result.id)
+    if (serverFile) Object.assign(serverFile, result)
     // Remove from pending panel immediately
     pendingFiles.value = pendingFiles.value.filter(f => f.reference !== fileEntry.reference)
   }).catch((err) => {
@@ -379,7 +388,54 @@ function openQrFile(file) {
   showQr.value = true
 }
 
+// E2EE decrypt-and-download handler
+async function decryptAndDownload(file) {
+  if (!e2eePassphrase.value) {
+    openPassphraseModal()
+    return
+  }
+
+  isDecrypting.value = true
+  try {
+    const url = getFileURL(props.id, file.id, file.fileName)
+    const blob = await fetchAndDecrypt(url, e2eePassphrase.value)
+    // Trigger browser download
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = file.fileName
+    a.click()
+    URL.revokeObjectURL(a.href)
+  } catch (err) {
+    uploadError.value = `Decryption failed: ${err.message || 'Wrong passphrase?'}`
+  } finally {
+    isDecrypting.value = false
+  }
+}
+
+function openPassphraseModal() {
+  passphraseInput.value = e2eePassphrase.value || ''
+  showPassphraseModal.value = true
+}
+
+function submitPassphrase() {
+  if (!passphraseInput.value.trim()) return
+  e2eePassphrase.value = passphraseInput.value.trim()
+  passphraseInput.value = ''
+  showPassphraseModal.value = false
+}
+
+// Whether this upload uses E2EE
+const isE2EE = computed(() => !!upload.value?.e2ee)
+
 onMounted(async () => {
+  // Extract E2EE passphrase from URL query param (?key=... inside the hash route)
+  const queryKey = router.currentRoute.value.query.key
+  if (queryKey) {
+    e2eePassphrase.value = queryKey
+    // Strip the key from the URL without reloading
+    router.replace({ path: '/', query: { id: props.id } })
+  }
+
   // If uploadToken is in the URL (from admin URL), save it to memory and strip from URL
   const queryToken = router.currentRoute.value.query.uploadToken
   if (queryToken) {
@@ -394,8 +450,17 @@ onMounted(async () => {
   if (pending) {
     pendingBasicAuth = pending.basicAuth
     pendingFiles.value = pending.files
+    // Carry passphrase from pending store
+    if (pending.passphrase && !e2eePassphrase.value) {
+      e2eePassphrase.value = pending.passphrase
+    }
     // Auto-start uploading
     uploadPendingFiles()
+  }
+
+  // If this is an E2EE upload and we don't have the passphrase, prompt the user
+  if (upload.value?.e2ee && !e2eePassphrase.value) {
+    openPassphraseModal()
   }
 })
 
@@ -443,12 +508,14 @@ watch(activeFiles, (files) => {
       <DownloadSidebar
         v-if="upload"
         :upload="{ ...upload, admin: isAdmin }"
+        v-model:passphrase="e2eePassphrase"
+        @edit-passphrase="openPassphraseModal"
         @delete-upload="deleteUpload"
         @add-files="triggerAddFiles"
         @show-qr="openQrUpload" />
 
       <!-- Loading placeholder sidebar -->
-      <aside v-else class="w-full md:w-72 md:shrink-0 p-4">
+      <aside v-else class="w-full md:w-80 md:shrink-0 p-4">
         <div class="sidebar-section animate-pulse">
           <div class="h-4 bg-surface-700 rounded w-1/2 mb-3" />
           <div class="h-8 bg-surface-700 rounded mb-2" />
@@ -501,7 +568,25 @@ watch(activeFiles, (files) => {
               </svg>
               <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider">Comment</h3>
             </div>
-            <div class="prose prose-sm max-w-none" v-html="marked.parse(upload.comments, { breaks: true })" />
+            <div class="prose prose-sm max-w-none" v-html="renderMarkdown(upload.comments)" />
+          </div>
+
+          <!-- E2EE Indicator -->
+          <div v-if="isE2EE" class="glass-card p-3 flex items-center gap-3 animate-fade-in border-accent-500/30">
+            <svg class="w-5 h-5 text-accent-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div>
+              <span class="text-sm text-accent-400 font-medium">End-to-End Encrypted with <a href="https://age-encryption.org" target="_blank" rel="noopener noreferrer" class="underline hover:text-accent-300 transition-colors">Age</a></span>
+              <p class="text-xs text-surface-400 mt-0.5">Files will be decrypted in your browser</p>
+            </div>
+          </div>
+
+          <!-- Decrypting Spinner -->
+          <div v-if="isDecrypting" class="flex items-center justify-center py-4">
+            <div class="animate-spin rounded-full h-6 w-6 border-2 border-accent-500 border-t-transparent" />
+            <span class="ml-3 text-sm text-surface-400">Decrypting...</span>
           </div>
 
           <!-- File Viewer -->
@@ -563,9 +648,11 @@ watch(activeFiles, (files) => {
                      mode="download"
                      :can-remove="canRemoveFiles"
                      :is-stream="upload.stream"
+                     :is-e2ee="isE2EE"
                      @remove="deleteFile"
                      @show-qr="openQrFile"
-                     @view="viewFile" />
+                     @view="viewFile"
+                     @decrypt-download="decryptAndDownload" />
           </div>
 
           <!-- Pending Files (staged for upload / uploading) -->
@@ -652,6 +739,31 @@ watch(activeFiles, (files) => {
                    :confirm-text="confirmDialog.confirmText"
                    @confirm="confirmDialog.onConfirm"
                    @cancel="confirmDialog = null" />
+
+    <!-- Passphrase Modal -->
+    <div v-if="showPassphraseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+         @mousedown.self="e2eePassphrase ? (showPassphraseModal = false) : null">
+      <div class="glass-card p-6 w-full max-w-sm mx-4 space-y-4 animate-fade-in">
+        <div class="flex items-center gap-3">
+          <svg class="w-6 h-6 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <h3 class="text-lg font-medium text-white">Enter Passphrase</h3>
+        </div>
+        <p class="text-sm text-surface-400">This upload is end-to-end encrypted. Enter the passphrase to decrypt files.</p>
+        <input type="text"
+               v-model="passphraseInput"
+               class="input-field font-mono text-sm"
+               placeholder="Passphrase"
+               @keydown.enter="submitPassphrase" />
+        <div class="flex justify-end">
+          <button class="btn-primary px-4 py-1.5 text-sm"
+                  :disabled="!passphraseInput.trim()"
+                  @click="submitPassphrase">Decrypt</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 </template>

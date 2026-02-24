@@ -1,13 +1,13 @@
 # Ignore plik CLI binary (not */plik which would exclude charts/plik/)
 client/plik
 plikd
-clients
+/clients
 *.db
 *.db-wal
 *.db-shm
 server/files
 webapp/dist
-clients
+/clients
 client/client
 servers
 release

@@ -13,10 +13,10 @@ import (
 	"github.com/root-gg/plik/server/data"
 )
 
-// Ensure Swift Data Backend implements data.Backend interface
+// Ensure S3 Data Backend implements data.Backend interface
 var _ data.Backend = (*Backend)(nil)
 
-// Config describes configuration for Swift data backend
+// Config describes configuration for S3 data backend
 type Config struct {
 	Endpoint        string
 	AccessKeyID     string
@@ -75,7 +75,7 @@ type Backend struct {
 	client *minio.Client
 }
 
-// NewBackend instantiate a new OpenSwift Data Backend
+// NewBackend instantiate a new S3 Data Backend
 // from configuration passed as argument
 func NewBackend(config *Config) (b *Backend, err error) {
 	b = new(Backend)
@@ -122,8 +122,27 @@ func (b *Backend) GetFile(file *common.File) (reader io.ReadSeekCloser, err erro
 		return nil, err
 	}
 
-	// This does only very basic checking and basically always return nil, error will happen when reading from the reader
-	return b.client.GetObject(context.TODO(), b.config.Bucket, b.getObjectName(file.ID), getOpts)
+	// Try new object name format first ({uploadID}.{fileID})
+	obj, err := b.client.GetObject(context.TODO(), b.config.Bucket, b.getObjectName(file.UploadID, file.ID), getOpts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get s3 object : %s", err)
+	}
+
+	// Peek to check if the object exists (GetObject does only basic checking)
+	_, statErr := obj.Stat()
+	if statErr == nil {
+		return obj, nil
+	}
+	_ = obj.Close()
+
+	// Check if it's a "not found" error before falling back
+	errResponse := minio.ToErrorResponse(statErr)
+	if errResponse.Code != "NoSuchKey" {
+		return nil, fmt.Errorf("unable to get s3 object : %s", statErr)
+	}
+
+	// Fall back to legacy object name format ({fileID}) for backward compatibility
+	return b.client.GetObject(context.TODO(), b.config.Bucket, b.getObjectNameLegacy(file.ID), getOpts)
 }
 
 // AddFile implementation for S3 Data Backend
@@ -137,7 +156,7 @@ func (b *Backend) AddFile(file *common.File, fileReader io.Reader) (err error) {
 	}
 
 	if file.Size > 0 {
-		_, err = b.client.PutObject(context.TODO(), b.config.Bucket, b.getObjectName(file.ID), fileReader, file.Size, putOpts)
+		_, err = b.client.PutObject(context.TODO(), b.config.Bucket, b.getObjectName(file.UploadID, file.ID), fileReader, file.Size, putOpts)
 	} else {
 		// https://github.com/minio/minio-go/issues/989
 		// Minio defaults to 128MiB chunks and has to actually allocate a buffer of this size before uploading the chunk
@@ -145,7 +164,7 @@ func (b *Backend) AddFile(file *common.File, fileReader io.Reader) (err error) {
 		// We default to 16MiB which allow to store files up to 156GiB ( 10000 chunks of 16MiB ), feel free to adjust this parameter to your needs.
 		putOpts.PartSize = b.config.PartSize
 
-		_, err = b.client.PutObject(context.TODO(), b.config.Bucket, b.getObjectName(file.ID), fileReader, -1, putOpts)
+		_, err = b.client.PutObject(context.TODO(), b.config.Bucket, b.getObjectName(file.UploadID, file.ID), fileReader, -1, putOpts)
 	}
 	return err
 }
@@ -159,23 +178,43 @@ func (b *Backend) newPutObjectOptions(contentType string) minio.PutObjectOptions
 
 // RemoveFile implementation for S3 Data Backend
 func (b *Backend) RemoveFile(file *common.File) (err error) {
-	objectName := b.getObjectName(file.ID)
+	// Try removing the new object name format first ({uploadID}.{fileID})
+	objectName := b.getObjectName(file.UploadID, file.ID)
 	err = b.client.RemoveObject(context.TODO(), b.config.Bucket, objectName, minio.RemoveObjectOptions{})
 	if err != nil {
-		// Ignore "file not found" errors
 		errResponse := minio.ToErrorResponse(err)
-		if errResponse.Code == "NoSuchKey" {
-			return nil
+		if errResponse.Code != "NoSuchKey" {
+			return fmt.Errorf("unable to remove s3 object %s : %s", objectName, err)
 		}
-		return fmt.Errorf("Unable to remove s3 object %s : %s", objectName, err)
+
+		// Fall back to legacy object name format ({fileID}) for backward compatibility
+		legacyName := b.getObjectNameLegacy(file.ID)
+		err = b.client.RemoveObject(context.TODO(), b.config.Bucket, legacyName, minio.RemoveObjectOptions{})
+		if err != nil {
+			errResponse = minio.ToErrorResponse(err)
+			if errResponse.Code == "NoSuchKey" {
+				return nil
+			}
+			return fmt.Errorf("unable to remove s3 object %s : %s", legacyName, err)
+		}
 	}
 
 	return nil
 }
 
-func (b *Backend) getObjectName(name string) string {
+func (b *Backend) getObjectName(uploadID, fileID string) string {
+	name := fmt.Sprintf("%s.%s", uploadID, fileID)
 	if b.config.Prefix != "" {
 		return fmt.Sprintf("%s/%s", b.config.Prefix, name)
 	}
 	return name
+}
+
+// getObjectNameLegacy returns the legacy object name format for backward compatibility
+// with objects stored before the {uploadID}.{fileID} naming convention.
+func (b *Backend) getObjectNameLegacy(fileID string) string {
+	if b.config.Prefix != "" {
+		return fmt.Sprintf("%s/%s", b.config.Prefix, fileID)
+	}
+	return fileID
 }

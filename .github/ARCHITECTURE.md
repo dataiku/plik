@@ -10,12 +10,11 @@
 .github/
 ├── workflows/
 │   ├── tests.yaml              ← CI: lint, test, docs build on push/PR
-│   ├── pages.yml               ← Deploy docs + publish Helm chart to gh-pages
-│   ├── release.yaml            ← Build release archives, Docker images on tag push
+│   ├── pages.yml               ← Deploy docs to gh-pages
+│   ├── release.yaml            ← Build release archives, Docker images, Helm chart on release
 │   ├── master.yaml             ← Post-merge actions on master
 │   ├── docker-build-pr.yaml    ← Build Docker image on PR (triggered by comment)
 │   └── docker-deploy-pr.yaml   ← Deploy PR image to staging (triggered by comment)
-├── cr.yaml                     ← chart-releaser configuration
 └── ARCHITECTURE.md             ← this file
 ```
 
@@ -28,26 +27,24 @@
 Runs on every push and pull request. Steps:
 1. Go lint (`make lint`)
 2. Go tests (`make test`)
-3. Docs build (`make docs`) — verifies VitePress builds without errors
+3. Frontend tests (`make test-frontend`) — vitest unit tests for the Vue webapp
+4. Docs build (`make docs`) — verifies VitePress builds without errors
 
-### `pages.yml` — GitHub Pages (Docs + Helm Chart)
+### `pages.yml` — GitHub Pages (Docs)
 
-Runs on push to `master` when `docs/**`, `charts/**`, or the workflow itself changes. Publishes **two things** to the `gh-pages` branch:
-
-1. **VitePress documentation** — built with `make docs`, deployed via `peaceiris/actions-gh-pages`
-2. **Helm chart** — released via `helm/chart-releaser-action`, which packages charts from `charts/` and maintains `index.yaml`
+Runs on push to `master` when `docs/**` or the workflow itself changes. Deploys VitePress documentation to the `gh-pages` branch via `peaceiris/actions-gh-pages`.
 
 > [!NOTE]
-> Both docs and the Helm chart share the `gh-pages` branch because GitHub Pages only supports a single publishing source. The `keep_files: true` flag in the docs deployment step preserves the Helm `index.yaml` and chart packages.
-
-**Configuration**: `cr.yaml` sets `skip_existing: true` so chart-releaser won't fail on already-released chart versions.
+> The `keep_files: true` flag preserves the Helm `index.yaml` and APT repository (`apt/`) on `gh-pages` (updated by the release workflow).
 
 ### `release.yaml` — Tagged Release Pipeline
 
 Triggered when a GitHub release is created (tag push). Runs the full release pipeline:
 1. Builds multi-arch Docker images
 2. Builds release archives and client binaries
-3. Uploads artifacts to the GitHub release
+3. Packages the Helm chart and updates `index.yaml` on `gh-pages` (via `releaser/helm_release.sh`)
+4. Builds `.deb` packages and updates the APT repository on `gh-pages` (via `releaser/apt_release.sh`)
+5. Uploads all artifacts (including `.tgz`, `.deb` files) to the GitHub release
 
 See [releaser/ARCHITECTURE.md](../releaser/ARCHITECTURE.md) for the build details.
 
@@ -69,14 +66,17 @@ Triggered by a `docker deploy` comment on a PR. Deploys the PR-specific Docker i
 
 ```mermaid
 graph LR
-    Push["Push to master<br/>(charts/ changed)"] --> Pages["pages.yml workflow"]
-    Pages --> BuildDocs["Build VitePress docs"]
-    Pages --> ChartRelease["chart-releaser-action"]
-    BuildDocs --> GHPages["gh-pages branch<br/>(docs site)"]
-    ChartRelease --> GHPages
-    ChartRelease --> GitHubRelease["GitHub Release<br/>(chart .tgz)"]
+    Release["GitHub Release created"] --> ReleaseWF["release.yaml workflow"]
+    ReleaseWF --> Build["Build archives + Docker"]
+    ReleaseWF --> HelmScript["releaser/helm_release.sh"]
+    HelmScript --> Package["Package plik-helm-VERSION.tgz"]
+    Package --> Assets["GitHub Release assets"]
+    HelmScript --> UpdateIndex["Update index.yaml"]
+    UpdateIndex --> GHPages["gh-pages branch"]
     GHPages --> HelmRepo["helm repo add plik<br/>https://root-gg.github.io/plik"]
 ```
+
+The Helm chart version is unified with the app version — `Chart.yaml` `version` and `appVersion` are dynamically set to the release tag by `helm_release.sh` at release time.
 
 Users install the chart via:
 ```bash
@@ -85,3 +85,37 @@ helm install plik plik/plik
 ```
 
 The chart source lives in `charts/plik/`. See the chart's `values.yaml` for all configuration options.
+
+## APT Repository Release Flow
+
+```mermaid
+graph LR
+    Release["GitHub Release created"] --> ReleaseWF["release.yaml workflow"]
+    ReleaseWF --> AptScript["releaser/apt_release.sh"]
+    AptScript --> Nfpm["nfpm builds .deb packages"]
+    Nfpm --> Assets["GitHub Release assets"]
+    AptScript --> AptRepo["Update apt/ on gh-pages"]
+    AptRepo --> Sign["GPG sign Release"]
+    Sign --> GHPages["gh-pages branch"]
+    GHPages --> AptInstall["apt install plik-server<br/>https://root-gg.github.io/plik/apt"]
+```
+
+Two packages are built per architecture (amd64, i386, arm64, armhf):
+- `plik-server` — server binary, config, systemd service, webapp, clients
+- `plik-client` — CLI binary
+
+Users install via:
+```bash
+curl -fsSL https://root-gg.github.io/plik/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/plik.gpg
+echo "deb [signed-by=/etc/apt/keyrings/plik.gpg] https://root-gg.github.io/plik/apt stable main" | sudo tee /etc/apt/sources.list.d/plik.list
+sudo apt update && sudo apt install plik-server
+```
+
+### Pre-release checklist
+
+Before creating a GitHub release:
+
+1. Update the version badge and install snippets in `README.md` to reference the new tag
+2. Move `charts/plik/CHANGELOG.md` entries from `[Unreleased]` to the new version heading (e.g. `[1.4-RC4] - 2026-02-21`)
+3. Ensure `GPG_PRIVATE_KEY` secret is configured for APT repository signing
+4. Ensure all `ARCHITECTURE.md` files reflect any structural changes

@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -24,9 +25,10 @@ const envPrefix = "PLIKD_"
 
 // Configuration object
 type Configuration struct {
-	Debug         bool   `json:"-"`
-	DebugRequests bool   `json:"-"`
-	LogLevel      string `json:"-"`
+	Debug         bool      `json:"-"`
+	DebugRequests bool      `json:"-"`
+	LogLevel      string    `json:"-"`
+	LogOutput     io.Writer `json:"-"` // Destination for server logs (default: os.Stdout)
 
 	ListenAddress  string `json:"-"`
 	ListenPort     int    `json:"-"`
@@ -77,6 +79,7 @@ type Configuration struct {
 	FeatureClients        string `json:"feature_clients"`
 	FeatureGithub         string `json:"feature_github"`
 	FeatureText           string `json:"feature_text"`
+	FeatureE2EE           string `json:"feature_e2ee"`
 
 	// Deprecated Feature Flags
 	Authentication      bool `json:"authentication"`      // Deprecated: >1.3.6
@@ -154,6 +157,7 @@ func NewConfiguration() (config *Configuration) {
 	config.ClientsDirectory = "../clients"
 	config.ChangelogDirectory = "../changelog"
 
+	config.LogOutput = os.Stdout
 	config.clean = true
 	return
 }
@@ -232,7 +236,7 @@ func (config *Configuration) Initialize() (err error) {
 	}
 
 	if config.DownloadDomain != "" {
-		strings.Trim(config.DownloadDomain, "/ ")
+		config.DownloadDomain = strings.Trim(config.DownloadDomain, "/ ")
 		var err error
 		if config.downloadDomainURL, err = url.Parse(config.DownloadDomain); err != nil {
 			return fmt.Errorf("invalid download domain URL %s : %s", config.DownloadDomain, err)
@@ -302,7 +306,7 @@ func (config *Configuration) NewLogger() (log *logger.Logger) {
 	if config.Debug {
 		level = "DEBUG"
 	}
-	return logger.NewLogger().SetMinLevelFromString(level).SetFlags(logger.Fdate | logger.Flevel | logger.FfixedSizeLevel)
+	return logger.NewLogger().SetMinLevelFromString(level).SetFlags(logger.Fdate | logger.Flevel | logger.FfixedSizeLevel).SetOutput(config.LogOutput)
 }
 
 // GetUploadWhitelist return the parsed IP upload whitelist
@@ -315,7 +319,7 @@ func (config *Configuration) GetDownloadDomain() *url.URL {
 	return config.downloadDomainURL
 }
 
-// IsValidDownloadDomain return weather or not the host is a valid download domain
+// IsValidDownloadDomain return whether or not the host is a valid download domain
 func (config *Configuration) IsValidDownloadDomain(host string) bool {
 	if config.downloadDomainURL == nil {
 		return true
@@ -341,12 +345,12 @@ func (config *Configuration) AutoClean(value bool) {
 	config.clean = value
 }
 
-// IsAutoClean return weather or not to start the cleaning goroutine
+// IsAutoClean return whether or not to start the cleaning goroutine
 func (config *Configuration) IsAutoClean() bool {
 	return config.clean
 }
 
-// IsWhitelisted return weather or not the IP matches of the config upload whitelist
+// IsWhitelisted return whether or not the IP matches of the config upload whitelist
 func (config *Configuration) IsWhitelisted(ip net.IP) bool {
 	if len(config.uploadWhitelist) == 0 {
 		// Empty whitelist == accept all
@@ -401,7 +405,7 @@ func (config *Configuration) GetTlsVersion() uint16 {
 		return tls.VersionTLS13
 	}
 
-	return tls.VersionTLS10
+	return tls.VersionTLS12
 }
 
 // GetPath return the web API/UI root path
@@ -448,6 +452,7 @@ func (config *Configuration) String() string {
 	str += fmt.Sprintf("Upload comments : %s\n", config.FeatureComments)
 	str += fmt.Sprintf("Upload set TTL : %s\n", config.FeatureSetTTL)
 	str += fmt.Sprintf("Upload extend TTL : %s\n", config.FeatureExtendTTL)
+	str += fmt.Sprintf("E2E encryption : %s\n", config.FeatureE2EE)
 	str += fmt.Sprintf("Delete account : %s\n", config.FeatureDeleteAccount)
 
 	str += fmt.Sprintf("Authentication : %s\n", config.FeatureAuthentication)

@@ -8,36 +8,53 @@
 
 ```
 client/
-├── plik.go        ← main CLI logic (docopt-based argument parsing + upload flow)
-├── mcp.go         ← MCP (Model Context Protocol) server over stdio for AI assistants
-├── config.go      ← configuration loading (.plikrc)
-├── login.go       ← CLI device auth flow (--login)
-├── progress.go    ← upload progress bar
-├── update.go      ← self-update mechanism
-├── archive/       ← archive backends (tar, zip)
-├── crypto/        ← crypto backends (openssl, pgp)
-├── .plikrc        ← example client configuration
-├── plik.sh        ← bash upload wrapper
-├── test.sh        ← CLI integration tests
-├── test_downgrade.sh  ← client version downgrade tests
-└── test_upgrade.sh    ← client version upgrade tests
+├── plik.go          ← entry point: arg parsing, config loading, dispatch
+├── app.go           ← PlikCLI struct: upload flow, helpers (Run, info, getFileCommand, printf)
+├── mcp.go           ← MCP (Model Context Protocol) server over stdio for AI assistants
+├── config.go        ← configuration loading (.plikrc)
+├── config_test.go   ← unit tests for config parsing (TTL, password, flags, file loading)
+├── login.go         ← CLI device auth flow (--login)
+├── progress.go      ← upload progress bar
+├── update.go        ← self-update mechanism (PlikCLI method)
+├── update_test.go   ← unit tests for update flow (early exits, error handling)
+├── archive/         ← archive backends (tar, zip) — errors via CloseWithError
+├── crypto/          ← crypto backends (openssl, pgp, age) — errors via CloseWithError
+├── setup_test.go    ← e2e test infrastructure (TestMain, server lifecycle, helpers)
+├── z1_e2e_basics_test.go   ← basic CLI tests (info, debug, single/multi file, stdin)
+├── z2_e2e_options_test.go  ← upload option tests (oneshot, ttl, quiet, JSON, etc.)
+├── z3_e2e_archive_test.go  ← archive backend tests (tar, zip)
+├── z4_e2e_crypto_test.go   ← crypto backend tests (openssl, pgp, age)
+├── .plikrc          ← example client configuration
+└── plik.sh          ← bash upload wrapper
 ```
 
 ---
 
 ## Key Components
 
-### CLI Entry Point (`plik.go`)
+### CLI Entry Point (`plik.go`) and Runtime State (`app.go`)
 
-Uses [docopt-go](https://github.com/docopt/docopt-go) for argument parsing. The main flow:
+`plik.go` is a slim `main()` using [docopt-go](https://github.com/docopt/docopt-go) for argument parsing. It delegates all upload logic to the `PlikCLI` struct defined in `app.go`.
 
-1. Parse CLI args (file paths, options like `--oneshot`, `--stream`, `--ttl`, etc.)
-2. Load config from `.plikrc` (or `PLIKRC` env var)
-3. Handle special modes: `--mcp` (MCP server), `--login` (device auth), `--update` (self-update), `--version`
-4. Create upload via the Go library (`plik/`)
-5. Add files (with optional archive/encrypt preprocessing)
-6. Upload files with progress bars
-7. Print download URLs
+**`PlikCLI` struct** encapsulates all mutable runtime state:
+- `Config`, `Arguments` — parsed configuration and CLI args
+- `ArchiveBackend`, `CryptoBackend` — initialized lazily during `Run()`
+- `Stdout`, `Stderr` — injectable `io.Writer` for output (default: `os.Stdout`/`os.Stderr`); enables test output capture without global state mutation
+
+**`main()` flow** (in `plik.go`):
+1. Parse CLI args → early exits: `--version`, `--mcp`, `--info`, `--login`
+2. Load config from `.plikrc` → `NewPlikCLI(config, args)`
+   - First-run wizard is skipped when `--quiet`, `--yes`, or `--server` is set
+3. Dispatch to `cli.Run(client)` for the upload flow
+
+**`PlikCLI.Run()` flow** (in `app.go`):
+1. Create upload via the Go library (`plik/`)
+2. Add files (with optional archive/encrypt preprocessing)
+3. Upload files with progress bars
+4. Output results:
+   - Default: print download URLs/commands to stdout
+   - `--quiet`: print only file URLs to stdout
+   - `--json`: print `UploadWithURL` as pretty-printed JSON to stdout (implies `--quiet`)
 
 ### Configuration (`config.go`)
 
@@ -65,16 +82,19 @@ Triggered by `--login` flag or interactively during first-run when auth is enabl
 | `tar` | Create tar archives with compression (gzip, bzip2, xz, lzip, lzma, lzop) |
 | `zip` | Create zip archives |
 
-Archives wrap multiple files/directories into a single upload file.
+Archives wrap multiple files/directories into a single upload file. Errors are propagated via `io.PipeWriter.CloseWithError()` from the archiving goroutine.
 
 ### Crypto Backends (`crypto/`)
 
 | Backend | Description |
 |---------|-------------|
-| `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher) |
-| `pgp` | Asymmetric encryption via GPG/PGP (recipient-based) |
+| `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher). **Deprecated** — use `age` instead |
+| `pgp` | Asymmetric encryption via GPG/PGP (recipient-based). **Deprecated** — use `age` instead |
+| `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). URLs can serve SSH keys **and** native `age1…` recipients. Plain HTTP URLs trigger a MITM security prompt (default: decline). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
 
-Encryption wraps the file data stream before upload.
+Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine. All backends expose a `Stderr io.Writer` field (default: `os.Stderr`) and a `SetStderr(w io.Writer)` method so that `PlikCLI` can redirect diagnostic output (passphrase display, recipient resolution progress, warnings) through its injectable writer for test capture.
+
+When the `age` backend is used, the upload is flagged as E2EE (`upload.E2EE = "age"`). This tells the webapp to prompt for a passphrase on download and decrypt client-side. A cryptographically-secure passphrase is auto-generated when none is provided.
 
 ### Self-Update (`update.go`)
 
@@ -100,7 +120,40 @@ All upload tools use `plik.UploadParams` via struct embedding and return `Upload
 
 ---
 
-## Integration Tests
+## Tests
 
-- `test.sh` — comprehensive CLI integration tests (requires a running server)
-- `test_upgrade.sh` / `test_downgrade.sh` — version compatibility tests (stale, unused since ~2021)
+### Unit Tests
+- `config_test.go` — TTL parsing, password splitting, boolean flags, config file loading, defaults
+- `update_test.go` — auto-update disabled, quiet mode, unreachable server, missing platform binary
+- `crypto/age/age_test.go` — recipient resolution, encryption round-trips
+
+### Integration Tests (e2e)
+
+End-to-end tests run against an ephemeral `plikd` server (started in `TestMain`):
+
+| File | Coverage |
+|------|---------|
+| `setup_test.go` | Server lifecycle, helpers |
+| `z1_e2e_basics_test.go` | Info, debug, single/multi file, custom name, stdin |
+| `z2_e2e_options_test.go` | Oneshot, removable, stream, TTL, password, comments, quiet, JSON, not-secure, error paths |
+| `z3_e2e_archive_test.go` | Tar (single, multi, dir, compression, options, name), zip (single, dir, options, name, dir+name) |
+| `z4_e2e_crypto_test.go` | OpenSSL (auto/custom/prompted passphrase + decrypt round-trip, cipher, options), PGP (encrypt+decrypt), Age (passphrase + decrypt round-trip, recipient + decrypt) |
+
+Tests requiring external binaries (`tar`, `zip`, `gpg`, `age`, `openssl`) use `requireBinary()` to fail immediately if unavailable.
+
+---
+
+## Conventions
+
+### Stderr for all non-data output
+
+Because `--quiet` and `--json` modes reserve stdout exclusively for machine-readable data (file URLs or JSON), **all** informational, diagnostic, and error messages in the CLI must be written to **stderr** (`fmt.Fprintf(os.Stderr, ...)`). This includes:
+
+- Passphrase display (crypto backends)
+- Recipient resolution progress (age backend)
+- Debug output
+- Streaming download commands
+- Archive/crypto error messages
+- Progress bars (already write to stderr via the `pb` library)
+
+Never use `fmt.Printf` / `fmt.Println` for non-data output in the CLI.

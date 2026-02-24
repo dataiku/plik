@@ -10,6 +10,11 @@ import (
 	"github.com/root-gg/utils"
 )
 
+// IsPlikWebapp checks if the request comes from the Plik web application
+func IsPlikWebapp(req *http.Request) bool {
+	return req.Header.Get("X-ClientApp") == "web_client"
+}
+
 // Ensure HTTPError implements error
 var _ error = (*HTTPError)(nil)
 
@@ -61,6 +66,18 @@ func StripPrefix(prefix string, handler http.Handler) http.Handler {
 		}
 		handler.ServeHTTP(resp, req)
 	})
+}
+
+// SanitizeFilenameForDisposition strips characters that could break a
+// Content-Disposition header value: double quotes, CR, LF, and null bytes.
+func SanitizeFilenameForDisposition(name string) string {
+	r := strings.NewReplacer(
+		`"`, "",
+		"\r", "",
+		"\n", "",
+		"\x00", "",
+	)
+	return r.Replace(name)
 }
 
 // EncodeAuthBasicHeader return the base64 version of "login:password"

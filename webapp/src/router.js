@@ -23,11 +23,13 @@ const routes = [
         path: '/home',
         name: 'home',
         component: HomeView,
+        meta: { requiresAuth: true },
     },
     {
         path: '/admin',
         name: 'admin',
         component: AdminView,
+        meta: { requiresAuth: true, requiresAdmin: true },
     },
     {
         path: '/clients',
@@ -69,6 +71,18 @@ router.beforeEach((to) => {
         return { name: 'login' }
     }
 
+    // Pages marked requiresAuth need a logged-in user
+    if (to.meta.requiresAuth && !auth.user) {
+        sessionStorage.setItem('plik-auth-redirect', to.fullPath)
+        return { name: 'login' }
+    }
+
+    // Admin pages require an admin user (user is authenticated at this point)
+    if (to.meta.requiresAdmin && !auth.user?.admin) {
+        return '/'
+    }
+
+    // Forced authentication: redirect everything else to login unless exempted
     if (config.feature_authentication !== 'forced') return true
     if (auth.user) return true
     if (to.name === 'login') return true

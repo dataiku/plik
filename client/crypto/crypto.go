@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 
+	agebackend "github.com/root-gg/plik/client/crypto/age"
 	"github.com/root-gg/plik/client/crypto/openssl"
 	"github.com/root-gg/plik/client/crypto/pgp"
 )
@@ -15,6 +16,7 @@ type Backend interface {
 	Encrypt(in io.Reader) (out io.Reader, err error)
 	Comments() string
 	GetConfiguration() any
+	SetStderr(w io.Writer)
 }
 
 // NewCryptoBackend instantiate the wanted archive backend with the name provided in configuration file
@@ -25,6 +27,8 @@ func NewCryptoBackend(name string, config map[string]any) (backend Backend, err 
 		backend = openssl.NewOpenSSLBackend(config)
 	case "pgp":
 		backend = pgp.NewPgpBackend(config)
+	case "age":
+		backend = agebackend.NewAgeBackend(config)
 	default:
 		err = errors.New("Invalid crypto backend")
 	}

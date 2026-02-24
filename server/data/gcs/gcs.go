@@ -165,11 +165,16 @@ func (b *Backend) AddFile(file *common.File, fileReader io.Reader) (err error) {
 
 	// Get a writer
 	wc := b.client.Bucket(b.Config.Bucket).Object(objectName).NewWriter(context.Background())
-	defer wc.Close()
 
 	_, err = io.Copy(wc, fileReader)
 	if err != nil {
+		_ = wc.Close()
 		return fmt.Errorf("Unable to write GCS object %s : %s", objectName, err)
+	}
+
+	err = wc.Close()
+	if err != nil {
+		return fmt.Errorf("Unable to finalize GCS object %s : %s", objectName, err)
 	}
 
 	return nil

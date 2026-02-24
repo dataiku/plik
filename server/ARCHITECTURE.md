@@ -29,12 +29,12 @@ The server binary `plikd` uses [cobra](https://github.com/spf13/cobra) for CLI m
 | File | Command | Description |
 |------|---------|-------------|
 | `root.go` | `plikd` | Start the server (default command) |
-| `user.go` | `plikd user create/list/delete` | Manage local users |
+| `user.go` | `plikd user create/show/update/list/delete` | Manage users |
 | `token.go` | `plikd token create/list/delete` | Manage user tokens |
-| `file.go` | `plikd file list/delete` | Manage uploads/files |
+| `file.go` | `plikd file list/show/delete` | Manage uploads/files (`delete` requires `--file`, `--upload`, or `--all`) |
 | `clean.go` | `plikd clean` | Run metadata cleanup |
-| `import.go` | `plikd import` | Import metadata from gob + Snappy binary |
-| `export.go` | `plikd export` | Export metadata to gob + Snappy binary |
+| `import.go` | `plikd import [input-file]` | Import metadata from gob + Snappy binary |
+| `export.go` | `plikd export [output-file]` | Export metadata to gob + Snappy binary |
 
 Config loading order: `--config` flag → `PLIKD_CONFIG` env → `./plikd.cfg` → `/etc/plikd.cfg`.
 
@@ -46,7 +46,7 @@ Core types used throughout the server:
 
 | File | Content |
 |------|---------|
-| `upload.go` | `Upload` struct — container for files with TTL, options, password |
+| `upload.go` | `Upload` struct — container for files with TTL, options, password, E2EE scheme |
 | `file.go` | `File` struct + status constants (`missing`/`uploading`/`uploaded`/`removed`/`deleted`) |
 | `user.go` | `User` struct + provider constants (`local`/`google`/`ovh`/`oidc`) |
 | `token.go` | `Token` struct — UUID-based upload tokens |
@@ -59,7 +59,7 @@ Core types used throughout the server:
 | `stats.go` | `ServerStats` — upload/file/user counts |
 | `metrics.go` | `PlikMetrics` — Prometheus metric registry |
 | `version.go` | Build info (version, git commit, build date) |
-| `utils.go` | `GenerateRandomID()`, `StripPrefix()`, etc. |
+| `utils.go` | `GenerateRandomID()`, `StripPrefix()`, `IsPlikWebapp()`, etc. |
 
 ---
 
@@ -107,11 +107,11 @@ type Backend interface {
 
 | Package | Backend | Notes |
 |---------|---------|-------|
-| `data/file` | Local filesystem | Files stored in configurable directory |
-| `data/s3` | Amazon S3 / MinIO | Supports SSE-C/S3 encryption and optional legacy Content-MD5 compatibility mode |
+| `data/file` | Local filesystem | Files stored in configurable directory. |
+| `data/s3` | Amazon S3 / MinIO | Supports SSE-C/S3 encryption. |
 | `data/swift` | OpenStack Swift | |
 | `data/gcs` | Google Cloud Storage | |
-| `data/stream` | In-memory pipe | Blocks uploader until downloader connects — nothing stored |
+| `data/stream` | In-memory pipe | Blocks uploader until downloader connects — nothing stored. |
 | `data/testing` | In-memory map | For tests only |
 
 ---
@@ -125,7 +125,7 @@ Uses GORM with gormigrate for schema management across SQLite3, PostgreSQL, and 
 - **SQLite3**: WAL mode + foreign keys enabled on connect
 - **Schema init**: Auto-migrates `Upload`, `File`, `User`, `Token`, `Setting`, `CLIAuthSession` tables
 - **Migrations**: Versioned via gormigrate — see `migrations.go`
-- **Cleaning**: `Clean()` removes orphan files, tokens, and expired CLI auth sessions (FK integrity)
+- **Cleaning**: `Clean()` removes orphan files and tokens and CLI auth sessions
 - **Metrics**: GORM Prometheus plugin for DB stats
 
 ### Files
@@ -219,7 +219,7 @@ Each handler file contains one or more `http.Handler` functions.
 | `create_upload.go` | `CreateUpload` | Create upload with options, validate config/quotas |
 | `add_file.go` | `AddFile` | Upload file to existing upload (multipart) |
 | `get_upload.go` | `GetUpload` | Return upload metadata |
-| `get_file.go` | `GetFile` | Download file, handle OneShot, extend TTL |
+| `get_file.go` | `GetFile` | Download file, handle OneShot, extend TTL. E2EE uploads: redirects webapp to download page, forces `application/octet-stream` |
 | `get_archive.go` | `GetArchive` | Download all files as zip |
 | `remove_file.go` | `RemoveFile` | Mark file as removed |
 | `remove_upload.go` | `RemoveUpload` | Soft-delete upload |

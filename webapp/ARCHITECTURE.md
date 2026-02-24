@@ -40,12 +40,18 @@ Admin link (upload-level): `/#/?id=<uploadId>&uploadToken=<token>`
 
 ### Auth Navigation Guard
 
-When `config.feature_authentication` is `"forced"`, a `router.beforeEach` guard redirects unauthenticated users to `/#/login`. Exceptions:
-- The login page itself (`to.name === 'login'`)
-- CLI client downloads (`to.name === 'clients'`) — so users can get the CLI without logging in
-- Download pages (`to.name === 'root' && to.query.id`) — so shared links still work
+The router's `beforeEach` guard enforces authentication in three layers (checked in order):
+
+1. **`requiresAuth` routes** (`/#/home`, `/#/admin`): Unauthenticated users are redirected to `/#/login` with the intended destination saved in `sessionStorage` (survives OAuth round-trips).
+2. **`requiresAdmin` routes** (`/#/admin`): Authenticated non-admin users are redirected to `/`.
+3. **Forced authentication** (`config.feature_authentication === "forced"`): All other routes redirect unauthenticated users to `/#/login`, except:
+   - The login page itself (`to.name === 'login'`)
+   - CLI client downloads (`to.name === 'clients'`) — so users can get the CLI without logging in
+   - Download pages (`to.name === 'root' && to.query.id`) — so shared links still work
 
 CLI auth approval (`to.name === 'cli-auth'`) always requires authentication regardless of auth mode.
+
+> **Gotcha**: In `main.js`, `app.use(router)` is called inside the `Promise.all([loadConfig(), checkSession()]).then(...)` callback, NOT before it. This is critical because the router's navigation guards rely on `config.feature_authentication` being loaded. Installing the router before config loads would cause the forced-auth guard to see the default value (`"disabled"`) instead of the server-configured value.
 
 **Redirect preservation**: When the guard redirects to login, it saves the intended destination to `sessionStorage` (`plik-auth-redirect` key) instead of a URL query parameter. This is necessary because OAuth flows do a full-page round-trip through an external provider (Google, OIDC, OVH), and the server callback redirects back to `/#/login` — any hash-fragment query params would be lost during this round-trip. Using sessionStorage solves this uniformly for all auth methods (local login and OAuth).
 
@@ -266,7 +272,7 @@ The URL prefix changes based on whether the upload uses streaming:
 ### Pending Upload Store (`pendingUploadStore.js`)
 
 In-memory store (same pattern as `tokenStore.js`) to pass files from UploadView → DownloadView across navigation:
-- `setPendingFiles(uploadId, files, basicAuth)` — stash after `createUpload()`
+- `setPendingFiles(uploadId, files, basicAuth, passphrase)` — stash after `createUpload()` (includes E2EE passphrase if enabled)
 - `consumePendingFiles(uploadId)` — retrieve and clear (one-shot)
 
 ### Staged upload flow (DownloadView)
@@ -336,6 +342,8 @@ The server exposes feature flags via `GET /config`:
 | `disabled`  | Feature is hidden entirely                   |
 | `forced`    | Feature is on, user cannot toggle it off     |
 | `default`   | Feature is available, default on             |
+
+| `feature_e2ee` | `"enabled"` or `"disabled"` — controls E2EE toggle in upload sidebar |
 
 The config object keys use the pattern `feature_<name>` (e.g., `feature_one_shot`, `feature_stream`).
 
@@ -434,11 +442,11 @@ App.vue
 ├── AppHeader.vue          — top nav bar (Upload, CLI, Source, user/admin links)
 ├── RootView.vue           — switches between Upload/Download based on query.id
 │   ├── UploadView.vue     — file staging, settings, upload execution
-│   │   ├── UploadSidebar  — upload settings (one-shot, stream, TTL, etc.)
+│   │   ├── UploadSidebar  — upload settings (one-shot, stream, TTL, E2EE, etc.)
 │   │   ├── FileRow        — individual file display
 │   │   └── CodeEditor     — text paste mode with syntax highlighting
 │   └── DownloadView.vue   — file list, admin actions
-│       ├── DownloadSidebar — upload info, share, admin URL, action buttons
+│       ├── DownloadSidebar — upload info (E2EE badge), share (passphrase + toggle), admin URL, actions
 │       ├── FileRow         — file link (preview), caret (details), download/QR/copy/view/remove
 │       ├── CodeEditor      — inline file viewer (read-only)
 │       ├── QrCodeDialog    — QR code modal
@@ -446,8 +454,12 @@ App.vue
 │       └── ConfirmDialog   — confirmation modal
 ├── LoginView.vue          — local login form + OAuth/OIDC buttons
 ├── HomeView.vue           — user dashboard (uploads/tokens/account)
-│   └── CopyButton         — clipboard copy for tokens
+│   ├── CopyButton         — clipboard copy for tokens
+│   ├── EditUserModal      — shared edit-user modal (quotas, name, email, password)
+│   └── UploadCard         — shared upload card (files, tokens, actions)
 ├── AdminView.vue          — admin panel (stats/users/uploads)
+│   ├── EditUserModal      — shared edit-user modal (quotas always shown)
+│   └── UploadCard         — shared upload card (with user column)
 ├── ClientsView.vue        — CLI client downloads (from embedded build info)
 └── CLIAuthView.vue        — CLI device auth approval (displays code, approves session)
 ```
@@ -459,6 +471,14 @@ App.vue
 ### Auth State (`authStore.js`)
 
 Reactive singleton holding `auth.user` (set on login, cleared on logout). Checked by `main.js` on app load via `GET /me`. The header shows user/admin links when `auth.user` is set.
+
+### Notification Store (`notification.js`)
+
+Reactive notification singleton for surfacing user-facing errors and success messages.
+
+- `showError(msg)` / `showSuccess(msg)` — set the notification and start a 5-second auto-dismiss timer
+- `dismiss()` — clears immediately
+- `NotificationBanner.vue` — mounted in `App.vue`, renders the notification as a fixed toast below the header
 
 ### LoginView (`/#/login`)
 
@@ -616,10 +636,62 @@ Reusable CodeMirror 6 wrapper (`CodeEditor.vue`) used in two contexts:
 
 The `isTextFile()` utility in `utils.js` determines if a file can be viewed in the code editor based on:
 1. **Size**: Max 5 MB (`MAX_VIEWABLE_SIZE`)
-2. **MIME type**: `text/*` prefix or known application types (JSON, XML, YAML, etc.)
-3. **Extension**: ~60 common text/code extensions
+2. **MIME type**: `text/*` prefix only — the server detects MIME types via Go's `http.DetectContentType`, which returns `text/plain` for all text-like content (JS, JSON, Go, Python, etc.) and `application/octet-stream` for binary
 
 `FileRow.vue` uses this to conditionally show a "View" button on uploaded files in download mode.
+
+---
+
+## Testing
+
+The webapp uses [Vitest](https://vitest.dev/) with jsdom for unit testing.
+
+```bash
+npm test                    # Run all tests (vitest run)
+make test-frontend          # Same, via Makefile (npm ci + npm test)
+```
+
+Tests live in `src/__tests__/` and cover pure utility functions, config helpers, and stores:
+
+| File | Scope |
+|------|-------|
+| `utils.test.js` | All pure functions in `utils.js` (formatting, conversion, round-trips) |
+| `config.test.js` | Feature flag helpers (`isFeatureEnabled`, `isFeatureForced`, `isFeatureDefaultOn`) |
+| `markdown.test.js` | Markdown rendering + XSS sanitization via DOMPurify |
+| `pendingUploadStore.test.js` | One-shot store semantics (set, consume, double-consume) |
+| `notification.test.js` | Notification store (show/dismiss, auto-dismiss timer, replacement) |
+
+Vitest configuration is in `vite.config.js` under the `test` key (`globals: true`, `environment: 'jsdom'`).
+
+### E2E Testing (Playwright)
+
+End-to-end tests use [Playwright](https://playwright.dev/) to drive a real Chromium browser against a running `plikd` instance.
+
+```bash
+make test-frontend-e2e          # Full self-contained run (builds server+frontend, starts fresh plikd)
+cd webapp && npx playwright test           # Quick run (assumes plikd is already running)
+cd webapp && npx playwright test --ui      # Interactive UI mode
+```
+
+Tests live in `webapp/e2e/` and cover core flows:
+
+| File | Scope |
+|------|-------|
+| `settings.spec.js` | Feature flags, TTL, toggles, abuse contact, header links |
+| `upload.spec.js` | File upload via input, multi-file, text paste |
+| `admin.spec.js` | Server info, config, stats, version badges |
+| `download.spec.js` | Download page, text viewer, paste upload |
+| `navigation.spec.js` | Routing, auth redirects, OAuth |
+| `e2ee.spec.js` | End-to-end encryption flows |
+| `password.spec.js` | Password protection |
+| `home.spec.js` | User info, config, stats panels |
+| `qrcode.spec.js` | QR code modal |
+| `retry.spec.js` | Upload failure/retry, cancel |
+| `streaming.spec.js` | Stream upload, URL path, hidden actions |
+
+**Server lifecycle**: Playwright's `webServer` launches `e2e/start-server.sh` which creates a fresh temp directory with clean SQLite DB + data backend, seeds an admin user, and starts `plikd`. The `globalTeardown` cleans up after the suite.
+
+**Fixtures** (`e2e/fixtures.js`): `authenticatedPage` provides a pre-logged-in admin session; `withConfig(overrides)` intercepts `/config` API to test feature flags; `withVersion(overrides)` intercepts `/version` API for badge testing; `uploadTestFile()` creates a quick upload through the UI.
 
 ---
 
@@ -654,6 +726,7 @@ The Go server serves `webapp/dist/` via `http.FileServer`. Default config: `Weba
 | `clients`         | Cross-compile clients for all architectures       |
 | `docker`          | Build Docker image `rootgg/plik:dev`              |
 | `release`         | Create release archives via `releaser/release.sh` |
+| `test-frontend`   | `npm ci && npm test` — run vitest unit tests      |
 | `clean`           | Remove server/client binaries                     |
 | `clean-frontend`  | Remove `webapp/dist/`                             |
 | `clean-all`       | Clean everything including `node_modules`         |
@@ -693,4 +766,68 @@ For full details on the Docker multi-stage build and release packaging, see [rel
 12. **DownloadView has two error refs** — `error` (page-level) and `uploadError` (inline banner). Setting file upload errors on `error` hides the entire upload content due to template branching. Always use `uploadError` for file transfer failures.
 
 13. **Filenames are capped at 1024 characters** — enforced in `UploadView.addFiles()`, `FileRow.onNameInput/onNameKeydown/onNamePaste`. The server also validates this, so both layers must agree.
+
+14. **E2EE passphrase is never stored server-side** — it lives only in the `pendingUploadStore` (for same-session navigation) and optionally in the URL fragment (via the share toggle). If the user loses the passphrase, decryption is impossible.
+
+---
+
+## Markdown Rendering
+
+### Module: `markdown.js`
+
+Shared utility for rendering Markdown comments to sanitized HTML:
+
+```javascript
+import { renderMarkdown } from '../markdown.js'
+```
+
+| Function | Description |
+|----------|-------------|
+| `renderMarkdown(text)` | Parses Markdown via `marked`, sanitizes HTML via `DOMPurify` |
+
+Used by both `UploadView` (comment preview) and `DownloadView` (comment display) via `v-html`. DOMPurify prevents stored XSS from user-supplied Markdown comments that could contain malicious HTML/JS.
+
+> **Rule**: Never use `marked.parse()` directly with `v-html`. Always use `renderMarkdown()` which applies DOMPurify sanitization.
+
+---
+
+## End-to-End Encryption (E2EE)
+
+### Module: `crypto.js`
+
+Provides streaming encryption/decryption using the `age-encryption` npm package:
+
+| Function | Description |
+|----------|-------------|
+| `encryptFile(file, passphrase)` | Encrypts a `File` object → returns encrypted `File` |
+| `fetchAndDecrypt(url, passphrase)` | Fetches encrypted bytes, decrypts → returns `Blob` |
+| `generatePassphrase()` | Generates a 32-char cryptographically-secure passphrase |
+
+### Upload Flow (E2EE)
+
+1. User toggles E2EE in `UploadSidebar` → passphrase auto-generated (or customized)
+2. `UploadView.doUpload()` encrypts each file via `encryptFile()` before building the upload params
+3. `params.e2ee = 'age'` sent to server → server stores the E2EE scheme on the upload model
+4. Passphrase passed via `setPendingFiles(id, files, basicAuth, passphrase)` to the pending store
+5. Navigation to DownloadView — passphrase is **not** in the URL
+
+### Download Flow (E2EE)
+
+1. `DownloadView.onMounted()` reads passphrase from `pendingUploadStore` (same-session) or URL fragment `#key=` (shared link)
+2. If E2EE is set on the upload but no passphrase is available → a non-dismissable passphrase modal appears (no Cancel button, overlay click blocked). The modal can only be closed by entering a valid passphrase and clicking Decrypt.
+3. Passphrase is stripped from the URL after extraction (security measure)
+4. `decryptAndDownload()` fetches the encrypted file and decrypts in-browser via `fetchAndDecrypt()`
+5. For E2EE files, `FileRow` emits `decrypt-download` instead of using a direct download link
+
+### Server Behavior for E2EE Uploads
+
+- **Browser redirect**: `GetFile` handler checks `common.IsPlikWebapp(req)` (via `X-ClientApp: web_client` header) — if the request is from the webapp and the upload has `E2EE != ""`, it redirects to `/#/?id=<uploadId>` so the webapp handles passphrase input and decryption
+- **Content-Type**: E2EE uploads are always served as `application/octet-stream` — content-type detection on encrypted bytes is meaningless
+- **CLI downloads**: Non-webapp requests get raw encrypted bytes directly (for piping to `age --decrypt`)
+
+### DownloadSidebar (E2EE)
+
+- **🔐 Encrypted badge**: Shown in upload info when `upload.e2ee` is truthy — displays "End-to-End Encrypted with Age" where Age is a link to [age-encryption.org](https://age-encryption.org)
+- **Passphrase display**: Read-only display in Share section with edit (pencil) button and copy button, always shown for E2EE uploads. Edit button opens the passphrase modal to change the passphrase (overlay dismiss is allowed when editing since a passphrase already exists)
+- **Include passphrase in link toggle**: Off by default — appends `#key=<passphrase>` to the share URL when enabled
 

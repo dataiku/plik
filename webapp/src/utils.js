@@ -176,6 +176,28 @@ export function clampQuota(val) {
 }
 
 /**
+ * Filter raw text input for quota fields.
+ * Allows digits, an optional leading '-', and an optional '.' when allowDecimal is true.
+ * Returns the sanitized string (caller converts to Number on blur via clampQuota).
+ */
+export function filterQuotaInput(raw, allowDecimal = false) {
+    let out = ''
+    let hasDot = false
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i]
+        if (ch === '-' && i === 0 && out === '') {
+            out += ch
+        } else if (ch === '.' && allowDecimal && !hasDot) {
+            hasDot = true
+            out += ch
+        } else if (ch >= '0' && ch <= '9') {
+            out += ch
+        }
+    }
+    return out
+}
+
+/**
  * Hint text for size quota inputs showing the server default
  */
 export function defaultSizeHint(configVal) {
@@ -237,37 +259,15 @@ export function buildEditPayload(form, ttlUnit) {
 /** Max file size viewable in the code editor (5 MB) */
 export const MAX_VIEWABLE_SIZE = 5 * 1024 * 1024
 
-const TEXT_MIME_PREFIXES = ['text/']
-const TEXT_MIME_TYPES = [
-    'application/json', 'application/javascript', 'application/xml',
-    'application/x-yaml', 'application/yaml', 'application/x-sh',
-    'application/x-python', 'application/x-ruby', 'application/x-perl',
-    'application/x-httpd-php', 'application/sql', 'application/graphql',
-    'application/toml', 'application/xhtml+xml',
-]
-const TEXT_EXTENSIONS = [
-    'txt', 'md', 'json', 'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'go', 'rs',
-    'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'sh', 'bash', 'zsh',
-    'yml', 'yaml', 'toml', 'ini', 'cfg', 'conf', 'xml', 'html', 'htm',
-    'css', 'scss', 'sass', 'less', 'sql', 'graphql', 'vue', 'svelte',
-    'swift', 'kt', 'kts', 'scala', 'pl', 'pm', 'r', 'lua', 'makefile',
-    'dockerfile', 'gitignore', 'env', 'log', 'csv', 'tsv',
-]
-
 /**
  * Determine if a file object is a viewable text file.
- * Checks MIME type, extension, and size.
+ * The server detects MIME types via Go's http.DetectContentType,
+ * which returns text/plain for all text-like content.
  */
 export function isTextFile(file) {
     const size = file.fileSize || file.size || 0
     if (size > MAX_VIEWABLE_SIZE) return false
 
     const mime = (file.fileType || '').toLowerCase()
-    if (mime && TEXT_MIME_PREFIXES.some(p => mime.startsWith(p))) return true
-    if (mime && TEXT_MIME_TYPES.includes(mime)) return true
-
-    const ext = (file.fileName || '').split('.').pop()?.toLowerCase()
-    if (ext && TEXT_EXTENSIONS.includes(ext)) return true
-
-    return false
+    return mime.startsWith('text/')
 }

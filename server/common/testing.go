@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ErrorReader impement io.Reader and return err for every read call attempted
+// ErrorReader implement io.Reader and return err for every read call attempted
 type ErrorReader struct {
 	err error
 }

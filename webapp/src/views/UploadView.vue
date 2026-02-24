@@ -1,13 +1,14 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { config, isFeatureForced, isFeatureDefaultOn } from '../config.js'
+import { config, isFeatureEnabled, isFeatureForced, isFeatureDefaultOn } from '../config.js'
 import { createUpload } from '../api.js'
 import { setToken } from '../tokenStore.js'
 import { setPendingFiles } from '../pendingUploadStore.js'
 import { generateRef, ttlToSeconds, secondsToTTL, encodeBasicAuth, humanReadableSize } from '../utils.js'
+import { encryptFile } from '../crypto.js'
 import { auth } from '../authStore.js'
-import { marked } from 'marked'
+import { renderMarkdown } from '../markdown.js'
 import UploadSidebar from '../components/UploadSidebar.vue'
 import FileRow from '../components/FileRow.vue'
 import { defineAsyncComponent } from 'vue'
@@ -49,6 +50,8 @@ const settings = reactive({
   password: '',
   commentEnabled: isFeatureDefaultOn('comments'),
   extendTTL: isFeatureDefaultOn('extend_ttl'),
+  e2eeEnabled: isFeatureDefaultOn('e2ee'),
+  e2eePassphrase: '',
   // When both defaultTTL and maxTTL are 0 (no limit), default to "never expires" ON (opt-out)
   neverExpires: config.defaultTTL <= 0 && effectiveMaxTTL.value <= 0,
   ttlValue: defaultTTL.value.value || 15,
@@ -60,7 +63,7 @@ const commentText = ref('')
 const commentTab = ref('write') // 'write' | 'preview'
 const renderedComment = computed(() => {
   if (!commentText.value) return ''
-  return marked.parse(commentText.value, { breaks: true })
+  return renderMarkdown(commentText.value)
 })
 
 // File list
@@ -210,6 +213,10 @@ function buildUploadParams() {
     params.comments = commentText.value.trim()
   }
 
+  if (settings.e2eeEnabled) {
+    params.e2ee = 'age'
+  }
+
   // Pre-populate files so the server assigns IDs (matched back via reference)
   params.files = files.value.map(f => ({
     fileName: f.fileName,
@@ -221,8 +228,14 @@ function buildUploadParams() {
   return params
 }
 
+const commentsRequired = computed(() => isFeatureForced('comments') && !commentText.value.trim())
+
 async function createEmptyUpload() {
   if (isUploading.value) return
+  if (commentsRequired.value) {
+    uploadError.value = 'A comment is required'
+    return
+  }
 
   isUploading.value = true
   uploadError.value = null
@@ -242,6 +255,10 @@ async function createEmptyUpload() {
 
 async function doUpload() {
   if (!hasFiles.value || isUploading.value) return
+  if (commentsRequired.value) {
+    uploadError.value = 'A comment is required'
+    return
+  }
 
   isUploading.value = true
   uploadError.value = null
@@ -256,14 +273,28 @@ async function doUpload() {
       : null
 
     // Stash files for DownloadView to pick up and upload
-    const pendingFiles = files.value.map(f => ({
-      ...f,
-      // Match server-assigned file ID via reference
-      id: upload.files?.find(sf => sf.reference === f.reference)?.id,
-    }))
-    setPendingFiles(upload.id, pendingFiles, basicAuth)
+    // If E2EE is enabled, encrypt files before stashing
+    let pendingFiles
+    if (settings.e2eeEnabled && settings.e2eePassphrase) {
+      pendingFiles = await Promise.all(files.value.map(async (f) => {
+        const encryptedBlob = await encryptFile(f.file, settings.e2eePassphrase)
+        return {
+          ...f,
+          file: encryptedBlob,
+          id: upload.files?.find(sf => sf.reference === f.reference)?.id,
+        }
+      }))
+    } else {
+      pendingFiles = files.value.map(f => ({
+        ...f,
+        id: upload.files?.find(sf => sf.reference === f.reference)?.id,
+      }))
+    }
 
-    // Navigate immediately — DownloadView will auto-start uploading
+    const passphrase = settings.e2eeEnabled ? settings.e2eePassphrase : null
+    setPendingFiles(upload.id, pendingFiles, basicAuth, passphrase)
+
+    // Navigate to download view — passphrase is carried via pendingUploadStore
     setToken(upload.id, upload.uploadToken)
     router.push({ path: '/', query: { id: upload.id } })
   } catch (err) {
@@ -308,7 +339,8 @@ async function doUpload() {
         </div>
 
         <!-- Markdown Editor -->
-        <div v-if="settings.commentEnabled && !isUploading" class="glass-card overflow-hidden animate-fade-in">
+        <div v-if="settings.commentEnabled && !isUploading" class="glass-card overflow-hidden animate-fade-in"
+             :class="{ 'ring-1 ring-danger-500/50': commentsRequired }">
           <div class="flex border-b border-surface-700/50">
             <button class="px-4 py-2 text-sm font-medium transition-colors"
                     :class="commentTab === 'write'
@@ -320,6 +352,7 @@ async function doUpload() {
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Write
+              <span v-if="isFeatureForced('comments')" class="ml-1 text-[10px] text-danger-400 font-semibold uppercase">required</span>
             </button>
             <button class="px-4 py-2 text-sm font-medium transition-colors"
                     :class="commentTab === 'preview'
@@ -341,7 +374,7 @@ async function doUpload() {
               class="w-full bg-transparent border border-surface-700 rounded-lg p-3 text-sm text-surface-200
                      placeholder-surface-500 font-mono resize-y focus:outline-none focus:border-accent-500/50
                      transition-colors min-h-[120px]"
-              placeholder="Write a comment... (Markdown supported)"
+              :placeholder="isFeatureForced('comments') ? 'Write a comment... (required, Markdown supported)' : 'Write a comment... (Markdown supported)'"
             />
           </div>
           <div v-else class="p-4 min-h-[120px]">
@@ -433,7 +466,7 @@ async function doUpload() {
                 Create empty upload
               </button>
               <span class="text-surface-600 text-xs">·</span>
-              <button class="text-xs text-surface-400 hover:text-accent-400 transition-colors"
+              <button v-if="isFeatureEnabled('text')" class="text-xs text-surface-400 hover:text-accent-400 transition-colors"
                       @click.stop="textMode = true">
                 Paste text
               </button>

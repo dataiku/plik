@@ -2,16 +2,19 @@
 import { ref, computed } from 'vue'
 import { formatDate } from '../utils.js'
 import { getArchiveURL, getAdminURL } from '../api.js'
+import { showError } from '../notification.js'
 import CopyButton from './CopyButton.vue'
+
+const passphrase = defineModel('passphrase', { type: String, default: null })
 
 const props = defineProps({
   upload: { type: Object, required: true },
 })
 
-const emit = defineEmits(['delete-upload', 'add-files', 'show-qr'])
+const emit = defineEmits(['delete-upload', 'add-files', 'show-qr', 'edit-passphrase'])
 
 const expirationText = computed(() => {
-  if (!props.upload.expireAt) return null
+  if (!props.upload.expireAt) return 'Never expires'
   const d = new Date(props.upload.expireAt)
   const now = new Date()
   if (d <= now) return 'Expired'
@@ -19,7 +22,9 @@ const expirationText = computed(() => {
   const diffDays = Math.floor(diffMs / 86400000)
   const diffHours = Math.floor((diffMs % 86400000) / 3600000)
   if (diffDays > 0) return `Expires in ${diffDays}d ${diffHours}h`
-  return `Expires in ${diffHours}h`
+  if (diffHours > 0) return `Expires in ${diffHours}h`
+  const diffMins = Math.max(1, Math.ceil((diffMs % 3600000) / 60000))
+  return `Expires in ${diffMins}m`
 })
 
 const archiveUrl = computed(() => getArchiveURL(props.upload.id))
@@ -30,8 +35,13 @@ const adminUrl = computed(() => {
 })
 
 // Share URL (download page without upload token)
+const includePassphrase = ref(false)
 const shareUrl = computed(() => {
-  return `${window.location.origin}${window.location.pathname}#/?id=${props.upload.id}`
+  let url = `${window.location.origin}${window.location.pathname}#/?id=${props.upload.id}`
+  if (includePassphrase.value && passphrase.value) {
+    url += `&key=${encodeURIComponent(passphrase.value)}`
+  }
+  return url
 })
 
 // Native share support (mobile + Chrome/Edge desktop)
@@ -49,7 +59,7 @@ async function nativeShare() {
   } catch (err) {
     // User cancelled or share failed — ignore
     if (err.name !== 'AbortError') {
-      console.warn('Share failed', err)
+      showError('Share failed')
     }
   }
 }
@@ -60,12 +70,22 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
 </script>
 
 <template>
-  <aside class="w-full md:w-72 md:shrink-0 p-4 space-y-3 animate-slide-in">
+  <aside class="w-full md:w-80 md:shrink-0 p-4 space-y-3 animate-slide-in">
     <!-- Upload Info -->
     <div class="sidebar-section">
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Upload Info</h3>
 
-      <div v-if="expirationText" class="text-sm text-surface-300">
+      <div v-if="expirationText === 'Never expires'" class="text-sm text-surface-300">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
+          </svg>
+          <span class="text-emerald-400">Never expires</span>
+        </div>
+      </div>
+
+      <div v-else-if="expirationText" class="text-sm text-surface-300">
         <div class="flex items-center gap-2">
           <svg class="w-4 h-4 text-warning-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -94,12 +114,44 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
               class="text-xs px-2 py-0.5 rounded-full bg-surface-600/50 text-surface-300">
           🔒 Password
         </span>
+        <span v-if="upload.e2ee"
+              class="text-xs px-2 py-0.5 rounded-full bg-accent-500/15 text-accent-400">
+          🔐 Encrypted
+        </span>
       </div>
     </div>
 
     <!-- Share -->
     <div class="sidebar-section">
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Share</h3>
+
+      <!-- Passphrase display (E2EE only) -->
+      <div v-if="upload.e2ee" class="mb-3">
+        <label class="text-xs text-surface-500 mb-1 block">Passphrase</label>
+        <div class="flex items-center gap-2 p-2 rounded bg-surface-800/50 min-w-0 overflow-hidden">
+          <span v-if="passphrase" class="text-xs text-accent-400 font-mono truncate flex-1">{{ passphrase }}</span>
+          <span v-else class="text-xs text-surface-500 italic flex-1">Not set</span>
+          <button class="text-surface-400 hover:text-accent-400 transition-colors shrink-0"
+                  title="Edit passphrase"
+                  @click="emit('edit-passphrase')">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <CopyButton v-if="passphrase" :text="passphrase" size="sm" />
+        </div>
+        <label v-if="passphrase" class="flex items-center justify-between py-1.5 mt-2 cursor-pointer group">
+          <span class="text-xs text-surface-400 group-hover:text-surface-200 transition-colors">Include passphrase in link</span>
+          <button type="button"
+                  class="toggle-switch scale-75"
+                  :data-active="includePassphrase"
+                  @click="includePassphrase = !includePassphrase">
+            <span class="toggle-dot" />
+          </button>
+        </label>
+      </div>
+
       <button v-if="canNativeShare"
               class="btn-primary w-full"
               :class="shareSuccess ? 'bg-success-500/20 text-success-500' : ''"
@@ -144,7 +196,7 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
       <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Actions</h3>
 
       <!-- Zip archive -->
-      <a v-if="upload.files?.length && !upload.stream"
+      <a v-if="upload.files?.length && !upload.stream && !upload.e2ee"
          :href="archiveUrl"
          class="btn-primary w-full">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

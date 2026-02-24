@@ -14,6 +14,7 @@ import (
 // Backend object
 type Backend struct {
 	Config *Config
+	Stderr io.Writer // Diagnostic output writer (default: os.Stderr)
 }
 
 // NewPgpBackend instantiate a new PGP Crypto Backend
@@ -21,7 +22,13 @@ type Backend struct {
 func NewPgpBackend(config map[string]any) (pb *Backend) {
 	pb = new(Backend)
 	pb.Config = NewPgpBackendConfig(config)
+	pb.Stderr = os.Stderr
 	return
+}
+
+// SetStderr sets the writer for diagnostic output.
+func (pb *Backend) SetStderr(w io.Writer) {
+	pb.Stderr = w
 }
 
 // Configure implementation for PGP Crypto Backend
@@ -97,24 +104,25 @@ func (pb *Backend) Configure(arguments map[string]any) (err error) {
 func (pb *Backend) Encrypt(in io.Reader) (out io.Reader, err error) {
 	out, writer := io.Pipe()
 
+	stderr := pb.Stderr // capture for goroutine
 	go func() {
 		w, err := armor.Encode(writer, "PGP MESSAGE", nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to armor encode pgp : %s\n", err)
+			fmt.Fprintf(stderr, "Unable to armor encode pgp : %s\n", err)
 			writer.CloseWithError(err)
 			return
 		}
 
 		plaintext, err := openpgp.Encrypt(w, []*openpgp.Entity{pb.Config.Entity}, nil, &openpgp.FileHints{IsBinary: true}, nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to encrypt pgp : %s\n", err)
+			fmt.Fprintf(stderr, "Unable to encrypt pgp : %s\n", err)
 			writer.CloseWithError(err)
 			return
 		}
 
 		_, err = io.Copy(plaintext, in)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to pipe pgp : %s\n", err)
+			fmt.Fprintf(stderr, "Unable to pipe pgp : %s\n", err)
 			writer.CloseWithError(err)
 			return
 		}
