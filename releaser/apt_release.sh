@@ -60,7 +60,11 @@ else
 
     # Extract Go arch from filename: plik-server-<version>-linux-<goarch>.tar.gz
     GOARCH=$(basename "$RELEASE_ARCHIVE" .tar.gz | sed "s/plik-server-${TAG}-linux-//")
-    DEB_ARCH=${ARCH_MAP[$GOARCH]:-$GOARCH}
+    DEB_ARCH=${ARCH_MAP[$GOARCH]:-}
+    if [[ -z "$DEB_ARCH" ]]; then
+      echo "Error: unknown Go architecture '$GOARCH', please add it to ARCH_MAP"
+      exit 1
+    fi
 
     echo ""
     echo " Building plik-server $TAG ($DEB_ARCH) from $RELEASE_ARCHIVE"
@@ -97,13 +101,22 @@ else
   done
 fi
 
-# Check that we have at least one .deb
-DEB_COUNT=$(find releases -name "*.deb" | wc -l)
-if [[ "$DEB_COUNT" -eq 0 ]]; then
-  echo "Error: no .deb packages found in releases/"
+# Verify that we have a plik-server .deb for every expected architecture
+MISSING=()
+for DEB_ARCH in "${ARCH_MAP[@]}"; do
+  if ! ls releases/plik-server_*_${DEB_ARCH}.deb 1>/dev/null 2>&1; then
+    MISSING+=("$DEB_ARCH")
+  fi
+done
+
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+  echo "Error: missing plik-server .deb for architecture(s): ${MISSING[*]}"
+  echo "Found packages:"
+  ls -l releases/*.deb 2>/dev/null || echo "  (none)"
   exit 1
 fi
 
+DEB_COUNT=$(find releases -name "*.deb" | wc -l)
 echo ""
 echo " Found $DEB_COUNT .deb package(s):"
 ls -l releases/*.deb
@@ -224,6 +237,9 @@ git push "$GIT_REMOTE" HEAD:gh-pages
 cd -
 
 git worktree remove "$WORKTREE"
+
+# Remove .deb files from releases/ — they are now in the APT repository
+rm -f releases/*.deb
 
 echo ""
 echo " APT repository updated for $TAG"

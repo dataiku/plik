@@ -209,6 +209,7 @@ deb: frontend clients
 			386)   DEB_ARCH="i386"  ; CROSS_CC="i686-linux-gnu-gcc" ;; \
 			arm64) CROSS_CC="aarch64-linux-gnu-gcc" ;; \
 			arm)   DEB_ARCH="armhf" ; CROSS_CC="arm-linux-gnueabihf-gcc" ;; \
+		*)     echo " Error: unknown GOARCH $$GOARCH, update the case statement in the deb target" ; exit 1 ;; \
 		esac ; \
 		if [ -n "$$CROSS_CC" ] && ! command -v "$$CROSS_CC" >/dev/null 2>&1; then \
 			echo " Skipping $$DEB_ARCH ($$CROSS_CC not found)" ; \
