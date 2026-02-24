@@ -29,5 +29,7 @@ if grep -q 'WebappDirectory.*= "../webapp/dist"' "$CFG" 2>/dev/null; then
 fi
 
 # Reload systemd and enable (but don't start) the service
-systemctl daemon-reload
-systemctl enable plikd.service || true
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl daemon-reload
+  systemctl enable plikd.service || true
+fi

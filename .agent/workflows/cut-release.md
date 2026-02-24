@@ -289,7 +289,31 @@ After the release is published:
   ```bash
   curl -s https://root-gg.github.io/plik/index.yaml | grep <VERSION>
   ```
-- [ ] **Verify GitHub release page** — check that the changelog and release artifacts (archives + Helm chart `.tgz`) are attached
+- [ ] **Verify Debian packages** — boot a Debian container and test APT repo setup + package install:
+  ```bash
+  docker run --rm debian:bookworm bash -c '
+    set -e
+    apt-get update && apt-get install -y curl gnupg
+    curl -fsSL https://root-gg.github.io/plik/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/plik.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/plik.gpg] https://root-gg.github.io/plik/apt stable main" > /etc/apt/sources.list.d/plik.list
+    apt-get update
+    apt-get install -y plik-server plik-client
+    echo "--- Verify versions ---"
+    plik --version
+    plik-server --version
+    echo "--- Verify installed files ---"
+    dpkg -L plik-server | head -20
+    dpkg -L plik-client
+    echo "--- Verify systemd unit ---"
+    test -f /lib/systemd/system/plik-server.service && echo "systemd unit: OK" || echo "systemd unit: MISSING"
+    echo "--- All checks passed ---"
+  '
+  ```
+  Verify:
+  - Both packages install without errors
+  - `plik --version` and `plik-server --version` output `<VERSION>`
+  - The systemd service unit is installed
+- [ ] **Verify GitHub release page** — check that the changelog and release artifacts (archives + Helm chart `.tgz` + `.deb` files) are attached
 
 ## Important Notes
 
