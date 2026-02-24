@@ -142,14 +142,28 @@ else
   echo " Warning: no GPG key provided, skipping signing"
 fi
 
-# Fetch gh-pages branch
-git fetch "$GIT_REMOTE" gh-pages
+# Fetch gh-pages branch (may not exist yet on first run)
+git fetch "$GIT_REMOTE" gh-pages 2>/dev/null || true
 
-# Prepare a temp worktree with gh-pages content
+# Prepare a temp worktree
 WORKTREE=$(mktemp -d)
 trap "rm -rf $WORKTREE" EXIT
 
-git worktree add --detach "$WORKTREE" "$GIT_REMOTE/gh-pages"
+if git rev-parse --verify "$GIT_REMOTE/gh-pages" >/dev/null 2>&1; then
+  # Clone existing gh-pages content so we keep previous packages in the pool
+  git worktree add --detach "$WORKTREE" "$GIT_REMOTE/gh-pages"
+  # Convert to an orphan branch (discard history, keep files)
+  cd "$WORKTREE"
+  git checkout --orphan gh-pages-orphan
+  cd -
+else
+  # First run: create a fresh worktree with an orphan branch
+  git worktree add --detach "$WORKTREE" HEAD
+  cd "$WORKTREE"
+  git checkout --orphan gh-pages-orphan
+  git rm -rf . >/dev/null 2>&1 || true
+  cd -
+fi
 
 # Create APT repo directory structure
 APT_DIR="$WORKTREE/apt"
@@ -229,14 +243,14 @@ if [[ "$DRY_RUN" == "true" ]]; then
   exit 0
 fi
 
-# Commit and push to gh-pages
+# Commit and force-push to gh-pages (single orphan commit, no history)
 cd "$WORKTREE"
 git add apt/
 git commit -m "Update APT repository for $TAG"
-git push "$GIT_REMOTE" HEAD:gh-pages
+git push --force "$GIT_REMOTE" HEAD:gh-pages
 cd -
 
-git worktree remove "$WORKTREE"
+git worktree remove "$WORKTREE" --force
 
 # Remove .deb files from releases/ — they are now in the APT repository
 rm -f releases/*.deb
