@@ -43,3 +43,32 @@ Available tags:
 - `rootgg/plik:dev` — latest master commit
 
 See the [Docker Deployment Guide](./docker.md) for custom configuration, persistent storage, and Docker Compose examples.
+
+## Debian / Ubuntu
+
+Plik provides `.deb` packages for amd64, arm64, armhf, and i386 via an APT repository hosted on GitHub Pages.
+
+```bash
+# Add the repository
+curl -fsSL https://root-gg.github.io/plik/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/plik.gpg
+echo "deb [signed-by=/etc/apt/keyrings/plik.gpg] https://root-gg.github.io/plik/apt stable main" | sudo tee /etc/apt/sources.list.d/plik.list
+sudo apt update
+
+# Install server
+sudo apt install plik-server
+sudo systemctl start plikd
+
+# Or install just the CLI client
+sudo apt install plik-client
+```
+
+The server package installs:
+- `/usr/bin/plikd` — server binary
+- `/etc/plik/plikd.cfg` — configuration (preserved on upgrade)
+- Systemd service (`plikd.service`)
+- Webapp, client binaries, and changelog under `/usr/share/plik/`
+- Data directory at `/var/lib/plik/`
+
+::: tip
+The `plik-server` package creates a `plik` system user and automatically adjusts the default configuration paths for the Debian filesystem layout.
+:::

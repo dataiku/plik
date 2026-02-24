@@ -50,6 +50,23 @@ jobs:
       if: github.event_name == 'release'
       run: releaser/helm_release.sh ${GITHUB_REF#refs/tags/}
 
+    - name: Install nfpm
+      if: github.event_name == 'release'
+      run: |
+        go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
+    - name: Install APT repo tools
+      if: github.event_name == 'release'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev apt-utils gnupg
+
+    - name: Build Debian packages and update APT repository
+      if: github.event_name == 'release'
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      run: releaser/apt_release.sh ${GITHUB_REF#refs/tags/}
+
     - name: Upload artifacts to release
       uses: softprops/action-gh-release@v1
       with:

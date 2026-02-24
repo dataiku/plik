@@ -35,7 +35,7 @@ Runs on every push and pull request. Steps:
 Runs on push to `master` when `docs/**` or the workflow itself changes. Deploys VitePress documentation to the `gh-pages` branch via `peaceiris/actions-gh-pages`.
 
 > [!NOTE]
-> The `keep_files: true` flag preserves the Helm `index.yaml` on `gh-pages` (updated by the release workflow).
+> The `keep_files: true` flag preserves the Helm `index.yaml` and APT repository (`apt/`) on `gh-pages` (updated by the release workflow).
 
 ### `release.yaml` — Tagged Release Pipeline
 
@@ -43,7 +43,8 @@ Triggered when a GitHub release is created (tag push). Runs the full release pip
 1. Builds multi-arch Docker images
 2. Builds release archives and client binaries
 3. Packages the Helm chart and updates `index.yaml` on `gh-pages` (via `releaser/helm_release.sh`)
-4. Uploads all artifacts (including `plik-helm-{version}.tgz`) to the GitHub release
+4. Builds `.deb` packages and updates the APT repository on `gh-pages` (via `releaser/apt_release.sh`)
+5. Uploads all artifacts (including `.tgz`, `.deb` files) to the GitHub release
 
 See [releaser/ARCHITECTURE.md](../releaser/ARCHITECTURE.md) for the build details.
 
@@ -85,10 +86,36 @@ helm install plik plik/plik
 
 The chart source lives in `charts/plik/`. See the chart's `values.yaml` for all configuration options.
 
+## APT Repository Release Flow
+
+```mermaid
+graph LR
+    Release["GitHub Release created"] --> ReleaseWF["release.yaml workflow"]
+    ReleaseWF --> AptScript["releaser/apt_release.sh"]
+    AptScript --> Nfpm["nfpm builds .deb packages"]
+    Nfpm --> Assets["GitHub Release assets"]
+    AptScript --> AptRepo["Update apt/ on gh-pages"]
+    AptRepo --> Sign["GPG sign Release"]
+    Sign --> GHPages["gh-pages branch"]
+    GHPages --> AptInstall["apt install plik-server<br/>https://root-gg.github.io/plik/apt"]
+```
+
+Two packages are built per architecture (amd64, i386, arm64, armhf):
+- `plik-server` — server binary, config, systemd service, webapp, clients
+- `plik-client` — CLI binary
+
+Users install via:
+```bash
+curl -fsSL https://root-gg.github.io/plik/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/plik.gpg
+echo "deb [signed-by=/etc/apt/keyrings/plik.gpg] https://root-gg.github.io/plik/apt stable main" | sudo tee /etc/apt/sources.list.d/plik.list
+sudo apt update && sudo apt install plik-server
+```
+
 ### Pre-release checklist
 
 Before creating a GitHub release:
 
 1. Update the version badge and install snippets in `README.md` to reference the new tag
 2. Move `charts/plik/CHANGELOG.md` entries from `[Unreleased]` to the new version heading (e.g. `[1.4-RC4] - 2026-02-21`)
-3. Ensure all `ARCHITECTURE.md` files reflect any structural changes
+3. Ensure `GPG_PRIVATE_KEY` secret is configured for APT repository signing
+4. Ensure all `ARCHITECTURE.md` files reflect any structural changes
