@@ -111,7 +111,6 @@ gofix:
 test:
 	@if curl -s 127.0.0.1:8080 > /dev/null ; then echo "Plik server probably already running" ; exit 1 ; fi
 	@$(GO_TEST) ./... 2>&1 | grep -v "no test files"; test $${PIPESTATUS[0]} -eq 0
-	@echo "cli client integration tests :" && cd client && ./test.sh
 
 ###
 # Run webapp unit tests (vitest)

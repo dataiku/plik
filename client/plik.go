@@ -50,6 +50,7 @@ Options:
   --mcp                     Start as MCP (Model Context Protocol) server over stdio
   -j, --json                Output upload metadata as JSON (implies --quiet)
   -q --quiet                Enable quiet mode
+  -y --yes                  Auto-accept confirmation prompts (non-interactive mode)
   -d --debug                Enable debug mode
   -v --version              Show client version
   -i --info                 Show client and server information

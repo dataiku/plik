@@ -81,6 +81,7 @@ Options:
   --mcp                     Start as MCP (Model Context Protocol) server over stdio
   -j --json                Output upload metadata as JSON (implies --quiet)
   -q --quiet                Enable quiet mode
+  -y --yes                  Auto-accept confirmation prompts (non-interactive mode)
   -d --debug                Enable debug mode
   -v --version              Show client version
   -i --info                 Show client and server information
@@ -155,6 +156,10 @@ When running `plik` for the first time and the server has authentication enabled
 
 You can always authenticate later with `plik --login`.
 
+::: tip Non-interactive mode
+Use `plik --yes` to auto-accept all confirmation prompts (first-run wizard, updates, HTTP key fetch warnings). This is useful for scripting and CI/CD pipelines.
+:::
+
 ### Manual token configuration
 
 Alternatively, you can create a token manually in the web UI and add it to your configuration:
@@ -180,18 +185,31 @@ The client configuration is a TOML file loaded from:
 Key settings:
 
 ```toml
-URL = "https://plik.example.com"
-Token = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+Debug = false                   # be more verbose
+Quiet = false                   # be less verbose
+URL = "https://plik.root.gg"    # URL of the plik server
+OneShot = false                 # Set the uploads to be one shot by default  (if available server side)
+Removable = false               # Set the uploads to be removable by default (if available server side)
+Stream = false                  # Set the uploads to be stream by default    (if available server side)
+Secure = false                  # Set the uploads to be encrypted by default
+SecureMethod = "age"            # Set the default encryption method (age|openssl|pgp)
+Archive = false                 # Set the uploads to be archives by default
+ArchiveMethod = "tar"           # Set the default archive method
+DownloadBinary = "curl"         # Set the default download command (curl / wget)
+Comments = ""                   # Set the default upload comments
+Login = ""                      # Set the default upload login (http basic auth)
+Password = ""                   # Set the default upload password (http basic auth)
+TTL = 0                         # Set the default upload TTL (0 for server default)
+ExtendTTL = false               # Set the uploads to extend TTL by default   (if available server side)
+AutoUpdate = true               # Enable/Disable auto update mechanism
+Token = ""                      # Set the Authentication Token (can be created from the UI)
+DisableStdin = false            # Disable STDIN input
+Insecure = false                # Disable HTTPS certificate validation
 
-# Archive defaults
-[Archive]
-    Backend = "tar"
-    Compress = "gzip"
-
-# Encryption defaults
-[Secure]
-    Backend = "openssl"
-    Cipher = "aes-256-cbc"
+[ArchiveOptions]
+  Compress = "gzip"
+  Options = ""
+  Tar = "/bin/tar"
 ```
 
 See the [full .plikrc template](https://github.com/root-gg/plik/blob/master/client/.plikrc) for all available options.

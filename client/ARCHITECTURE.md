@@ -19,9 +19,13 @@ client/
 ├── update_test.go   ← unit tests for update flow (early exits, error handling)
 ├── archive/         ← archive backends (tar, zip) — errors via CloseWithError
 ├── crypto/          ← crypto backends (openssl, pgp, age) — errors via CloseWithError
+├── setup_test.go    ← e2e test infrastructure (TestMain, server lifecycle, helpers)
+├── z1_e2e_basics_test.go   ← basic CLI tests (info, debug, single/multi file, stdin)
+├── z2_e2e_options_test.go  ← upload option tests (oneshot, ttl, quiet, JSON, etc.)
+├── z3_e2e_archive_test.go  ← archive backend tests (tar, zip)
+├── z4_e2e_crypto_test.go   ← crypto backend tests (openssl, pgp, age)
 ├── .plikrc          ← example client configuration
-├── plik.sh          ← bash upload wrapper
-└── test.sh          ← CLI integration tests
+└── plik.sh          ← bash upload wrapper
 ```
 
 ---
@@ -35,10 +39,12 @@ client/
 **`PlikCLI` struct** encapsulates all mutable runtime state:
 - `Config`, `Arguments` — parsed configuration and CLI args
 - `ArchiveBackend`, `CryptoBackend` — initialized lazily during `Run()`
+- `Stdout`, `Stderr` — injectable `io.Writer` for output (default: `os.Stdout`/`os.Stderr`); enables test output capture without global state mutation
 
 **`main()` flow** (in `plik.go`):
 1. Parse CLI args → early exits: `--version`, `--mcp`, `--info`, `--login`
 2. Load config from `.plikrc` → `NewPlikCLI(config, args)`
+   - First-run wizard is skipped when `--quiet`, `--yes`, or `--server` is set
 3. Dispatch to `cli.Run(client)` for the upload flow
 
 **`PlikCLI.Run()` flow** (in `app.go`):
@@ -82,11 +88,11 @@ Archives wrap multiple files/directories into a single upload file. Errors are p
 
 | Backend | Description |
 |---------|-------------|
-| `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher) |
-| `pgp` | Asymmetric encryption via GPG/PGP (recipient-based) |
-| `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
+| `openssl` | Symmetric encryption via OpenSSL CLI (configurable cipher). **Deprecated** — use `age` instead |
+| `pgp` | Asymmetric encryption via GPG/PGP (recipient-based). **Deprecated** — use `age` instead |
+| `age` | Modern encryption via [age](https://age-encryption.org/). Supports passphrase, X25519, SSH recipients (`@github_user`, URL, raw key), and SSH host key scanning (`ssh://hostname`). URLs can serve SSH keys **and** native `age1…` recipients. Plain HTTP URLs trigger a MITM security prompt (default: decline). **Default backend.** Sets `upload.E2EE = "age"` for webapp interop (passphrase mode only) |
 
-Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine.
+Encryption wraps the file data stream before upload. Errors are propagated via `io.PipeWriter.CloseWithError()` from the encryption goroutine. All backends expose a `Stderr io.Writer` field (default: `os.Stderr`) and a `SetStderr(w io.Writer)` method so that `PlikCLI` can redirect diagnostic output (passphrase display, recipient resolution progress, warnings) through its injectable writer for test capture.
 
 When the `age` backend is used, the upload is flagged as E2EE (`upload.E2EE = "age"`). This tells the webapp to prompt for a passphrase on download and decrypt client-side. A cryptographically-secure passphrase is auto-generated when none is provided.
 
@@ -121,8 +127,19 @@ All upload tools use `plik.UploadParams` via struct embedding and return `Upload
 - `update_test.go` — auto-update disabled, quiet mode, unreachable server, missing platform binary
 - `crypto/age/age_test.go` — recipient resolution, encryption round-trips
 
-### Integration Tests
-- `test.sh` — comprehensive CLI integration tests (requires a running server)
+### Integration Tests (e2e)
+
+End-to-end tests run against an ephemeral `plikd` server (started in `TestMain`):
+
+| File | Coverage |
+|------|---------|
+| `setup_test.go` | Server lifecycle, helpers |
+| `z1_e2e_basics_test.go` | Info, debug, single/multi file, custom name, stdin |
+| `z2_e2e_options_test.go` | Oneshot, removable, stream, TTL, password, comments, quiet, JSON, not-secure, error paths |
+| `z3_e2e_archive_test.go` | Tar (single, multi, dir, compression, options, name), zip (single, dir, options, name, dir+name) |
+| `z4_e2e_crypto_test.go` | OpenSSL (auto/custom/prompted passphrase + decrypt round-trip, cipher, options), PGP (encrypt+decrypt), Age (passphrase + decrypt round-trip, recipient + decrypt) |
+
+Tests requiring external binaries (`tar`, `zip`, `gpg`, `age`, `openssl`) use `requireBinary()` to fail immediately if unavailable.
 
 ---
 

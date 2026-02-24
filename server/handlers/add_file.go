@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -244,7 +245,12 @@ func preprocessor(ctx *context.Context, file io.Reader, preprocessWriter io.Writ
 
 		// Detect the content-type using the 512 first bytes
 		if totalBytes == 0 {
-			mimeType = http.DetectContentType(buf[:bytesRead])
+			ageHeader := []byte("age-encryption.org")
+			if bytesRead >= len(ageHeader) && bytes.HasPrefix(buf[:bytesRead], ageHeader) {
+				mimeType = "application/octet-stream"
+			} else {
+				mimeType = http.DetectContentType(buf[:bytesRead])
+			}
 		}
 
 		// Increment size
