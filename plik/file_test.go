@@ -40,7 +40,7 @@ func TestGetFileURL(t *testing.T) {
 	require.Equal(t, data, string(body), "invalid file content")
 
 	req, err = http.NewRequest("GET", fileURL.String(), &bytes.Buffer{})
-    req.Header.Add("Range", "bytes=0-7")
+	req.Header.Add("Range", "bytes=0-7")
 	require.NoError(t, err, "unable to create request")
 
 	resp, err = pc.HTTPClient.Do(req)
@@ -49,10 +49,10 @@ func TestGetFileURL(t *testing.T) {
 
 	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err, "unable to read response body")
-    require.Equal(t, data_byte[0:8], body, "invalid file content")
+	require.Equal(t, data_byte[0:8], body, "invalid file content")
 
 	req, err = http.NewRequest("GET", fileURL.String(), &bytes.Buffer{})
-    req.Header.Add("Range", "bytes=7-14")
+	req.Header.Add("Range", "bytes=7-14")
 	require.NoError(t, err, "unable to create request")
 
 	resp, err = pc.HTTPClient.Do(req)
@@ -61,7 +61,7 @@ func TestGetFileURL(t *testing.T) {
 
 	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err, "unable to read response body")
-    require.Equal(t, data_byte[7:], body, "invalid file content")
+	require.Equal(t, data_byte[7:], body, "invalid file content")
 }
 
 func TestNotUploadedGetFileURL(t *testing.T) {
