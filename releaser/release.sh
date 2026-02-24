@@ -29,6 +29,10 @@ DOCKER_IMAGE=${DOCKER_IMAGE:-rootgg/plik}
 DOCKER_TAG=${TAG:-dev}
 TARGETS=${TARGETS:-linux/amd64,linux/i386,linux/arm64,linux/arm}
 
+if [[ -n "$VERSION" ]]; then
+  BUILD_ARGS="$BUILD_ARGS --build-arg VERSION=$VERSION"
+fi
+
 if [[ -n "$CLIENT_TARGETS" ]]; then
   BUILD_ARGS="$BUILD_ARGS --build-arg CLIENT_TARGETS=$CLIENT_TARGETS"
 fi

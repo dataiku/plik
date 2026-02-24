@@ -20,6 +20,9 @@ WORKDIR /go/src/github.com/root-gg/plik
 ARG CLIENT_TARGETS=""
 ENV CLIENT_TARGETS=$CLIENT_TARGETS
 
+ARG VERSION=""
+ENV VERSION=$VERSION
+
 # Add the source code ( see .dockerignore )
 COPY . .
 
@@ -47,6 +50,9 @@ ENV TARGETOS=$TARGETOS
 ENV TARGETARCH=$TARGETARCH
 ENV TARGETVARIANT=$TARGETVARIANT
 ENV CC=$CC
+
+ARG VERSION=""
+ENV VERSION=$VERSION
 
 # Add the source code ( see .dockerignore )
 COPY . .
