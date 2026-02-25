@@ -110,6 +110,7 @@ async function handleOidcLogin() {
                    class="input-field w-full"
                    placeholder="Enter your login"
                    autocomplete="username"
+                   autocapitalize="off"
                    autofocus />
           </div>
           <div>
