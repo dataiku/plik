@@ -73,7 +73,7 @@ jobs:
         run: |
           LATEST_TAG=$(git describe --tags --abbrev=0)
           SHORT_COMMIT=$(git rev-parse --short HEAD)
-          VERSION="${LATEST_TAG}:pr-${{ github.event.issue.number }}:${SHORT_COMMIT}"
+          VERSION="${LATEST_TAG}-pr-${{ github.event.issue.number }}-${SHORT_COMMIT}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
