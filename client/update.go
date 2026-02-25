@@ -115,8 +115,12 @@ func (cli *PlikCLI) update(client *plik.Client, updateFlag bool) (err error) {
 
 		// Find releases between current and new version
 		var releases []*common.Release
-		if currentReleaseIndex > 0 && newReleaseIndex > 0 && currentReleaseIndex < newReleaseIndex {
+		if currentReleaseIndex >= 0 && newReleaseIndex > 0 && currentReleaseIndex < newReleaseIndex {
 			releases = buildInfo.Releases[currentReleaseIndex+1 : newReleaseIndex+1]
+		} else if currentReleaseIndex < 0 && newReleaseIndex >= 0 {
+			// Client version not in the releases list (e.g. RC upgrading to stable)
+			// Show at least the target version's changelog
+			releases = buildInfo.Releases[newReleaseIndex : newReleaseIndex+1]
 		}
 
 		for _, release := range releases {

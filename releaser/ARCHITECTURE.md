@@ -175,7 +175,7 @@ Key fields:
 - **`isRelease`**: `true` if HEAD commit matches the version tag — controls whether Docker Hub gets `:{version}` + `:preview` tags (and `:latest` for stable releases, i.e. versions without a `-` suffix)
 - **`isMint`**: `true` if the working tree is clean (no uncommitted changes) — release.sh warns if dirty
 - **`clients`**: Enumerated from `clients/` directory, used by the web UI to display download links
-- **`releases`**: Built from `changelog/` directory entries matched against git tags
+- **`releases`**: Built from `changelog/` directory entries matched against git tags. For stable builds (version without `-RC` suffix), RC releases are filtered out to keep the upgrade changelog clean
 
 ---
 
