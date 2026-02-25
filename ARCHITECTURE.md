@@ -312,9 +312,10 @@ Arrays are overridden, maps are merged.
 ### Helm Chart Sync
 
 The Helm chart (`charts/plik/`) mirrors the configuration model. When adding or modifying config fields in `server/common/config.go` or `server/plikd.cfg`, **always update**:
-- `charts/plik/values.yaml` — add the field under `plikd:` with its default value
+- `charts/plik/values.yaml` — add the field under `plikd:` with its default value and a `# --` helm-docs annotation
 - `charts/plik/templates/configmap.yaml` — add the explicit key to the template
 - `charts/plik/templates/secret.yaml` — if the field is sensitive, add env var injection (`PLIKD_` prefix)
+- Run `make helm-docs` to regenerate `charts/plik/README.md` (CI will fail if this is forgotten)
 
 #### Helm Chart Persistence
 

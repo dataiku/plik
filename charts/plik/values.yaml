@@ -2,32 +2,41 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# -- Number of pod replicas
 replicaCount: 1
 
 image:
+  # -- Docker image repository
   repository: rootgg/plik
+  # -- Image pull policy
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
+  # -- Overrides the image tag whose default is the chart appVersion
   tag: ""
 
+# -- Docker registry pull secrets
 imagePullSecrets: []
+# -- Override the chart name
 nameOverride: ""
+# -- Override the full release name
 fullnameOverride: ""
 
 serviceAccount:
-  # Specifies whether a service account should be created
+  # -- Specifies whether a service account should be created
   create: false
-  # Annotations to add to the service account
+  # -- Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
+  # -- The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+# -- Additional pod annotations
 podAnnotations: {}
 
+# -- Pod-level security context
 podSecurityContext: {}
   # fsGroup: 2000
 
+# -- Container-level security context
 securityContext: {}
   # capabilities:
   #   drop:
@@ -37,26 +46,35 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
+  # -- Kubernetes Service type
   type: ClusterIP
+  # -- Service port
   port: 8080
+  # -- Additional service annotations
   annotations: {}
 
 ingress:
+  # -- Enable Ingress resource
   enabled: false
+  # -- Ingress class name
   className: ""
+  # -- Additional ingress annotations
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
+  # -- Ingress host rules
   hosts:
     - host: chart-example.local
       paths:
         - path: /
           pathType: ImplementationSpecific
+  # -- Ingress TLS configuration
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
 
+# -- CPU/memory resource requests and limits
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -70,106 +88,174 @@ resources: {}
   #   memory: 128Mi
 
 autoscaling:
+  # -- Enable Horizontal Pod Autoscaler
   enabled: false
+  # -- Minimum number of replicas
   minReplicas: 1
+  # -- Maximum number of replicas
   maxReplicas: 100
+  # -- Target CPU utilization percentage
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+# -- Node selector for pod scheduling
 nodeSelector: {}
 
+# -- Tolerations for pod scheduling
 tolerations: []
 
+# -- Affinity rules for pod scheduling
 affinity: {}
 
 # Plik specific configuration
 # This section mirrors the plikd.cfg configuration file
 
-# Deployment Strategy
-# Can be 'Deployment' or 'StatefulSet'.
-# Use StatefulSet if you are using 'file' backend with a PersistentVolume.
+# -- Workload kind: `Deployment` or `StatefulSet`.
+# Use StatefulSet if you are using the `file` backend with a PersistentVolume.
 kind: Deployment
 
 persistence:
+  # -- Enable persistent storage for uploaded files
   enabled: false
+  # -- Storage class name (uses cluster default if unset)
   # storageClassName: default
+  # -- PVC access modes
   accessModes:
     - ReadWriteOnce
+  # -- PVC storage size
   size: 10Gi
   # annotations: {}
+  # -- Mount path for file storage inside the container
   path: /home/plik/server/files
 
 dbPersistence:
+  # -- Enable persistent storage for the SQLite database
   enabled: false
+  # -- Storage class name (uses cluster default if unset)
   # storageClassName: default
+  # -- PVC access modes
   accessModes:
     - ReadWriteOnce
+  # -- PVC storage size
   size: 1Gi
   # annotations: {}
+  # -- Mount path for the database inside the container
   path: /home/plik/server/db
 
+# -- Plik server configuration. Values are rendered into the `plikd.cfg` config file.
+# See [server configuration reference](https://github.com/root-gg/plik/tree/master/server/plikd.cfg) for all options.
+# @default -- see sub-values
 plikd:
+  # -- Enable debug mode
   Debug: false
+  # -- Log every HTTP request
   DebugRequests: false
+  # -- Log level (`DEBUG`, `INFO`, `WARNING`, `CRITICAL`)
   LogLevel: "INFO"
 
+  # -- HTTP listen port
   ListenPort: 8080
+  # -- HTTP listen address
   ListenAddress: "0.0.0.0"
+  # -- Prometheus metrics port (0 = disabled)
   MetricsPort: 0
+  # -- Prometheus metrics listen address
   MetricsAddress: "0.0.0.0"
+  # -- URL path prefix (e.g. `/plik`)
   Path: ""
+  # -- Enable HTTPS
   SslEnabled: false
+  # -- Path to TLS certificate
   SslCert: "plik.crt"
+  # -- Path to TLS private key
   SslKey: "plik.key"
+  # -- Minimum TLS version (`tlsv10`, `tlsv11`, `tlsv12`, `tlsv13`)
   TlsVersion: "tlsv10"
+  # -- Disable the web interface
   NoWebInterface: false
+  # -- Custom download domain
   DownloadDomain: ""
+  # -- Additional download domain aliases
   DownloadDomainAlias: []
+  # -- Enable enhanced web security headers (CSP, X-Frame-Options, etc.)
   EnhancedWebSecurity: false
+  # -- User session timeout (e.g. `365d`, `24h`)
   SessionTimeout: "365d"
+  # -- Abuse contact email displayed in the footer
   AbuseContact: ""
+  # -- Path to the webapp distribution directory
   WebappDirectory: "../webapp/dist"
+  # -- Path to the pre-built CLI clients directory
   ClientsDirectory: "../clients"
+  # -- Path to the changelog directory
   ChangelogDirectory: "../changelog"
+  # -- HTTP header to use for source IP (e.g. `X-Forwarded-For`)
   SourceIpHeader: ""
+  # -- IP whitelist for uploads (empty = allow all)
   UploadWhitelist: []
 
+  # -- Maximum file size per upload (e.g. `10GB`, `unlimited`)
   MaxFileSizeStr: "10GB"
+  # -- Maximum total size per user (e.g. `10GB`, `unlimited`)
   MaxUserSizeStr: "unlimited"
+  # -- Maximum number of files per upload
   MaxFilePerUpload: 1000
 
+  # -- Default upload TTL (e.g. `30d`, `24h`)
   DefaultTTLStr: "30d"
+  # -- Maximum upload TTL
   MaxTTLStr: "30d"
 
+  # -- Enable user authentication (`enabled`, `disabled`, `forced`)
   FeatureAuthentication: "disabled"
+  # -- Enable local login
   FeatureLocalLogin: "enabled"
+  # -- Allow users to delete their account
   FeatureDeleteAccount: "enabled"
+  # -- Enable one-shot downloads
   FeatureOneShot: "enabled"
+  # -- Enable removable uploads
   FeatureRemovable: "enabled"
+  # -- Enable streaming uploads
   FeatureStream: "enabled"
+  # -- Enable password-protected uploads
   FeaturePassword: "enabled"
+  # -- Enable upload comments
   FeatureComments: "enabled"
+  # -- Allow users to set a custom TTL
   FeatureSetTTL: "enabled"
+  # -- Allow users to extend an existing TTL
   FeatureExtendTTL: "disabled"
+  # -- Enable pre-built CLI clients download page
   FeatureClients: "enabled"
+  # -- Show GitHub link in the footer
   FeatureGithub: "enabled"
+  # -- Enable plain-text paste mode
   FeatureText: "enabled"
 
-  # Google config (non-sensitive — client ID and domain list only)
+  # -- Google OAuth2 client ID
   GoogleApiClientID: ""
+  # -- Allowed Google domains (empty = allow all)
   GoogleValidDomains: []
 
-  # OVH config (non-sensitive — public endpoint only)
+  # -- OVH API endpoint (e.g. `ovh-eu`, `ovh-ca`)
   OvhApiEndpoint: ""
 
-  # OIDC config (non-sensitive — client ID, provider URL, domains)
+  # -- OpenID Connect client ID
   OIDCClientID: ""
+  # -- OpenID Connect provider discovery URL
   OIDCProviderURL: ""
+  # -- Display name for the OIDC provider
   OIDCProviderName: "OpenID"
+  # -- Allowed OIDC email domains (empty = allow all)
   OIDCValidDomains: []
+  # -- Require verified email from OIDC provider
   OIDCRequireVerifiedEmail: false
 
+  # -- Data backend type (`file`, `gcs`, `s3`, `swift`)
   DataBackend: "file"
+  # -- Non-sensitive data backend configuration.
+  # Keys depend on the backend type. See [data backends](https://github.com/root-gg/plik#data-backends).
   DataBackendConfig:
     Directory: "files"
     # GCS
@@ -191,6 +277,7 @@ plikd:
     # PartSize: 16777216
     # SSE: ""
 
+  # -- Metadata backend configuration (database driver, connection string)
   MetadataBackendConfig:
     Driver: "sqlite3"
     ConnectionString: "/home/plik/server/db/plik.db"
@@ -204,28 +291,28 @@ plikd:
 #   secrets.existingSecret: "my-plik-secret"
 # The external secret must expose the same env var keys listed below.
 secrets:
-  # If set, the chart will NOT create a Secret resource and will reference this
-  # existing Secret instead. The Secret must contain the relevant env var keys.
+  # -- Use an existing Kubernetes Secret instead of creating one.
+  # The Secret must contain the relevant env var keys.
   existingSecret: ""
 
-  # Google OAuth2 — client secret injected as PLIKD_GOOGLE_API_SECRET
+  # -- Google OAuth2 client secret (injected as `PLIKD_GOOGLE_API_SECRET`)
   googleApiSecret: ""
 
-  # OVH OAuth2 — injected as PLIKD_OVH_API_KEY / PLIKD_OVH_API_SECRET
+  # -- OVH API key (injected as `PLIKD_OVH_API_KEY`)
   ovhApiKey: ""
+  # -- OVH API secret (injected as `PLIKD_OVH_API_SECRET`)
   ovhApiSecret: ""
 
-  # OIDC — client secret injected as PLIKD_OIDC_CLIENT_SECRET
+  # -- OIDC client secret (injected as `PLIKD_OIDC_CLIENT_SECRET`)
   oidcClientSecret: ""
 
-  # Data backend sensitive config (e.g. S3 SecretAccessKey, Swift ApiKey).
-  # Injected as PLIKD_DATA_BACKEND_CONFIG (JSON).
-  # Keys defined here are merged with non-sensitive DataBackendConfig at runtime.
+  # -- Sensitive data backend config (merged with `plikd.DataBackendConfig` at runtime).
+  # Injected as `PLIKD_DATA_BACKEND_CONFIG` JSON.
   dataBackend: {}
   #   SecretAccessKey: ""
   #   ApiKey: ""
 
-  # Metadata backend sensitive config (e.g. database Password).
-  # Injected as PLIKD_METADATA_BACKEND_CONFIG (JSON).
+  # -- Sensitive metadata backend config (e.g. database password).
+  # Injected as `PLIKD_METADATA_BACKEND_CONFIG` JSON.
   metadataBackend: {}
   #   Password: ""
