@@ -213,14 +213,14 @@ cd -
 # GPG sign the Release file
 if [[ -n "$GPG_KEY_ID" ]]; then
   # Detached signature
-  gpg --batch --yes --armor \
+  gpg --batch --yes --armor --pinentry-mode loopback \
     --default-key "$GPG_KEY_ID" \
     --detach-sign \
     --output "$APT_DIR/dists/stable/Release.gpg" \
     "$APT_DIR/dists/stable/Release"
 
   # Inline signature (InRelease)
-  gpg --batch --yes --armor \
+  gpg --batch --yes --armor --pinentry-mode loopback \
     --default-key "$GPG_KEY_ID" \
     --clearsign \
     --output "$APT_DIR/dists/stable/InRelease" \
