@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/dustin/go-humanize"
 
@@ -198,16 +199,16 @@ func AddFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 
 	if ctx.IsQuick() {
 		// Do our best to print the file url in the response.
-		var url string
+		var fileURL string
 		if ctx.GetConfig().GetDownloadDomain() != nil {
-			url = ctx.GetConfig().GetDownloadDomain().String()
+			fileURL = ctx.GetConfig().GetDownloadDomain().String()
 		} else {
-			url = ctx.GetConfig().GetServerURL().String()
+			fileURL = ctx.GetConfig().GetServerURL().String()
 		}
 
-		url += fmt.Sprintf("/file/%s/%s/%s", upload.ID, file.ID, file.Name)
+		fileURL += fmt.Sprintf("/file/%s/%s/%s", upload.ID, file.ID, url.PathEscape(file.Name))
 
-		_, _ = resp.Write([]byte(url + "\n"))
+		_, _ = resp.Write([]byte(fileURL + "\n"))
 	} else {
 		common.WriteJSONResponse(resp, file)
 	}

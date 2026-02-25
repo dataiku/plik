@@ -238,7 +238,7 @@ export function uploadFile(upload, fileEntry, onProgress, basicAuth, onStart) {
     const mode = upload.stream ? 'stream' : 'file'
     let url
     if (fileEntry.id) {
-        url = `${base}/${mode}/${upload.id}/${fileEntry.id}/${fileEntry.fileName}`
+        url = `${base}/${mode}/${upload.id}/${fileEntry.id}/${encodeURIComponent(fileEntry.fileName)}`
     } else {
         // Adding file to existing upload
         url = `${base}/${mode}/${upload.id}`
@@ -308,7 +308,7 @@ export function uploadFile(upload, fileEntry, onProgress, basicAuth, onStart) {
 
 export function removeFile(upload, file) {
     const mode = upload.stream ? 'stream' : 'file'
-    const url = `${base}/${mode}/${upload.id}/${file.id}/${file.fileName}`
+    const url = `${base}/${mode}/${upload.id}/${file.id}/${encodeURIComponent(file.fileName)}`
     const headers = {}
     if (upload.uploadToken) headers['X-UploadToken'] = upload.uploadToken
     return apiCall(url, 'DELETE', null, headers)
@@ -327,11 +327,11 @@ function downloadBase() {
 }
 
 export function getFileURL(uploadId, fileId, fileName) {
-    return `${downloadBase()}/file/${uploadId}/${fileId}/${fileName}`
+    return `${downloadBase()}/file/${uploadId}/${fileId}/${encodeURIComponent(fileName)}`
 }
 
 export function getArchiveURL(uploadId, fileName = 'archive.zip') {
-    return `${downloadBase()}/archive/${uploadId}/${fileName}`
+    return `${downloadBase()}/archive/${uploadId}/${encodeURIComponent(fileName)}`
 }
 
 export function getAdminURL(uploadId, uploadToken) {
