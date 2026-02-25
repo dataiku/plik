@@ -136,19 +136,10 @@ if [[ -n "$GPG_PRIVATE_KEY" ]]; then
   echo " Using GPG key: $GPG_KEY_ID"
 
   # Configure gpg-agent for non-interactive signing in CI
-  # GPG 2.x always protects keys via the agent — preset the passphrase so signing doesn't prompt
   mkdir -p ~/.gnupg
   chmod 700 ~/.gnupg
-  cat > ~/.gnupg/gpg-agent.conf <<AGENTCONF
-allow-loopback-pinentry
-allow-preset-passphrase
-AGENTCONF
+  echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
   gpg-connect-agent reloadagent /bye 2>/dev/null || true
-
-  # Preset passphrase for every secret subkey keygrip
-  for KEYGRIP in $(gpg --list-secret-keys --with-keygrip --with-colons 2>/dev/null | awk -F: '/^grp/{print $10}'); do
-    /usr/lib/gnupg/gpg-preset-passphrase --preset --passphrase "$GPG_PASSPHRASE" "$KEYGRIP"
-  done
 else
   if [[ "$DRY_RUN" != "true" ]]; then
     echo "Error: GPG_PRIVATE_KEY is required for signing (set DRY_RUN=true to skip)"
@@ -228,14 +219,14 @@ cd -
 # GPG sign the Release file
 if [[ -n "$GPG_KEY_ID" ]]; then
   # Detached signature
-  gpg --batch --yes --armor \
+  gpg --batch --yes --armor --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
     --default-key "$GPG_KEY_ID" \
     --detach-sign \
     --output "$APT_DIR/dists/stable/Release.gpg" \
     "$APT_DIR/dists/stable/Release"
 
   # Inline signature (InRelease)
-  gpg --batch --yes --armor \
+  gpg --batch --yes --armor --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
     --default-key "$GPG_KEY_ID" \
     --clearsign \
     --output "$APT_DIR/dists/stable/InRelease" \
