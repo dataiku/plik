@@ -101,6 +101,10 @@ declare -a releases
 git config versionsort.prereleaseSuffix -RC
 for gitTag in $(git tag --sort version:refname)
 do
+    # For stable builds, skip RC releases from the list
+    if [[ "$version" != *-RC* ]] && [[ "$gitTag" == *-RC* ]]; then
+        continue
+    fi
 	if [ -f "changelog/$gitTag" ]; then
 		# '%at': author date, UNIX timestamp
 		release_date=$(git show -s --pretty="format:%at" "refs/tags/$gitTag")
