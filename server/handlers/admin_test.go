@@ -65,6 +65,79 @@ func TestGetUsers(t *testing.T) {
 	require.Equal(t, 3, len(response.Results), "invalid upload count")
 }
 
+func TestGetUsersFilterByProvider(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	user1 := common.NewUser(common.ProviderGoogle, "guser")
+	user1.Login = "guser"
+	err := ctx.GetMetadataBackend().CreateUser(user1)
+	require.NoError(t, err, "unable to create google user")
+
+	req, err := http.NewRequest("GET", "/users?provider=google", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	ctx.SetPagingQuery(&common.PagingQuery{})
+	rr := ctx.NewRecorder(req)
+	GetUsers(ctx, rr, req)
+
+	context.TestOK(t, rr)
+
+	respBody, err := io.ReadAll(rr.Body)
+	require.NoError(t, err, "unable to read response body")
+
+	var response common.PagingResponse
+	err = json.Unmarshal(respBody, &response)
+	require.NoError(t, err, "unable to unmarshal response body %s", respBody)
+	require.Equal(t, 1, len(response.Results), "should only return google users")
+}
+
+func TestGetUsersFilterByAdmin(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx) // 1 admin
+
+	user1 := common.NewUser(common.ProviderLocal, "regular")
+	user1.Login = "regular"
+	user1.Password = "pass"
+	err := ctx.GetMetadataBackend().CreateUser(user1)
+	require.NoError(t, err, "unable to create regular user")
+
+	// Filter admin=true
+	req, err := http.NewRequest("GET", "/users?admin=true", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	ctx.SetPagingQuery(&common.PagingQuery{})
+	rr := ctx.NewRecorder(req)
+	GetUsers(ctx, rr, req)
+
+	context.TestOK(t, rr)
+
+	respBody, err := io.ReadAll(rr.Body)
+	require.NoError(t, err, "unable to read response body")
+
+	var response common.PagingResponse
+	err = json.Unmarshal(respBody, &response)
+	require.NoError(t, err, "unable to unmarshal response body %s", respBody)
+	require.Equal(t, 1, len(response.Results), "should only return admin users")
+
+	// Filter admin=false
+	req, err = http.NewRequest("GET", "/users?admin=false", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	ctx.SetPagingQuery(&common.PagingQuery{})
+	rr = ctx.NewRecorder(req)
+	GetUsers(ctx, rr, req)
+
+	context.TestOK(t, rr)
+
+	respBody, err = io.ReadAll(rr.Body)
+	require.NoError(t, err, "unable to read response body")
+
+	err = json.Unmarshal(respBody, &response)
+	require.NoError(t, err, "unable to unmarshal response body %s", respBody)
+	require.Equal(t, 1, len(response.Results), "should only return non-admin users")
+}
+
 func TestGetUsersNoUser(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 
@@ -107,6 +180,111 @@ func TestGetUsersMetadataBackendError(t *testing.T) {
 	GetUsers(ctx, rr, req)
 
 	context.TestInternalServerError(t, rr, "database is closed")
+}
+
+func TestSearchUsers(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	user1 := common.NewUser(common.ProviderLocal, "alice")
+	user1.Login = "alice"
+	user1.Name = "Alice Wonderland"
+	err := ctx.GetMetadataBackend().CreateUser(user1)
+	require.NoError(t, err)
+
+	user2 := common.NewUser(common.ProviderLocal, "bob")
+	user2.Login = "bob"
+	err = ctx.GetMetadataBackend().CreateUser(user2)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("GET", "/users/search?q=ali", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestOK(t, rr)
+
+	respBody, err := io.ReadAll(rr.Body)
+	require.NoError(t, err)
+
+	var users []*common.User
+	err = json.Unmarshal(respBody, &users)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+}
+
+func TestSearchUsersEmptyQuery(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	req, err := http.NewRequest("GET", "/users/search", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestBadRequest(t, rr, "search query must be at least 2 characters")
+}
+
+func TestSearchUsersShortQuery(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	req, err := http.NewRequest("GET", "/users/search?q=a", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestBadRequest(t, rr, "search query must be at least 2 characters")
+}
+
+func TestSearchUsersWithProvider(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+
+	user1 := common.NewUser(common.ProviderLocal, "alice")
+	user1.Login = "alice"
+	err := ctx.GetMetadataBackend().CreateUser(user1)
+	require.NoError(t, err)
+
+	user2 := common.NewUser(common.ProviderGoogle, "alicia")
+	user2.Login = "alicia"
+	err = ctx.GetMetadataBackend().CreateUser(user2)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("GET", "/users/search?q=ali&provider=local", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestOK(t, rr)
+
+	respBody, err := io.ReadAll(rr.Body)
+	require.NoError(t, err)
+
+	var users []*common.User
+	err = json.Unmarshal(respBody, &users)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+}
+
+func TestSearchUsersNotAdmin(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	createAdminUser(t, ctx)
+	ctx.GetUser().IsAdmin = false
+
+	req, err := http.NewRequest("GET", "/users/search?q=test", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err)
+
+	rr := ctx.NewRecorder(req)
+	SearchUsers(ctx, rr, req)
+
+	context.TestForbidden(t, rr, "you need administrator privileges")
 }
 
 func createTestUploads(t *testing.T, ctx *context.Context) {

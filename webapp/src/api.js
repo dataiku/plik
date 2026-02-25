@@ -128,12 +128,26 @@ export function getServerStats() {
     return apiCall(`${base}/stats`)
 }
 
-export function getAdminUsers({ after, limit } = {}) {
+export function getAdminUsers({ provider, admin, sort, order, after, limit } = {}) {
     const params = new URLSearchParams()
+    if (provider) params.set('provider', provider)
+    if (admin !== undefined && admin !== '') params.set('admin', admin)
+    if (sort) params.set('sort', sort)
+    if (order) params.set('order', order)
     if (after) params.set('after', after)
     if (limit) params.set('limit', limit)
     const qs = params.toString()
     return apiCall(`${base}/users${qs ? '?' + qs : ''}`)
+}
+
+export function searchUsers({ q, provider, admin, limit } = {}) {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (provider) params.set('provider', provider)
+    if (admin !== undefined && admin !== '') params.set('admin', admin)
+    if (limit) params.set('limit', limit)
+    const qs = params.toString()
+    return apiCall(`${base}/users/search${qs ? '?' + qs : ''}`)
 }
 
 export function createUser(userData) {
