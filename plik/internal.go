@@ -106,7 +106,7 @@ func (c *Client) uploadFile(upload *common.Upload, fileParams *common.File, read
 
 	var URL *url.URL
 	if fileParams.ID != "" {
-		URL, err = url.Parse(c.URL + "/" + mode + "/" + upload.ID + "/" + fileParams.ID + "/" + fileParams.Name)
+		URL, err = url.Parse(c.URL + "/" + mode + "/" + upload.ID + "/" + fileParams.ID + "/" + url.PathEscape(fileParams.Name))
 	} else {
 		// Old method without file id that can also be used to add files to an existing upload
 		if upload.Stream {
@@ -214,7 +214,7 @@ func (c *Client) getUploadWithParams(uploadParams *common.Upload) (upload *Uploa
 
 // downloadFile download the remote file from the server
 func (c *Client) downloadFile(uploadParams *common.Upload, fileParams *common.File) (reader io.ReadCloser, err error) {
-	URL := c.URL + "/file/" + uploadParams.ID + "/" + fileParams.ID + "/" + fileParams.Name
+	URL := c.URL + "/file/" + uploadParams.ID + "/" + fileParams.ID + "/" + url.PathEscape(fileParams.Name)
 
 	req, err := c.uploadRequest(uploadParams, "GET", URL, nil)
 	if err != nil {
@@ -248,7 +248,7 @@ func (c *Client) downloadArchive(uploadParams *common.Upload) (reader io.ReadClo
 
 // removeFile remove the remote file from the server
 func (c *Client) removeFile(uploadParams *common.Upload, fileParams *common.File) (err error) {
-	URL := c.URL + "/file/" + uploadParams.ID + "/" + fileParams.ID + "/" + fileParams.Name
+	URL := c.URL + "/file/" + uploadParams.ID + "/" + fileParams.ID + "/" + url.PathEscape(fileParams.Name)
 
 	req, err := c.uploadRequest(uploadParams, "DELETE", URL, nil)
 	if err != nil {
