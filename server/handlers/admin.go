@@ -36,7 +36,17 @@ func GetUsers(ctx *context.Context, resp http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	pagingResponse := common.NewPagingResponse(users, cursor)
+	// Count total users matching the filters
+	// Note: not in the same transaction as the paginated query above, so the total
+	// may be slightly inconsistent with the results if users are created/deleted
+	// concurrently. This is acceptable for an admin UI counter.
+	total, err := ctx.GetMetadataBackend().CountUsers(provider, admin)
+	if err != nil {
+		ctx.InternalServerError("unable to count users : %s", err)
+		return
+	}
+
+	pagingResponse := common.NewPagingResponse(users, cursor).WithTotal(total)
 	common.WriteJSONResponse(resp, pagingResponse)
 }
 
@@ -116,7 +126,17 @@ func GetUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 		}
 	}
 
-	pagingResponse := common.NewPagingResponse(uploads, cursor)
+	// Count total uploads matching the filters
+	// Note: not in the same transaction as the paginated query above, so the total
+	// may be slightly inconsistent with the results if uploads are cleaned up
+	// concurrently. This is acceptable for an admin UI counter.
+	total, err := ctx.GetMetadataBackend().CountUploads(user, token)
+	if err != nil {
+		ctx.InternalServerError("unable to count uploads : %s", err)
+		return
+	}
+
+	pagingResponse := common.NewPagingResponse(uploads, cursor).WithTotal(total)
 	common.WriteJSONResponse(resp, pagingResponse)
 }
 

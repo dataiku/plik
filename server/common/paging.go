@@ -69,6 +69,7 @@ func (pq *PagingQuery) Paginator() *paginator.Paginator {
 type PagingResponse struct {
 	After   *string `json:"after"`
 	Before  *string `json:"before"`
+	Total   *int64  `json:"total,omitempty"`
 	Results []any   `json:"results"`
 }
 
@@ -78,5 +79,11 @@ func NewPagingResponse(results any, cursor *paginator.Cursor) (pr *PagingRespons
 	pr.Results = utils.ToInterfaceArray(results)
 	pr.Before = cursor.Before
 	pr.After = cursor.After
+	return pr
+}
+
+// WithTotal set the total count on the paging response
+func (pr *PagingResponse) WithTotal(total int64) *PagingResponse {
+	pr.Total = &total
 	return pr
 }

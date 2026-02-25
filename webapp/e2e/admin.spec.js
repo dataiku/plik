@@ -426,17 +426,33 @@ test.describe('Admin user search', () => {
             const dropdown = mainContent.locator('.absolute.z-20')
             await expect(dropdown).toBeVisible({ timeout: 5_000 })
 
-            // Click the result — should navigate to uploads filtered by user
+            // Click the result — should filter user list to that user
             const resultBtn = dropdown.getByRole('button').filter({ hasText: 'searchuser' }).first()
             await expect(resultBtn).toBeVisible()
             await resultBtn.click()
-            await page.waitForLoadState('networkidle')
 
-            // Should now be in uploads view with the user filter
-            await expect(mainContent.getByText('user:')).toBeVisible({ timeout: 5_000 })
+            // Dropdown should close and user list should show only the selected user
+            await expect(dropdown).not.toBeVisible()
+            const userCards = mainContent.locator('.glass-card').filter({ hasText: 'searchuser' })
+            await expect(userCards).toHaveCount(1)
         } finally {
             if (user?.id) await apiDeleteUser(page, user.id)
         }
+    })
+})
+
+test.describe('Admin result counts', () => {
+    test('users view shows result count', async ({ authenticatedPage: page }) => {
+        await goToUsersTab(page)
+        const mainContent = page.locator('main')
+        await expect(mainContent.getByText(/Showing \d+ of \d+ users/)).toBeVisible({ timeout: 5_000 })
+    })
+
+    test('uploads view shows result count', async ({ authenticatedPage: page }) => {
+        await page.goto('/#/admin')
+        await page.getByRole('button', { name: 'Uploads', exact: true }).click()
+        const mainContent = page.locator('main')
+        await expect(mainContent.getByText(/Showing \d+ of \d+ uploads/)).toBeVisible({ timeout: 5_000 })
     })
 })
 

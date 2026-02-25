@@ -393,7 +393,7 @@ func TestBackend_CountUsers(t *testing.T) {
 	user := common.NewUser(common.ProviderLocal, "user")
 	createUser(t, b, user)
 
-	count, err := b.CountUsers()
+	count, err := b.CountUsers("", nil)
 	require.NoError(t, err, "count users error")
-	require.Equal(t, 1, count, "invalid user count")
+	require.Equal(t, int64(1), count, "invalid user count")
 }

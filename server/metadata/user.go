@@ -197,15 +197,20 @@ func (b *Backend) DeleteUser(userID string) (deleted bool, err error) {
 	return deleted, err
 }
 
-// CountUsers count the number of user in the DB
-func (b *Backend) CountUsers() (count int, err error) {
-	var c int64 // Gorm V2 needs int64 for counts
-	err = b.db.Model(&common.User{}).Count(&c).Error
-	if err != nil {
-		return -1, err
+// CountUsers count the number of users matching the optional filters
+func (b *Backend) CountUsers(provider string, admin *bool) (count int64, err error) {
+	stmt := b.db.Model(&common.User{})
+
+	if provider != "" {
+		stmt = stmt.Where(&common.User{Provider: provider})
 	}
 
-	return int(c), nil
+	if admin != nil {
+		stmt = stmt.Where("is_admin = ?", *admin)
+	}
+
+	err = stmt.Count(&count).Error
+	return count, err
 }
 
 // ForEachUsers execute f for every user in the database

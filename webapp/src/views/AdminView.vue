@@ -33,6 +33,7 @@ const statsLoading = ref(false)
 // ── Users ──
 const users = ref([])
 const usersCursor = ref(null)
+const usersTotal = ref(null)
 const usersLoading = ref(false)
 const usersProviderFilter = ref('')
 const usersAdminFilter = ref('')   // '' | 'true' | 'false'
@@ -48,6 +49,7 @@ let usersSearchTimer = null
 // ── Uploads ──
 const uploads = ref([])
 const uploadsCursor = ref(null)
+const uploadsTotal = ref(null)
 const uploadsLoading = ref(false)
 const uploadsUserFilter = ref('')
 const uploadsTokenFilter = ref('')
@@ -106,6 +108,7 @@ async function loadUsers(more = false) {
             users.value = data.results || []
         }
         usersCursor.value = data.after || null
+        usersTotal.value = data.total ?? null
     } catch (err) {
         showError('Could not load users')
     } finally {
@@ -168,7 +171,8 @@ function selectSearchResult(user) {
     usersSearchQuery.value = ''
     usersSearchResults.value = []
     usersSearchOpen.value = false
-    filterUploadsByUser(user.id)
+    users.value = [user]
+    usersCursor.value = null
 }
 
 function closeSearch() {
@@ -194,6 +198,7 @@ async function loadUploads(more = false) {
             uploads.value = data.results || []
         }
         uploadsCursor.value = data.after || null
+        uploadsTotal.value = data.total ?? null
     } catch (err) {
         showError('Could not load uploads')
     } finally {
@@ -208,6 +213,19 @@ function filterUploadsByUser(userId) {
     uploads.value = []
     uploadsCursor.value = null
     loadUploads()
+}
+
+async function viewUserInUsersTab(userId) {
+    try {
+        const results = await searchUsers({ q: userId, limit: 1 })
+        if (results.length > 0) {
+            display.value = 'users'
+            users.value = [results[0]]
+            usersCursor.value = null
+        }
+    } catch {
+        showError('Could not find user')
+    }
 }
 
 function filterUploadsByToken(token) {
@@ -585,6 +603,10 @@ onMounted(async () => {
             </div>
           </div>
 
+          <p v-if="usersTotal !== null" class="text-xs text-surface-500 mb-2">
+            Showing {{ users.length }} of {{ usersTotal }} users
+          </p>
+
           <div v-if="usersLoading && users.length === 0" class="text-center py-12 text-surface-500">
             Loading users...
           </div>
@@ -711,6 +733,9 @@ onMounted(async () => {
                         d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
                 user: <span class="font-mono text-accent-400">{{ uploadsUserFilter }}</span>
+                <button @click="viewUserInUsersTab(uploadsUserFilter)"
+                        class="text-surface-400 hover:text-accent-400 transition-colors"
+                        title="View user in users tab">🔍</button>
                 <button @click="clearUserFilter" class="text-surface-500 hover:text-white">×</button>
               </div>
               <div v-if="uploadsTokenFilter" class="flex items-center gap-1.5 text-surface-300">
@@ -723,6 +748,10 @@ onMounted(async () => {
               </div>
             </div>
           </div>
+
+          <p v-if="uploadsTotal !== null" class="text-xs text-surface-500 mb-2">
+            Showing {{ uploads.length }} of {{ uploadsTotal }} uploads
+          </p>
 
           <div v-if="uploadsLoading && uploads.length === 0" class="text-center py-12 text-surface-500">
             Loading uploads...
