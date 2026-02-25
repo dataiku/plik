@@ -155,3 +155,27 @@ jobs:
 
     - name: Build docs
       run: make docs
+
+  helm-docs:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+
+    - name: Install helm-docs
+      run: go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
+
+    - name: Run helm-docs
+      run: make helm-docs
+
+    - name: Check for uncommitted changes
+      run: |
+        git diff --exit-code || { echo "::error::Uncommitted changes detected after running helm-docs. Run 'make helm-docs' and commit the result."; git status; exit 1; }
+        UNTRACKED=$(git ls-files --others --exclude-standard)
+        if [ -n "$UNTRACKED" ]; then echo "::error::Untracked files detected after running helm-docs."; git status; exit 1; fi

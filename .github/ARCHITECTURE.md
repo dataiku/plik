@@ -29,6 +29,7 @@ Runs on every push and pull request. Steps:
 2. Go tests (`make test`)
 3. Frontend tests (`make test-frontend`) — vitest unit tests for the Vue webapp
 4. Docs build (`make docs`) — verifies VitePress builds without errors
+5. Helm docs check (`make helm-docs`) — regenerates chart README and fails if there are uncommitted changes
 
 ### `pages.yml` — GitHub Pages (Docs)
 
@@ -84,7 +85,7 @@ helm repo add plik https://root-gg.github.io/plik
 helm install plik plik/plik
 ```
 
-The chart source lives in `charts/plik/`. See the chart's `values.yaml` for all configuration options.
+The chart source lives in `charts/plik/`. See the chart's [README](https://github.com/root-gg/plik/blob/master/charts/plik/README.md) for all configuration options.
 
 ## APT Repository Release Flow
 

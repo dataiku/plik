@@ -176,9 +176,16 @@ release-and-push-to-docker-hub:
 	@PUSH_TO_DOCKER_HUB=true releaser/release.sh
 
 ###
+# Regenerate Helm chart README from values.yaml annotations
+# Requires: helm-docs (go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest)
+###
+helm-docs:
+	@helm-docs --chart-search-root ./charts
+
+###
 # Package Helm chart locally (auto-detects version from git tags)
 ###
-helm:
+helm: helm-docs
 	@DRY_RUN=true releaser/helm_release.sh $(VERSION)
 
 ###
@@ -274,4 +281,4 @@ deb-publish:
 # by make, we must declare these targets as phony to avoid :
 # "make: `client' is up to date" cases at compile time
 ###
-.PHONY: client clients server release helm helm-install deb deb-publish docs test-backend test-frontend test-frontend-e2e
+.PHONY: client clients server release helm helm-docs helm-install deb deb-publish docs test-backend test-frontend test-frontend-e2e
