@@ -84,3 +84,42 @@ func TestFileWithURLBeforeUpload(t *testing.T) {
 	require.NotNil(t, result, "WithURL should not return nil even before upload")
 	require.Empty(t, result.URL, "URL should be empty before upload")
 }
+
+func TestGetParamsFromReader(t *testing.T) {
+	_, pc := newPlikServerAndClient()
+
+	upload := pc.NewUpload()
+	file := upload.AddFileFromReader("test.txt", bytes.NewBufferString("data"))
+
+	params := file.getParams()
+	require.Equal(t, "test.txt", params.Name, "invalid file name")
+	require.Equal(t, int64(0), params.Size, "size should be 0 for reader-based files")
+	require.Empty(t, params.ID, "ID should be empty before upload")
+}
+
+func TestGetParamsFromPath(t *testing.T) {
+	_, pc := newPlikServerAndClient()
+
+	upload := pc.NewUpload()
+	file, err := upload.AddFileFromPath("file.go") // use this test file itself
+	require.NoError(t, err, "unable to add file from path")
+	require.True(t, file.Size > 0, "size should be set from os.Stat")
+
+	params := file.getParams()
+	require.Equal(t, "file.go", params.Name, "invalid file name")
+	require.Equal(t, file.Size, params.Size, "size should match the file size")
+}
+
+func TestGetParamsWithMetadata(t *testing.T) {
+	_, pc := newPlikServerAndClient()
+
+	upload := pc.NewUpload()
+	file := upload.AddFileFromReader("test.txt", bytes.NewBufferString("data"))
+	file.lock.Lock()
+	file.metadata = &common.File{ID: "file-id", Status: common.FileUploaded}
+	file.lock.Unlock()
+
+	params := file.getParams()
+	require.Equal(t, "test.txt", params.Name, "invalid file name")
+	require.Equal(t, "file-id", params.ID, "ID should come from metadata")
+}

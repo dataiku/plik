@@ -111,6 +111,7 @@ func (file *File) getParams() (params *common.File) {
 
 	params = &common.File{}
 	params.Name = file.Name
+	params.Size = file.Size
 
 	if file.metadata != nil {
 		params.ID = file.metadata.ID
