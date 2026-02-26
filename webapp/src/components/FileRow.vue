@@ -10,6 +10,7 @@ const props = defineProps({
   mode: { type: String, default: 'upload' }, // 'upload' | 'uploading' | 'download'
   canRemove: { type: Boolean, default: false },
   isStream: { type: Boolean, default: false },
+  isOneShot: { type: Boolean, default: false },
   isE2ee: { type: Boolean, default: false },
 })
 
@@ -218,7 +219,7 @@ function fileUrl() {
                     :text="fileUrl()" />
 
         <!-- View button (download mode, text files only) -->
-        <button v-if="mode === 'download' && file.status === 'uploaded' && isTextFile"
+        <button v-if="mode === 'download' && file.status === 'uploaded' && isTextFile && !isOneShot && !isStream"
                 class="btn bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 px-2 py-1.5 text-xs"
                 title="View file content"
                 @click="emit('view', file)">

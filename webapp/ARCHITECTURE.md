@@ -630,7 +630,7 @@ Reusable CodeMirror 6 wrapper (`CodeEditor.vue`) used in two contexts:
 
 **JSON prettify / validate**: When the detected language is JSON, two action buttons appear in the editor header bar. **Validate** (`JSON.parse()` only) checks syntax and shows a brief green "Valid" flash on success or a dismissable red error banner on failure — it never changes the content. **Prettify** (`JSON.parse()` → `JSON.stringify(…, null, 2)`) validates *and* reformats the content with 2-space indentation. In read-only mode (DownloadView file viewer) prettify updates the displayed view only — it does not modify the file on the server.
 
-**Auto-display**: In `DownloadView.vue`, if an upload contains exactly one text file, the viewer panel opens automatically on mount (or when the file finishes uploading). A watcher on `activeFiles` triggers `viewFile()` for the first file if it's the only one and it's a text file.
+**Auto-display**: In `DownloadView.vue`, if an upload contains exactly one text file, the viewer panel opens automatically on mount (or when the file finishes uploading). A watcher on `activeFiles` triggers `viewFile()` for the first file if it's the only one and it's a text file. **Exception**: auto-display is disabled for one-shot and streaming uploads — one-shot viewing would consume the single download, and streaming files may not be fully stored on the server.
 
 ### Text-File Detection
 
@@ -638,7 +638,7 @@ The `isTextFile()` utility in `utils.js` determines if a file can be viewed in t
 1. **Size**: Max 5 MB (`MAX_VIEWABLE_SIZE`)
 2. **MIME type**: `text/*` prefix only — the server detects MIME types via Go's `http.DetectContentType`, which returns `text/plain` for all text-like content (JS, JSON, Go, Python, etc.) and `application/octet-stream` for binary
 
-`FileRow.vue` uses this to conditionally show a "View" button on uploaded files in download mode.
+`FileRow.vue` uses this to conditionally show a "View" button on uploaded files in download mode. The View button is also hidden for one-shot (`isOneShot` prop) and streaming (`isStream` prop) uploads.
 
 ---
 

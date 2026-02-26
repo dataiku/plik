@@ -159,6 +159,54 @@ test.describe('Text viewer', () => {
         // Viewer panel should not be open
         await expect(page.locator('#file-viewer-panel')).not.toBeVisible()
     })
+
+    test('View button hidden for one-shot uploads', async ({ page, withConfig }) => {
+        await withConfig({ feature_one_shot: 'default' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Upload a text file (one-shot is on by default via config)
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'oneshot.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('one shot content'),
+        })
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // File should be listed
+        await expect(page.getByRole('link', { name: 'oneshot.txt' })).toBeVisible()
+
+        // View button should NOT be visible for one-shot uploads
+        await expect(page.getByRole('button', { name: 'View' })).not.toBeVisible()
+    })
+
+    test('does NOT auto-open for one-shot uploads', async ({ page, withConfig }) => {
+        await withConfig({ feature_one_shot: 'default' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Upload a single text file with one-shot enabled
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'oneshot-auto.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('should not auto open'),
+        })
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // File should be listed
+        await expect(page.getByRole('link', { name: 'oneshot-auto.txt' })).toBeVisible()
+
+        // Viewer panel should NOT auto-open for one-shot uploads
+        await expect(page.locator('#file-viewer-panel')).not.toBeVisible()
+    })
 })
 
 test.describe('Add files', () => {
