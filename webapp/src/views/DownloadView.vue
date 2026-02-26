@@ -492,6 +492,8 @@ watch(activeFiles, (files) => {
   // Only auto-view when the entire upload has exactly one file
   const totalUploadFiles = upload.value?.files?.filter(f => f.status !== 'removed' && f.status !== 'deleted')
   if (totalUploadFiles?.length !== 1) return
+  // Don't auto-open for one-shot (viewing consumes the download) or streaming uploads
+  if (upload.value?.oneShot || upload.value?.stream) return
 
   const file = files[0]
   if (file?.status === 'uploaded' && isTextFile(file) && lastAutoViewedId.value !== file.id) {
@@ -648,6 +650,7 @@ watch(activeFiles, (files) => {
                      mode="download"
                      :can-remove="canRemoveFiles"
                      :is-stream="upload.stream"
+                     :is-one-shot="upload.oneShot"
                      :is-e2ee="isE2EE"
                      @remove="deleteFile"
                      @show-qr="openQrFile"
