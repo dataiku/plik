@@ -64,8 +64,10 @@ func (p *Progress) register(file *plik.File) {
 		if err != nil {
 			// Keep only the first line of the error
 			str := strings.TrimSuffix(strings.SplitAfterN(err.Error(), "\n", 2)[0], "\n")
+			bar.Prefix("❌ " + linePrefix)
 			bar.FinishError(errors.New(str))
 		} else {
+			bar.Prefix("✅ " + linePrefix)
 			bar.Finish()
 		}
 	})
