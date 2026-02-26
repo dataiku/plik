@@ -175,6 +175,15 @@ fi
 APT_DIR="$WORKTREE/apt"
 mkdir -p "$APT_DIR/pool/main"
 
+# Remove old versions of packages being replaced
+for DEB in releases/*.deb; do
+  [[ -f "$DEB" ]] || continue
+  PKG_NAME=$(dpkg-deb -f "$DEB" Package)
+  DEB_ARCH=$(dpkg-deb -f "$DEB" Architecture)
+  # Remove any existing versions of this package for this architecture
+  find "$APT_DIR/pool/main/" -name "${PKG_NAME}_*_${DEB_ARCH}.deb" -delete 2>/dev/null || true
+done
+
 # Copy .deb files to the pool
 cp releases/*.deb "$APT_DIR/pool/main/"
 
@@ -251,7 +260,7 @@ fi
 
 # Commit and force-push to gh-pages (single orphan commit, no history)
 cd "$WORKTREE"
-git add apt/
+git add -A
 git commit -m "Update APT repository for $TAG"
 git push --force "$GIT_REMOTE" HEAD:gh-pages
 cd -
