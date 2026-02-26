@@ -410,6 +410,7 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 
 	router.Handle("/user", adminChain.Then(handlers.CreateUser)).Methods("POST")
 	router.Handle("/stats", adminChain.Then(handlers.GetServerStatistics)).Methods("GET")
+	router.Handle("/users/search", adminChain.Then(handlers.SearchUsers)).Methods("GET")
 	router.Handle("/users", adminChain.Append(middleware.Paginate).Then(handlers.GetUsers)).Methods("GET")
 	router.Handle("/uploads", adminChain.Append(middleware.Paginate).Then(handlers.GetUploads)).Methods("GET")
 

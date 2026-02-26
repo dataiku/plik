@@ -9,7 +9,9 @@
 ```
 charts/plik/
 ├── Chart.yaml                  ← Chart metadata (version set at release time via __VERSION__)
-├── values.yaml                 ← All user-configurable values
+├── values.yaml                 ← All user-configurable values (annotated for helm-docs)
+├── README.md.gotmpl            ← helm-docs template for generating README.md
+├── README.md                   ← Auto-generated values reference (do not edit manually)
 ├── CHANGELOG.md                ← Keep-a-Changelog (update [Unreleased] before each release)
 ├── ARCHITECTURE.md             ← this file
 └── templates/
@@ -19,13 +21,8 @@ charts/plik/
     ├── deployment.yaml         ← Deployment or StatefulSet (controlled by .Values.kind)
     ├── service.yaml            ← ClusterIP service on port 8080
     ├── ingress.yaml            ← Optional Ingress resource
-    ├── hpa.yaml                ← Optional HorizontalPodAutoscaler
-    ├── serviceaccount.yaml     ← Optional ServiceAccount
-    ├── pvc.yaml                ← PVC for file data (when persistence.enabled + kind=Deployment)
-    ├── pvc-db.yaml             ← PVC for SQLite DB (when dbPersistence.enabled + kind=Deployment)
-    ├── NOTES.txt               ← Post-install instructions
-    └── tests/
-        └── test-connection.yaml
+    ├── pvc.yaml                ← PVC for file/db data (when persistence/dbPersistence enabled)
+    └── NOTES.txt               ← Post-install instructions
 ```
 
 ---

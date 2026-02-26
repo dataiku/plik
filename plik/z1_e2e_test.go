@@ -321,6 +321,7 @@ func TestQuickUpload(t *testing.T) {
 	require.NoError(t, err, "unable to parse url from response body")
 
 	req, err = http.NewRequest("GET", u.String(), nil)
+	require.NoError(t, err, "unable to create new request")
 	resp, err = pc.makeRequest(req)
 	require.NoError(t, err, "unable to make quick request (%s) %s : %s", req.Method, req.URL.String())
 	require.Equal(t, 200, resp.StatusCode, "invalid HTTP response status %s", resp.Status)
@@ -356,4 +357,93 @@ func TestCreateUploadWithForbidenOptions(t *testing.T) {
 	require.Equal(t, "", upload.Metadata().RemoteIP, "invalid upload download domain")
 	require.NotEqual(t, uploadToCreate.UploadToken, upload.Metadata().UploadToken, "invalid upload download domain")
 	require.NotEqual(t, uploadToCreate.CreatedAt, upload.Metadata().CreatedAt, "invalid upload download domain")
+}
+
+func TestUploadFileWithSpecialChars(t *testing.T) {
+	ps, pc := newPlikServerAndClient()
+	defer shutdown(ps)
+
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	// Filename with #, parentheses, and spaces — all problematic for URLs
+	fileName := "#671488 (monitoring-configuration_grafana-dashboards).txt"
+	data := "test data with special filename"
+
+	upload, file, err := pc.UploadReader(fileName, bytes.NewBufferString(data))
+	require.NoError(t, err, "unable to upload file with special characters in name")
+	require.Equal(t, fileName, file.Name, "file name should be preserved")
+
+	// Download the file and verify content
+	reader, err := pc.downloadFile(upload.Metadata(), file.Metadata())
+	require.NoError(t, err, "unable to download file with special characters in name")
+	content, err := io.ReadAll(reader)
+	require.NoError(t, err, "unable to read file content")
+	require.Equal(t, data, string(content), "file content mismatch")
+
+	// Verify the URL is properly encoded
+	fileURL, err := file.GetURL()
+	require.NoError(t, err, "unable to get file URL")
+	require.Contains(t, fileURL.String(), "%23", "# should be percent-encoded in URL")
+	require.NotContains(t, fileURL.String(), "#671488", "raw # should not appear in URL path")
+
+	// Remove should also work
+	err = pc.removeFile(upload.Metadata(), file.Metadata())
+	require.NoError(t, err, "unable to remove file with special characters in name")
+}
+
+func TestQuickUploadWithSpecialChars(t *testing.T) {
+	ps, pc := newPlikServerAndClient()
+	ps.GetConfig().DownloadDomain = fmt.Sprintf("http://127.0.0.1:%d", ps.GetConfig().ListenPort)
+
+	defer shutdown(ps)
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	fileName := "#test (special).txt"
+	content := "test data"
+
+	var buf bytes.Buffer
+	multipartWriter := multipart.NewWriter(&buf)
+	writer, err := multipartWriter.CreateFormFile("file", fileName)
+	require.NoError(t, err, "create multipart form file error : %s", err)
+
+	_, err = io.Copy(writer, bytes.NewBufferString(content))
+	require.NoError(t, err, "io copy error : %s", err)
+
+	err = multipartWriter.Close()
+	require.NoError(t, err, "multipart writer close error : %s", err)
+
+	req, err := http.NewRequest("POST", pc.URL, &buf)
+	require.NoError(t, err, "unable to create plik request")
+
+	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
+
+	resp, err := pc.makeRequest(req)
+	require.NoError(t, err, "unable to make quick request (%s) %s", req.Method, req.URL.String())
+	require.Equal(t, 200, resp.StatusCode, "invalid HTTP response status %s", resp.Status)
+
+	defer func() { _ = resp.Body.Close() }()
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "unable to read response body")
+
+	// The URL should contain encoded special characters
+	rawURL := strings.TrimSpace(string(respBody))
+	require.Contains(t, rawURL, "%23", "# should be encoded in quick mode URL")
+
+	u, err := url.Parse(rawURL)
+	require.NoError(t, err, "unable to parse url from response body")
+
+	// Downloading via the encoded URL should work
+	req, err = http.NewRequest("GET", u.String(), nil)
+	require.NoError(t, err, "unable to create new request")
+	resp, err = pc.makeRequest(req)
+	require.NoError(t, err, "unable to download file via quick mode URL")
+	require.Equal(t, 200, resp.StatusCode, "invalid HTTP response status %s", resp.Status)
+
+	defer func() { _ = resp.Body.Close() }()
+	respBody, err = io.ReadAll(resp.Body)
+	require.NoError(t, err, "unable to read response body")
+
+	require.Equal(t, content, string(respBody), "invalid file content")
 }

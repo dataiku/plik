@@ -121,4 +121,27 @@ test.describe('Upload flow', () => {
         await expect(panel).toBeVisible({ timeout: 5_000 })
         await expect(panel).toContainText(pastedText)
     })
+
+    test('uploads a file with special characters in name', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Filename with #, parentheses, and spaces — previously caused 404
+        const fileName = '#test (special-chars).txt'
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: fileName,
+            mimeType: 'text/plain',
+            buffer: Buffer.from('special content'),
+        })
+
+        await expect(page.getByText(fileName)).toBeVisible()
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Verify the file appears on the download page with the original name
+        await expect(page.getByText(fileName).first()).toBeVisible()
+    })
 })

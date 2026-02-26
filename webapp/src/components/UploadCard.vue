@@ -21,7 +21,7 @@ const emit = defineEmits(['delete', 'filter-token', 'filter-user'])
           {{ upload.id }}
         </a>
         <p class="text-surface-500">uploaded: {{ formatDate(upload.createdAt) }}</p>
-        <p class="text-surface-500">expires: {{ formatDate(upload.expireAt) }}</p>
+        <p class="text-surface-500">expires: {{ upload.expireAt ? formatDate(upload.expireAt) : 'Never' }}</p>
         <p v-if="showUser && upload.user" class="text-surface-500">
           user:
           <button @click="emit('filter-user', upload.user)"
@@ -29,11 +29,11 @@ const emit = defineEmits(['delete', 'filter-token', 'filter-user'])
             {{ upload.user }}
           </button>
         </p>
-        <p v-if="upload.uploadToken" class="text-surface-500">
+        <p v-if="upload.token" class="text-surface-500">
           token:
-          <button @click="emit('filter-token', upload.uploadToken)"
+          <button @click="emit('filter-token', upload.token)"
                   class="text-accent-400 hover:text-accent-300 transition-colors">
-            {{ tokenLabel || upload.uploadToken?.substring(0, 8) + '...' }}
+            {{ tokenLabel || upload.token?.substring(0, 8) + '...' }}
           </button>
         </p>
       </div>

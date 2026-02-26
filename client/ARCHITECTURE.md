@@ -73,7 +73,7 @@ Implements a device authorization flow for CLI authentication:
 3. Polls POST `/auth/cli/poll` with code + secret every 2s
 4. On approval, saves the token to `~/.plikrc` and exits
 
-Triggered by `--login` flag or interactively during first-run when auth is enabled/forced.
+Triggered by `--login` flag or interactively during first-run when auth is enabled/forced. When `--login` is set, the first-run wizard skips its own interactive login to avoid triggering the flow twice.
 
 ### Archive Backends (`archive/`)
 
@@ -98,7 +98,7 @@ When the `age` backend is used, the upload is flagged as E2EE (`upload.E2EE = "a
 
 ### Self-Update (`update.go`)
 
-The client can update itself by downloading the latest matching binary from the configured Plik server. It compares versions and replaces the current binary in-place.
+The client can update itself by downloading the latest matching binary from the configured Plik server. It compares versions and replaces the current binary in-place. Between the current and target versions, the client displays changelogs from the releases list. If the client's current version is not found in the list (e.g. RC upgrading to stable), only the target version's changelog is shown.
 
 ### MCP Server (`mcp.go`)
 

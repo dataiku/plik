@@ -45,6 +45,15 @@ func getUploadsWhereClause(userID string, tokenStr string) *common.Upload {
 	return whereClause
 }
 
+// CountUploads return the total number of uploads matching the optional filters
+func (b *Backend) CountUploads(userID string, tokenStr string) (count int64, err error) {
+	stmt := b.db.Model(&common.Upload{}).
+		Where(getUploadsWhereClause(userID, tokenStr))
+
+	err = stmt.Count(&count).Error
+	return count, err
+}
+
 // GetUploads return uploads from DB
 // userID and tokenStr are filters
 // set withFiles to also fetch the files

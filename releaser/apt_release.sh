@@ -134,6 +134,12 @@ if [[ -n "$GPG_PRIVATE_KEY" ]]; then
   echo "$GPG_IMPORT_OUTPUT"
   GPG_KEY_ID=$(echo "$GPG_IMPORT_OUTPUT" | grep -oE 'key [0-9A-F]+' | head -1 | awk '{print $2}')
   echo " Using GPG key: $GPG_KEY_ID"
+
+  # Configure gpg-agent for non-interactive signing in CI
+  mkdir -p ~/.gnupg
+  chmod 700 ~/.gnupg
+  echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+  gpg-connect-agent reloadagent /bye 2>/dev/null || true
 else
   if [[ "$DRY_RUN" != "true" ]]; then
     echo "Error: GPG_PRIVATE_KEY is required for signing (set DRY_RUN=true to skip)"
@@ -213,14 +219,14 @@ cd -
 # GPG sign the Release file
 if [[ -n "$GPG_KEY_ID" ]]; then
   # Detached signature
-  gpg --batch --yes --armor \
+  gpg --batch --yes --armor --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
     --default-key "$GPG_KEY_ID" \
     --detach-sign \
     --output "$APT_DIR/dists/stable/Release.gpg" \
     "$APT_DIR/dists/stable/Release"
 
   # Inline signature (InRelease)
-  gpg --batch --yes --armor \
+  gpg --batch --yes --armor --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
     --default-key "$GPG_KEY_ID" \
     --clearsign \
     --output "$APT_DIR/dists/stable/InRelease" \

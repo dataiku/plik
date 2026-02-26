@@ -28,6 +28,16 @@ helm install plik .
 
 The chart supports several modes of deployment. All Plik [configuration](./configuration.md) options are available under the `plikd` key in `values.yaml`.
 
+### Values Reference
+
+A complete table of all configurable values with types, defaults, and descriptions is available in the chart's [README](https://github.com/root-gg/plik/blob/master/charts/plik/README.md#values).
+
+The README is auto-generated with [helm-docs](https://github.com/norwoodj/helm-docs). To regenerate after editing `values.yaml`:
+
+```bash
+make helm-docs
+```
+
 ### Persistence
 
 Plik requires two types of persistent storage when using the `file` data backend:

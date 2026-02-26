@@ -96,7 +96,7 @@ func (bi *BuildInfo) Sanitize() {
 
 func (bi *BuildInfo) String() string {
 
-	v := fmt.Sprintf("v%s", bi.Version)
+	v := bi.Version
 
 	if bi.GitShortRevision != "" {
 		v += fmt.Sprintf(" built from git rev %s", bi.GitShortRevision)

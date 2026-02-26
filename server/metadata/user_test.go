@@ -103,18 +103,175 @@ func TestBackend_GetUsers(t *testing.T) {
 		createUser(t, b, user)
 	}
 
-	users, cursor, err := b.GetUsers("", false, common.NewPagingQuery().WithLimit(100))
+	users, cursor, err := b.GetUsers("", nil, false, common.NewPagingQuery().WithLimit(100))
 	require.NoError(t, err, "get user error")
 	require.NotNil(t, cursor, "invalid nil cursor")
 	require.Len(t, users, 10, "invalid user length")
 
-	users, cursor, err = b.GetUsers(common.ProviderGoogle, false, common.NewPagingQuery().WithLimit(100))
+	users, cursor, err = b.GetUsers(common.ProviderGoogle, nil, false, common.NewPagingQuery().WithLimit(100))
 	require.NoError(t, err, "get user error")
 	require.NotNil(t, cursor, "invalid nil cursor")
 	require.Len(t, users, 5, "invalid user length")
 
-	users, cursor, err = b.GetUsers("", false, nil)
+	users, cursor, err = b.GetUsers("", nil, false, nil)
 	require.Error(t, err, "get user error expected")
+}
+
+func TestBackend_GetUsers_AdminFilter(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	for i := range 3 {
+		user := common.NewUser(common.ProviderLocal, fmt.Sprintf("admin_%d", i))
+		user.IsAdmin = true
+		createUser(t, b, user)
+	}
+
+	for i := range 5 {
+		user := common.NewUser(common.ProviderLocal, fmt.Sprintf("user_%d", i))
+		createUser(t, b, user)
+	}
+
+	// Filter admins only
+	adminTrue := true
+	users, _, err := b.GetUsers("", &adminTrue, false, common.NewPagingQuery().WithLimit(100))
+	require.NoError(t, err, "get admin users error")
+	require.Len(t, users, 3, "invalid admin user count")
+	for _, u := range users {
+		require.True(t, u.IsAdmin, "expected admin user")
+	}
+
+	// Filter non-admins only
+	adminFalse := false
+	users, _, err = b.GetUsers("", &adminFalse, false, common.NewPagingQuery().WithLimit(100))
+	require.NoError(t, err, "get non-admin users error")
+	require.Len(t, users, 5, "invalid non-admin user count")
+	for _, u := range users {
+		require.False(t, u.IsAdmin, "expected non-admin user")
+	}
+
+	// No filter (nil) returns all
+	users, _, err = b.GetUsers("", nil, false, common.NewPagingQuery().WithLimit(100))
+	require.NoError(t, err, "get all users error")
+	require.Len(t, users, 8, "invalid total user count")
+}
+
+func TestBackend_SearchUsers(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	// Create test users with varied logins / names / emails
+	alice := common.NewUser(common.ProviderLocal, "alice")
+	alice.Login = "alice"
+	alice.Name = "Alice Wonderland"
+	alice.Email = "alice@example.com"
+	createUser(t, b, alice)
+
+	bob := common.NewUser(common.ProviderLocal, "bob")
+	bob.Login = "bob"
+	bob.Name = "Bob Builder"
+	bob.Email = "bob@example.com"
+	createUser(t, b, bob)
+
+	charlie := common.NewUser(common.ProviderGoogle, "charlie")
+	charlie.Login = "charlie"
+	charlie.Name = "Charlie Chaplin"
+	charlie.Email = "charlie@example.com"
+	charlie.IsAdmin = true
+	createUser(t, b, charlie)
+
+	// Search by login prefix
+	users, err := b.SearchUsers("ali", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+
+	// Search matches name
+	users, err = b.SearchUsers("Builder", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "bob", users[0].Login)
+
+	// Search matches email
+	users, err = b.SearchUsers("charlie@", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "charlie", users[0].Login)
+
+	// Search matches multiple — results sorted by login
+	users, err = b.SearchUsers("example.com", "", nil, 10)
+	require.NoError(t, err)
+	require.Len(t, users, 3)
+	require.Equal(t, "alice", users[0].Login)
+	require.Equal(t, "bob", users[1].Login)
+	require.Equal(t, "charlie", users[2].Login)
+
+	// No results
+	users, err = b.SearchUsers("zzz_no_match", "", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 0)
+
+	// Empty query returns error
+	_, err = b.SearchUsers("", "", nil, 5)
+	require.Error(t, err)
+}
+
+func TestBackend_SearchUsers_WithFilters(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	alice := common.NewUser(common.ProviderLocal, "alice")
+	alice.Login = "alice"
+	createUser(t, b, alice)
+
+	bob := common.NewUser(common.ProviderGoogle, "bob")
+	bob.Login = "bob"
+	bob.IsAdmin = true
+	createUser(t, b, bob)
+
+	// Both have "l" or "b" in their ID — search for common substring "local:" or just use broad search
+	// Search all, filter by provider
+	users, err := b.SearchUsers("alice", "local", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "alice", users[0].Login)
+
+	users, err = b.SearchUsers("alice", "google", nil, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 0)
+
+	// Search all, filter by admin
+	adminTrue := true
+	users, err = b.SearchUsers("bob", "", &adminTrue, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	require.Equal(t, "bob", users[0].Login)
+
+	adminFalse := false
+	users, err = b.SearchUsers("bob", "", &adminFalse, 5)
+	require.NoError(t, err)
+	require.Len(t, users, 0)
+}
+
+func TestBackend_SearchUsers_Limit(t *testing.T) {
+	b := newTestMetadataBackend()
+	defer shutdownTestMetadataBackend(b)
+
+	for i := range 10 {
+		user := common.NewUser(common.ProviderLocal, fmt.Sprintf("user_%02d", i))
+		user.Login = fmt.Sprintf("user_%02d", i)
+		createUser(t, b, user)
+	}
+
+	// Limit 3
+	users, err := b.SearchUsers("user_", "", nil, 3)
+	require.NoError(t, err)
+	require.Len(t, users, 3)
+
+	// Limit > 20 gets capped to 20
+	users, err = b.SearchUsers("user_", "", nil, 50)
+	require.NoError(t, err)
+	require.Len(t, users, 10) // only 10 exist
 }
 
 func TestBackend_DeleteUser(t *testing.T) {
@@ -236,7 +393,7 @@ func TestBackend_CountUsers(t *testing.T) {
 	user := common.NewUser(common.ProviderLocal, "user")
 	createUser(t, b, user)
 
-	count, err := b.CountUsers()
+	count, err := b.CountUsers("", nil)
 	require.NoError(t, err, "count users error")
-	require.Equal(t, 1, count, "invalid user count")
+	require.Equal(t, int64(1), count, "invalid user count")
 }

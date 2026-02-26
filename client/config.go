@@ -177,21 +177,32 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 		config.Stream = common.IsFeatureDefault(serverConfig.FeatureStream)
 		config.ExtendTTL = common.IsFeatureDefault(serverConfig.FeatureExtendTTL)
 
-		switch serverConfig.FeatureAuthentication {
-		case common.FeatureForced:
-			fmt.Printf("\nAuthentication is required on this server.\n")
-			fmt.Printf("Would you like to authenticate with your browser? [Y/n] ")
-			ok, err := common.AskConfirmation(true)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to ask for confirmation : %s", err)
-			}
-			if ok {
-				loginClient := plik.NewClient(config.URL)
-				loginClient.Insecure()
-				err = login(config, loginClient)
+		// Skip interactive login during first-run setup when --login is set,
+		// the --login handler in main() will perform the login flow.
+		if !opts["--login"].(bool) {
+			switch serverConfig.FeatureAuthentication {
+			case common.FeatureForced:
+				fmt.Printf("\nAuthentication is required on this server.\n")
+				fmt.Printf("Would you like to authenticate with your browser? [Y/n] ")
+				ok, err := common.AskConfirmation(true)
 				if err != nil {
-					fmt.Printf("Login failed: %s\n", err)
-					fmt.Printf("You can provide a token manually instead.\n")
+					return nil, fmt.Errorf("Unable to ask for confirmation : %s", err)
+				}
+				if ok {
+					loginClient := plik.NewClient(config.URL)
+					loginClient.Insecure()
+					err = login(config, loginClient)
+					if err != nil {
+						fmt.Printf("Login failed: %s\n", err)
+						fmt.Printf("You can provide a token manually instead.\n")
+						fmt.Printf("Please enter a valid user token : \n")
+						var token string
+						_, err = fmt.Scanf("%s", &token)
+						if err == nil {
+							config.Token = token
+						}
+					}
+				} else {
 					fmt.Printf("Please enter a valid user token : \n")
 					var token string
 					_, err = fmt.Scanf("%s", &token)
@@ -199,27 +210,20 @@ func LoadConfig(opts docopt.Opts) (config *CliConfig, err error) {
 						config.Token = token
 					}
 				}
-			} else {
-				fmt.Printf("Please enter a valid user token : \n")
-				var token string
-				_, err = fmt.Scanf("%s", &token)
-				if err == nil {
-					config.Token = token
-				}
-			}
-		case common.FeatureEnabled:
-			fmt.Printf("\nAuthentication is available on this server.\n")
-			fmt.Printf("Would you like to authenticate with your browser? [y/N] ")
-			ok, err := common.AskConfirmation(false)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to ask for confirmation : %s", err)
-			}
-			if ok {
-				loginClient := plik.NewClient(config.URL)
-				loginClient.Insecure()
-				err = login(config, loginClient)
+			case common.FeatureEnabled:
+				fmt.Printf("\nAuthentication is available on this server.\n")
+				fmt.Printf("Would you like to authenticate with your browser? [y/N] ")
+				ok, err := common.AskConfirmation(false)
 				if err != nil {
-					fmt.Printf("Login failed: %s\n", err)
+					return nil, fmt.Errorf("Unable to ask for confirmation : %s", err)
+				}
+				if ok {
+					loginClient := plik.NewClient(config.URL)
+					loginClient.Insecure()
+					err = login(config, loginClient)
+					if err != nil {
+						fmt.Printf("Login failed: %s\n", err)
+					}
 				}
 			}
 		}

@@ -250,7 +250,8 @@ When processing a request, limits are resolved via the custom `Context`:
 |--------|------|---------|-------------|
 | POST | `/user` | `CreateUser` | Create user |
 | GET | `/stats` | `GetServerStatistics` | Server stats |
-| GET | `/users` | `GetUsers` | List all users (paginated) |
+| GET | `/users` | `GetUsers` | List users (paginated, filterable by `provider` and `admin` status) |
+| GET | `/users/search` | `SearchUsers` | Search users by login/name/email (LIKE query, `q`, `limit`, `provider`, `admin`) |
 | GET | `/uploads` | `GetUploads` | List all uploads (paginated) |
 
 ---
@@ -312,9 +313,10 @@ Arrays are overridden, maps are merged.
 ### Helm Chart Sync
 
 The Helm chart (`charts/plik/`) mirrors the configuration model. When adding or modifying config fields in `server/common/config.go` or `server/plikd.cfg`, **always update**:
-- `charts/plik/values.yaml` — add the field under `plikd:` with its default value
+- `charts/plik/values.yaml` — add the field under `plikd:` with its default value and a `# --` helm-docs annotation
 - `charts/plik/templates/configmap.yaml` — add the explicit key to the template
 - `charts/plik/templates/secret.yaml` — if the field is sensitive, add env var injection (`PLIKD_` prefix)
+- Run `make helm-docs` to regenerate `charts/plik/README.md` (CI will fail if this is forgotten)
 
 #### Helm Chart Persistence
 

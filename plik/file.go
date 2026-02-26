@@ -111,6 +111,7 @@ func (file *File) getParams() (params *common.File) {
 
 	params = &common.File{}
 	params.Name = file.Name
+	params.Size = file.Size
 
 	if file.metadata != nil {
 		params.ID = file.metadata.ID
@@ -228,7 +229,7 @@ func (file *File) GetURL() (URL *url.URL, err error) {
 		domain = file.upload.client.URL
 	}
 
-	fileURL := fmt.Sprintf("%s/%s/%s/%s/%s", domain, mode, uploadMetadata.ID, fileMetadata.ID, fileMetadata.Name)
+	fileURL := fmt.Sprintf("%s/%s/%s/%s/%s", domain, mode, uploadMetadata.ID, fileMetadata.ID, url.PathEscape(fileMetadata.Name))
 
 	// Parse to get a nice escaped url
 	return url.Parse(fileURL)
