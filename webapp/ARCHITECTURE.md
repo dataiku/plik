@@ -640,6 +640,15 @@ The `isTextFile()` utility in `utils.js` determines if a file can be viewed in t
 
 `FileRow.vue` uses this to conditionally show a "View" button on uploaded files in download mode. The View button is also hidden for one-shot (`isOneShot` prop) and streaming (`isStream` prop) uploads.
 
+### Markdown File Preview
+
+When viewing a Markdown file (`.md` or `.markdown` extension), the file viewer panel shows **Code / Preview** tabs. The same tab pattern is used for the comment Write/Preview editor in `UploadView`.
+
+- **`isMarkdownFile(file)`** in `utils.js` checks the filename extension AND `text/*` MIME type (the server detects `.md` files as `text/plain; charset=utf-8`)
+- Default tab for markdown files is **Preview** (rendered HTML via `renderMarkdown()` + `.prose` styling); for all other text files, just the CodeMirror editor (no tabs)
+- The **Copy** button copies raw text regardless of active tab
+- Toggling between Code and Preview preserves content (no re-fetch)
+
 ---
 
 ## Testing

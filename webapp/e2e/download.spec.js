@@ -209,6 +209,47 @@ test.describe('Text viewer', () => {
     })
 })
 
+test.describe('Markdown preview', () => {
+    test('shows Code/Preview tabs for .md files and defaults to Preview', async ({ page }) => {
+        const mdContent = '# Hello World\n\nThis is **bold text** and *italic*.'
+        await uploadTestFile(page, 'readme.md', mdContent)
+
+        const panel = page.locator('#file-viewer-panel')
+        await expect(panel).toBeVisible({ timeout: 5_000 })
+
+        // Preview tab should be active by default for markdown files
+        const previewBtn = panel.getByRole('button', { name: 'Preview' })
+        const codeBtn = panel.getByRole('button', { name: 'Code' })
+        await expect(previewBtn).toBeVisible({ timeout: 5_000 })
+        await expect(codeBtn).toBeVisible()
+
+        // Rendered markdown should be visible (default tab is preview)
+        await expect(panel.locator('.prose strong')).toHaveText('bold text')
+
+        // Switch to Code tab — CodeMirror source should be visible
+        await codeBtn.click()
+        await expect(panel).toContainText('# Hello World')
+
+        // Switch back to Preview
+        await previewBtn.click()
+        await expect(panel.locator('.prose strong')).toHaveText('bold text')
+    })
+
+    test('does NOT show tabs for .txt files', async ({ page }) => {
+        await uploadTestFile(page, 'plain.txt', 'just plain text')
+
+        const panel = page.locator('#file-viewer-panel')
+        await expect(panel).toBeVisible({ timeout: 5_000 })
+
+        // Code/Preview tabs should NOT be present
+        await expect(panel.getByRole('button', { name: 'Preview' })).not.toBeVisible()
+        await expect(panel.getByRole('button', { name: 'Code' })).not.toBeVisible()
+
+        // Content should still be shown in the editor
+        await expect(panel).toContainText('just plain text')
+    })
+})
+
 test.describe('Add files', () => {
     test('Add Files button visible for admin', async ({ page }) => {
         await uploadTestFile(page)

@@ -19,6 +19,7 @@ import {
     buildEditForm,
     buildEditPayload,
     isTextFile,
+    isMarkdownFile,
     MAX_VIEWABLE_SIZE,
     getUploadUrl,
 } from '../utils.js'
@@ -468,6 +469,43 @@ describe('isTextFile', () => {
 
     it('uses size field as fallback', () => {
         expect(isTextFile({ size: 100, fileType: 'text/plain' })).toBe(true)
+    })
+})
+
+// ── isMarkdownFile ──
+
+describe('isMarkdownFile', () => {
+    it('returns true for .md file with text/plain', () => {
+        expect(isMarkdownFile({ fileName: 'readme.md', fileType: 'text/plain' })).toBe(true)
+    })
+
+    it('returns true for .markdown file with text/plain', () => {
+        expect(isMarkdownFile({ fileName: 'notes.markdown', fileType: 'text/plain' })).toBe(true)
+    })
+
+    it('is case-insensitive on extension', () => {
+        expect(isMarkdownFile({ fileName: 'README.MD', fileType: 'text/plain' })).toBe(true)
+        expect(isMarkdownFile({ fileName: 'doc.Markdown', fileType: 'text/plain' })).toBe(true)
+    })
+
+    it('returns true for text/plain with charset', () => {
+        expect(isMarkdownFile({ fileName: 'readme.md', fileType: 'text/plain; charset=utf-8' })).toBe(true)
+    })
+
+    it('returns false for non-text MIME type', () => {
+        expect(isMarkdownFile({ fileName: 'readme.md', fileType: 'application/octet-stream' })).toBe(false)
+    })
+
+    it('returns false for non-markdown text file', () => {
+        expect(isMarkdownFile({ fileName: 'plain.txt', fileType: 'text/plain' })).toBe(false)
+    })
+
+    it('returns false when fileName is missing', () => {
+        expect(isMarkdownFile({ fileType: 'text/plain' })).toBe(false)
+    })
+
+    it('returns false when fileType is missing', () => {
+        expect(isMarkdownFile({ fileName: 'readme.md' })).toBe(false)
     })
 })
 
