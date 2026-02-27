@@ -642,12 +642,19 @@ The `isTextFile()` utility in `utils.js` determines if a file can be viewed in t
 
 ### Markdown File Preview
 
-When viewing a Markdown file (`.md` or `.markdown` extension), the file viewer panel shows **Code / Preview** tabs. The same tab pattern is used for the comment Write/Preview editor in `UploadView`.
+When viewing or editing a Markdown file (`.md` or `.markdown` extension), **Code / Preview** tabs appear. All three usages share the `MarkdownTabs.vue` component:
 
-- **`isMarkdownFile(file)`** in `utils.js` checks the filename extension AND `text/*` MIME type (the server detects `.md` files as `text/plain; charset=utf-8`)
-- Default tab for markdown files is **Preview** (rendered HTML via `renderMarkdown()` + `.prose` styling); for all other text files, just the CodeMirror editor (no tabs)
-- The **Copy** button copies raw text regardless of active tab
-- Toggling between Code and Preview preserves content (no re-fetch)
+| Context | View | Tab labels | Trigger |
+|---------|------|-----------|---------|
+| Comment editor | UploadView | Write / Preview | Always shown when comments enabled |
+| Text paste editor | UploadView | Code / Preview | `isMarkdownFile({ fileName, fileType: 'text/plain' })` |
+| File viewer | DownloadView | Code / Preview | `isMarkdownFile(file)` — checks filename + MIME from server |
+
+**`MarkdownTabs.vue`** — Reusable component that renders the tab bar, the HTML preview panel (with `.prose` styling), and a default slot for the editor content. Props: `modelValue` (active tab), `leftLabel`/`leftIcon` (Code vs Write), `renderedHtml`. Named slot `left-badge` for extras like "required".
+
+**`isMarkdownFile(file)`** — Utility in `utils.js` checking filename extension AND `text/*` MIME type.
+
+Default tab for markdown files in the download viewer is **Preview**; in the paste editor it stays on **Code**.
 
 ---
 

@@ -8,6 +8,7 @@ import { getToken, setToken } from '../tokenStore.js'
 import { consumePendingFiles } from '../pendingUploadStore.js'
 import { renderMarkdown } from '../markdown.js'
 import DownloadSidebar from '../components/DownloadSidebar.vue'
+import MarkdownTabs from '../components/MarkdownTabs.vue'
 import FileRow from '../components/FileRow.vue'
 import CopyButton from '../components/CopyButton.vue'
 import QrCodeDialog from '../components/QrCodeDialog.vue'
@@ -621,44 +622,24 @@ watch(activeFiles, (files) => {
               </div>
             </div>
             <!-- Markdown Code/Preview tabs -->
-            <div v-if="isViewingMarkdown && !viewingLoading && !viewingError" class="flex border-b border-surface-700/50">
-              <button class="px-4 py-2 text-sm font-medium transition-colors"
-                      :class="viewerTab === 'code'
-                        ? 'text-accent-400 border-b-2 border-accent-400 bg-surface-700/30'
-                        : 'text-surface-400 hover:text-surface-200'"
-                      @click="viewerTab = 'code'">
-                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                Code
-              </button>
-              <button class="px-4 py-2 text-sm font-medium transition-colors"
-                      :class="viewerTab === 'preview'
-                        ? 'text-accent-400 border-b-2 border-accent-400 bg-surface-700/30'
-                        : 'text-surface-400 hover:text-surface-200'"
-                      @click="viewerTab = 'preview'">
-                <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Preview
-              </button>
-            </div>
+            <MarkdownTabs v-if="isViewingMarkdown && !viewingLoading && !viewingError"
+                          :modelValue="viewerTab"
+                          @update:modelValue="viewerTab = $event"
+                          :renderedHtml="renderedFileContent">
+              <div class="p-2">
+                <CodeEditor
+                  v-model="viewingContent"
+                  :filename="viewingFile.fileName"
+                  :readonly="true"
+                />
+              </div>
+            </MarkdownTabs>
             <div v-if="viewingLoading" class="flex items-center justify-center py-8">
               <div class="animate-spin rounded-full h-6 w-6 border-2 border-accent-500 border-t-transparent" />
               <span class="ml-3 text-sm text-surface-400">Loading file content...</span>
             </div>
             <div v-else-if="viewingError" class="p-4 text-sm text-danger-500">{{ viewingError }}</div>
-            <div v-else-if="isViewingMarkdown && viewerTab === 'preview'" class="p-4">
-              <div v-if="renderedFileContent"
-                   class="prose prose-invert prose-sm max-w-none"
-                   v-html="renderedFileContent" />
-              <p v-else class="text-sm text-surface-500 italic">Nothing to preview</p>
-            </div>
-            <div v-else class="p-2">
+            <div v-else-if="!isViewingMarkdown" class="p-2">
               <CodeEditor
                 v-model="viewingContent"
                 :filename="viewingFile.fileName"

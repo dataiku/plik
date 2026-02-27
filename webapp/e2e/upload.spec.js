@@ -145,3 +145,53 @@ test.describe('Upload flow', () => {
         await expect(page.getByText(fileName).first()).toBeVisible()
     })
 })
+
+test.describe('Paste editor markdown preview', () => {
+    test('shows Code/Preview tabs when filename ends with .md', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Open text paste mode
+        await page.getByText('Paste text').click()
+
+        // Type markdown content
+        const editor = page.locator('.cm-content, textarea').first()
+        await editor.waitFor({ state: 'visible', timeout: 5_000 })
+        await editor.fill('# Hello\n\nThis is **bold** text.')
+
+        // No tabs yet (default filename is paste.txt)
+        await expect(page.getByRole('button', { name: 'Preview' })).not.toBeVisible()
+
+        // Rename to .md — tabs should appear
+        const filenameInput = page.locator('input[placeholder="paste.txt"]')
+        await filenameInput.fill('notes.md')
+
+        const previewBtn = page.getByRole('button', { name: 'Preview' })
+        const codeBtn = page.getByRole('button', { name: 'Code' })
+        await expect(previewBtn).toBeVisible()
+        await expect(codeBtn).toBeVisible()
+
+        // Switch to Preview — rendered markdown should be visible
+        await previewBtn.click()
+        await expect(page.locator('.prose strong')).toHaveText('bold')
+
+        // Switch back to Code — editor is visible again
+        await codeBtn.click()
+        await expect(editor).toBeVisible()
+    })
+
+    test('does NOT show tabs for .txt filename', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        await page.getByText('Paste text').click()
+
+        const editor = page.locator('.cm-content, textarea').first()
+        await editor.waitFor({ state: 'visible', timeout: 5_000 })
+        await editor.fill('plain text content')
+
+        // Default filename is paste.txt — no tabs
+        await expect(page.getByRole('button', { name: 'Preview' })).not.toBeVisible()
+        await expect(page.getByRole('button', { name: 'Code' })).not.toBeVisible()
+    })
+})
