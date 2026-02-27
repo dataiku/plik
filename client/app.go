@@ -223,9 +223,9 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 
 	// Display download commands
 	if !cli.Config.Stream {
-		cli.printf("\nCommands : \n")
+		var commands []string
 		for _, file := range upload.Files() {
-			// Print file information (only url if quiet mode is enabled)
+			// Skip files that failed to upload
 			if file.Error() != nil {
 				continue
 			}
@@ -234,12 +234,18 @@ func (cli *PlikCLI) Run(client *plik.Client) error {
 				if err != nil {
 					cli.errorf("Unable to get download command for file %s : %s\n", file.Name, err)
 				}
-				cli.printAlways("%s\n", URL)
+				commands = append(commands, URL.String())
 			} else {
 				cmd, err := cli.getFileCommand(file)
 				if err != nil {
 					cli.errorf("Unable to get download command for file %s : %s\n", file.Name, err)
 				}
+				commands = append(commands, cmd)
+			}
+		}
+		if len(commands) > 0 {
+			cli.printf("\nCommands : \n")
+			for _, cmd := range commands {
 				cli.printAlways("%s\n", cmd)
 			}
 		}
