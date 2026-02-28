@@ -30,16 +30,42 @@ When `EnhancedWebSecurity` is enabled, session cookies have the `Secure` flag se
 
 ## Download Domain
 
-It is recommend to serve uploaded files on a separate (sub-)domain to:
+It is recommended to serve uploaded files on a separate (sub-)domain to:
 
 - Protect against phishing links using your main domain
 - Protect Plik's session cookie from being exposed to uploaded content
+- Prevent uploaded JavaScript from making API calls as the authenticated user
 
-Configure with `DownloadDomain` in `plikd.cfg`:
+### Configuration
+
+When using a download domain, three configuration options work together:
 
 ```toml
-DownloadDomain = "https://dl.plik.example.com"
+PlikDomain     = "https://plik.root.gg"       # Main webapp URL (recommended when DownloadDomain is set)
+DownloadDomain = "https://dl.plik.root.gg"    # Separate domain for serving files
+DownloadDomainAlias = []                       # Additional accepted download hosts
 ```
+
+**`PlikDomain`** — The public URL where the webapp is served. When set:
+- OAuth redirect URLs use this domain instead of the `Referer` header
+- `GetServerURL()` returns this domain for CLI quick upload URLs
+- CORS headers are configured when `DownloadDomain` is also set
+
+::: tip PlikDomain does not restrict downloads
+Setting `PlikDomain` alone does **not** enforce any domain check on file downloads — files remain accessible from any host. To restrict downloads to a specific domain, you must also set `DownloadDomain`.
+:::
+
+**`DownloadDomain`** — The domain that serves uploaded files. When set:
+- File/archive download requests are rejected unless the `Host` header matches the download domain (or an alias)
+- Set `PlikDomain` too to enable CORS (needed for the file viewer and E2EE decrypt)
+
+**`DownloadDomainAlias`** — Additional hostnames accepted for file downloads. Useful when:
+- Accessing the server via `localhost` during development
+- The reverse proxy uses a different host internally
+
+::: info How CORS works here
+When both domains are configured, Plik adds `Access-Control-Allow-Origin: <PlikDomain>` headers to download responses. This allows the webapp's JavaScript to fetch file content cross-origin (for the file viewer and E2EE decrypt), while still preventing uploaded JavaScript on the download domain from accessing the webapp's origin.
+:::
 
 ### Troubleshooting: Redirect Loops
 

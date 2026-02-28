@@ -121,6 +121,24 @@ func TestInitializeConfigAuthenticationNoMethod(t *testing.T) {
 	require.NoError(t, err, "should be able to initialize with local login")
 }
 
+func TestInitializeConfigPlikDomain(t *testing.T) {
+	config := NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+
+	err := config.Initialize()
+	require.NoError(t, err, "unable to initialize config")
+	require.NotNil(t, config.GetPlikDomain())
+	require.Equal(t, "plik.root.gg", config.GetPlikDomain().Host)
+}
+
+func TestInitializeConfigInvalidPlikDomain(t *testing.T) {
+	config := NewConfiguration()
+	config.PlikDomain = ":/invalid"
+
+	err := config.Initialize()
+	require.Error(t, err, "able to initialize invalid config")
+}
+
 func TestInitializeConfigDownloadDomain(t *testing.T) {
 	config := NewConfiguration()
 	config.DownloadDomain = "https://dl.plik.root.gg"
@@ -242,10 +260,22 @@ func TestGetServerUrl(t *testing.T) {
 	require.Equal(t, "https://1.1.1.1:8080/root", config.GetServerURL().String(), "invalid server url")
 }
 
+func TestGetServerUrlWithPlikDomain(t *testing.T) {
+	config := NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	err := config.Initialize()
+	require.NoError(t, err)
+	require.Equal(t, "https://plik.root.gg", config.GetServerURL().String())
+
+	config.Path = "/sub"
+	require.Equal(t, "https://plik.root.gg/sub", config.GetServerURL().String())
+}
+
 func TestString(t *testing.T) {
 	config := NewConfiguration()
 	require.NotEmpty(t, config.String())
 
+	config.PlikDomain = "https://plik.root.gg"
 	config.DownloadDomain = "download.domain"
 	config.DefaultTTL = -1
 	config.MaxTTL = -1
@@ -411,6 +441,29 @@ func TestConfiguration_IsValidDownloadDomain(t *testing.T) {
 	require.True(t, config.IsValidDownloadDomain("plik.root.gg"))
 	require.True(t, config.IsValidDownloadDomain("dl.root.gg"))
 	require.False(t, config.IsValidDownloadDomain("invalid.domain"))
+}
+
+func TestConfiguration_GetCORSOrigin(t *testing.T) {
+	// No domains → no CORS
+	config := NewConfiguration()
+	err := config.Initialize()
+	require.NoError(t, err)
+	require.Equal(t, "", config.GetCORSOrigin())
+
+	// PlikDomain only → no CORS
+	config = NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	err = config.Initialize()
+	require.NoError(t, err)
+	require.Equal(t, "", config.GetCORSOrigin())
+
+	// Both → CORS returns PlikDomain
+	config = NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	config.DownloadDomain = "https://dl.plik.root.gg"
+	err = config.Initialize()
+	require.NoError(t, err)
+	require.Equal(t, "https://plik.root.gg", config.GetCORSOrigin())
 }
 
 func TestGetTlsVersionDefault(t *testing.T) {

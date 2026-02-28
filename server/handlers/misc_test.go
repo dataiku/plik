@@ -15,6 +15,7 @@ import (
 	"github.com/root-gg/plik/server/context"
 	data_test "github.com/root-gg/plik/server/data/testing"
 	"github.com/root-gg/plik/server/metadata"
+	"github.com/root-gg/plik/server/middleware"
 )
 
 func newTestingContext(config *common.Configuration) (ctx *context.Context) {
@@ -259,6 +260,113 @@ func TestCheckDownloadDomain(t *testing.T) {
 	rr = ctx.NewRecorder(req)
 	checkDownloadDomain(ctx)
 	context.TestBadRequest(t, rr, "Invalid download domain invalid.domain")
+}
+
+func TestGetRedirectionURLWithPlikDomain(t *testing.T) {
+	config := common.NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	require.NoError(t, config.Initialize())
+
+	ctx := newTestingContext(config)
+
+	req, err := http.NewRequest("GET", "/auth", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+	ctx.SetReq(req)
+
+	// Should use PlikDomain, even without Referer header
+	redirectURL, err := getRedirectURL(ctx, "/callback")
+	require.NoError(t, err)
+	require.Equal(t, "https://plik.root.gg/callback", redirectURL)
+}
+
+func TestGetRedirectionURLWithPlikDomainAndPath(t *testing.T) {
+	config := common.NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	config.Path = "/sub"
+	require.NoError(t, config.Initialize())
+
+	ctx := newTestingContext(config)
+
+	req, err := http.NewRequest("GET", "/auth", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+	ctx.SetReq(req)
+
+	redirectURL, err := getRedirectURL(ctx, "/callback")
+	require.NoError(t, err)
+	require.Equal(t, "https://plik.root.gg/sub/callback", redirectURL)
+}
+
+func TestCORSHeaders(t *testing.T) {
+	config := common.NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	config.DownloadDomain = "https://dl.plik.root.gg"
+	require.NoError(t, config.Initialize())
+
+	ctx := newTestingContext(config)
+
+	data := "data"
+	upload := &common.Upload{}
+	file := upload.NewFile()
+	file.Name = "file"
+	file.Status = common.FileUploaded
+	createTestUpload(t, ctx, upload)
+
+	err := createTestFile(ctx, file, bytes.NewBuffer([]byte(data)))
+	require.NoError(t, err, "unable to create test file")
+
+	ctx.SetUpload(upload)
+	ctx.SetFile(file)
+
+	// Request with Origin header → should get CORS headers
+	req, err := http.NewRequest("GET", "/file/"+upload.ID+"/"+file.ID+"/"+file.Name, bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+	req.Host = "dl.plik.root.gg"
+	req.Header.Set("Origin", "https://plik.root.gg")
+
+	rr := ctx.NewRecorder(req)
+	GetFile(ctx, rr, req)
+	context.TestOK(t, rr)
+
+	require.Equal(t, "https://plik.root.gg", rr.Header().Get("Access-Control-Allow-Origin"))
+
+	// Request without Origin header → should NOT get CORS headers
+	req, err = http.NewRequest("GET", "/file/"+upload.ID+"/"+file.ID+"/"+file.Name, bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+	req.Host = "dl.plik.root.gg"
+
+	rr = ctx.NewRecorder(req)
+	GetFile(ctx, rr, req)
+	context.TestOK(t, rr)
+
+	require.Empty(t, rr.Header().Get("Access-Control-Allow-Origin"))
+}
+
+func TestCORSPreflight(t *testing.T) {
+	config := common.NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	config.DownloadDomain = "https://dl.plik.root.gg"
+	require.NoError(t, config.Initialize())
+
+	ctx := newTestingContext(config)
+
+	req, err := http.NewRequest("OPTIONS", "/file/uploadID/fileID/filename", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+	req.Host = "dl.plik.root.gg"
+	req.Header.Set("Origin", "https://plik.root.gg")
+
+	// The middleware should short-circuit without needing upload/file in context
+	nextCalled := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	})
+
+	rr := ctx.NewRecorder(req)
+	middleware.CORSPreflight(ctx, next).ServeHTTP(rr, req)
+
+	require.False(t, nextCalled, "middleware should short-circuit OPTIONS requests")
+	require.Equal(t, http.StatusNoContent, rr.Code)
+	require.Equal(t, "https://plik.root.gg", rr.Header().Get("Access-Control-Allow-Origin"))
+	require.Contains(t, rr.Header().Get("Access-Control-Allow-Methods"), "GET")
 }
 
 func TestHealth(t *testing.T) {
