@@ -172,6 +172,10 @@ func (ps *PlikServer) start() (err error) {
 		}
 	}
 
+	if ps.config.DownloadDomain != "" && ps.config.PlikDomain == "" {
+		log.Warning("DownloadDomain is set without PlikDomain: non-file requests on the download domain will be rejected with 403 instead of redirected. Set PlikDomain for a smoother user experience.")
+	}
+
 	// Initialize backends
 	err = ps.initializeMetadataBackend()
 	if err != nil {
@@ -365,6 +369,7 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 
 	// HTTP Api routes configuration
 	router := mux.NewRouter()
+	router.Use(middleware.RestrictDownloadDomain(ps.config))
 	router.Handle("/", tokenChain.Append(middleware.CreateUpload).Then(handlers.AddFile)).Methods("POST")
 
 	router.Handle("/config", stdChain.Then(handlers.GetConfiguration)).Methods("GET")

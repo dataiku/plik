@@ -63,7 +63,7 @@ common → context → metadata/data → middleware → handlers → cmd → ser
 | `server/context` | Custom request context (predates Go stdlib `context.Context`) — carries config, backends, auth state, upload/file/user through the middleware chain |
 | `server/data` | `Backend` interface + implementations (file, swift, s3, gcs, stream, testing) |
 | `server/metadata` | GORM-based metadata storage + migrations (via gormigrate) |
-| `server/middleware` | Middleware chain: auth, logging, source IP, pagination, upload/file resolution |
+| `server/middleware` | Middleware chain: auth, logging, source IP, pagination, upload/file resolution, CORS, download domain restriction |
 | `server/handlers` | HTTP handler functions |
 | `server/cmd` | CLI commands (cobra): server start, user management, import/export |
 | `server/server` | HTTP server setup, router configuration, backend initialization |
@@ -109,6 +109,25 @@ The server defines several middleware chains composed from individual middleware
 | `tokenChain` | + Authenticate(cookie+token), Impersonate | Upload/file operations |
 | `authenticatedChain` | authChain + AuthenticatedOnly | `/me/*` endpoints |
 | `adminChain` | + Authenticate(cookie), AdminOnly | `/stats`, `/users`, `/uploads` |
+
+#### Router-Level Middleware
+
+These run before any chain middleware via `router.Use()`:
+
+| Middleware | Purpose |
+|-----------|---------|
+| `RestrictDownloadDomain` | Blocks non-file routes on the download domain (redirects to PlikDomain or 403) |
+
+#### File Chain Middleware
+
+Additional middleware in the `getFileChain` for download routes:
+
+| Middleware | Purpose |
+|-----------|---------|
+| `CORSPreflight` | Short-circuits OPTIONS requests before Upload/File/Password middleware |
+| `Upload` | Loads upload metadata from DB |
+| `BlockBotDownload` | Blocks bots from triggering one-shot downloads |
+| `File` | Loads file metadata from DB |
 
 ---
 

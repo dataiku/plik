@@ -147,6 +147,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design decisions around config vs. se
 | plikd.OIDCValidDomains | list | `[]` | Allowed OIDC email domains (empty = allow all) |
 | plikd.OvhApiEndpoint | string | `""` | OVH API endpoint (e.g. `ovh-eu`, `ovh-ca`) |
 | plikd.Path | string | `""` | URL path prefix (e.g. `/plik`) |
+| plikd.PlikDomain | string | `""` | Public webapp URL for OAuth redirects, CORS, and download domain redirects (e.g., `https://plik.example.com`) |
 | plikd.SessionTimeout | string | `"365d"` | User session timeout (e.g. `365d`, `24h`) |
 | plikd.SourceIpHeader | string | `""` | HTTP header to use for source IP (e.g. `X-Forwarded-For`) |
 | plikd.SslCert | string | `"plik.crt"` | Path to TLS certificate |

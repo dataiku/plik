@@ -148,6 +148,25 @@ func TestInitializeConfigDownloadDomain(t *testing.T) {
 	require.Equal(t, config.DownloadDomain, config.GetDownloadDomain().String(), "invalid download domain")
 }
 
+func TestInitializeConfigPlikDomainEqualsDownloadDomain(t *testing.T) {
+	config := NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	config.DownloadDomain = "https://plik.root.gg"
+
+	err := config.Initialize()
+	RequireError(t, err, "PlikDomain and DownloadDomain must be different domains")
+}
+
+func TestInitializeConfigPlikDomainEqualsDownloadDomainAlias(t *testing.T) {
+	config := NewConfiguration()
+	config.PlikDomain = "https://plik.root.gg"
+	config.DownloadDomain = "https://dl.plik.root.gg"
+	config.DownloadDomainAlias = []string{"https://plik.root.gg"}
+
+	err := config.Initialize()
+	RequireError(t, err, "PlikDomain and DownloadDomain must be different domains")
+}
+
 func TestInitializeConfigInvalidDownloadDomain(t *testing.T) {
 	config := NewConfiguration()
 	config.DownloadDomain = ":/invalid"

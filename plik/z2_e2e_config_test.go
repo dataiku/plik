@@ -3,6 +3,7 @@ package plik
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 
@@ -266,16 +267,17 @@ func TestValidDownloadDomain(t *testing.T) {
 	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
-	// Set download domain after start so the ephemeral port is known
+	// Create upload before setting download domain — the RestrictDownloadDomain
+	// middleware blocks non-file requests (like POST /upload) on the download domain
+	_, file, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
+	require.NoError(t, err, "unable to create upload")
+
+	// Set download domain after upload creation so the ephemeral port is known
 	ps.GetConfig().DownloadDomain = fmt.Sprintf("http://%s:%d", ps.GetConfig().ListenAddress, ps.GetConfig().ListenPort)
 	err = ps.GetConfig().Initialize()
 	require.NoError(t, err, "unable to initialize config")
 
-	upload, file, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
-	require.NoError(t, err, "unable to create upload")
-	require.NotNil(t, upload.Metadata(), "upload has not been created")
-	require.Equal(t, ps.GetConfig().DownloadDomain, upload.Metadata().DownloadDomain, "invalid upload ttl")
-
+	// Download should work — /file/ endpoints are allowed on the download domain
 	_, err = file.Download()
 	require.NoError(t, err, "unable to download file")
 }
@@ -287,17 +289,18 @@ func TestDownloadDomainAlias(t *testing.T) {
 	err := startWithClient(ps, pc)
 	require.NoError(t, err, "unable to start plik server")
 
-	// Set download domain after start so the ephemeral port is known
+	// Create upload before setting download domain — the RestrictDownloadDomain
+	// middleware blocks non-file requests (like POST /upload) on the download domain
+	_, file, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
+	require.NoError(t, err, "unable to create upload")
+
+	// Set download domain + alias after upload creation
 	ps.GetConfig().DownloadDomain = "https://plik.root.gg"
 	ps.GetConfig().DownloadDomainAlias = []string{fmt.Sprintf("http://%s:%d", ps.GetConfig().ListenAddress, ps.GetConfig().ListenPort)}
 	err = ps.GetConfig().Initialize()
 	require.NoError(t, err, "unable to initialize config")
 
-	upload, file, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
-	require.NoError(t, err, "unable to create upload")
-	require.NotNil(t, upload.Metadata(), "upload has not been created")
-	require.Equal(t, ps.GetConfig().DownloadDomain, upload.Metadata().DownloadDomain, "invalid upload ttl")
-
+	// Download via alias should work — /file/ endpoints are allowed on download domain aliases
 	_, err = file.Download()
 	require.NoError(t, err, "unable to download file")
 }
@@ -321,6 +324,63 @@ func TestInvalidDownloadDomain(t *testing.T) {
 	_, err = file.Download()
 	require.Error(t, err, "unable to download file")
 	require.Contains(t, err.Error(), "Invalid download domain")
+}
+
+func TestDownloadDomainBlocksWebapp(t *testing.T) {
+	ps, pc := newPlikServerAndClient()
+	defer shutdown(ps)
+
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	// Set download domain to the server's listen address (no PlikDomain → 403)
+	ps.GetConfig().DownloadDomain = fmt.Sprintf("http://%s:%d", ps.GetConfig().ListenAddress, ps.GetConfig().ListenPort)
+	err = ps.GetConfig().Initialize()
+	require.NoError(t, err, "unable to initialize config")
+
+	// GET / (webapp root) should be blocked on the download domain
+	req, err := http.NewRequest("GET", pc.URL+"/", &bytes.Buffer{})
+	require.NoError(t, err, "unable to create request")
+
+	resp, err := pc.HTTPClient.Do(req)
+	require.NoError(t, err, "unable to make request")
+	resp.Body.Close()
+	require.Equal(t, http.StatusForbidden, resp.StatusCode, "webapp root should be blocked on download domain")
+
+	// GET /version (API endpoint) should also be blocked
+	req, err = http.NewRequest("GET", pc.URL+"/version", &bytes.Buffer{})
+	require.NoError(t, err, "unable to create request")
+
+	resp, err = pc.HTTPClient.Do(req)
+	require.NoError(t, err, "unable to make request")
+	resp.Body.Close()
+	require.Equal(t, http.StatusForbidden, resp.StatusCode, "API endpoint should be blocked on download domain")
+}
+
+func TestDownloadDomainArchive(t *testing.T) {
+	ps, pc := newPlikServerAndClient()
+	defer shutdown(ps)
+
+	err := startWithClient(ps, pc)
+	require.NoError(t, err, "unable to start plik server")
+
+	// Create upload before setting download domain
+	upload, _, err := pc.UploadReader("filename", bytes.NewBufferString("data"))
+	require.NoError(t, err, "unable to create upload")
+
+	// Set download domain to match the server's listen address
+	ps.GetConfig().DownloadDomain = fmt.Sprintf("http://%s:%d", ps.GetConfig().ListenAddress, ps.GetConfig().ListenPort)
+	err = ps.GetConfig().Initialize()
+	require.NoError(t, err, "unable to initialize config")
+
+	// Archive download should work — /archive/ endpoints are allowed on the download domain
+	reader, err := upload.DownloadZipArchive()
+	require.NoError(t, err, "unable to download archive on download domain")
+	defer reader.Close()
+
+	content, err := io.ReadAll(reader)
+	require.NoError(t, err, "unable to read archive")
+	require.NotEmpty(t, content, "empty archive")
 }
 
 func TestUploadWhitelistOK(t *testing.T) {

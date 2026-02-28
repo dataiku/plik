@@ -259,6 +259,10 @@ func (config *Configuration) Initialize() (err error) {
 			}
 			config.downloadDomainURLAlias = append(config.downloadDomainURLAlias, domainAlias)
 		}
+
+		if config.plikDomainURL != nil && config.IsDownloadDomain(config.plikDomainURL.Host) {
+			return fmt.Errorf("PlikDomain and DownloadDomain must be different domains (%s), using the same domain would cause redirect loops", config.plikDomainURL.Host)
+		}
 	}
 
 	if config.MaxFileSizeStr == "unlimited" || config.MaxFileSizeStr == "-1" {
@@ -334,6 +338,11 @@ func (config *Configuration) GetDownloadDomain() *url.URL {
 	return config.downloadDomainURL
 }
 
+// GetDownloadDomainAlias return the parsed download domain alias URLs
+func (config *Configuration) GetDownloadDomainAlias() []*url.URL {
+	return config.downloadDomainURLAlias
+}
+
 // GetCORSOrigin returns the Access-Control-Allow-Origin value for download endpoints.
 // When both PlikDomain and DownloadDomain are configured, returns the PlikDomain origin
 // so the webapp can fetch file content cross-origin. Returns empty string otherwise.
@@ -344,17 +353,17 @@ func (config *Configuration) GetCORSOrigin() string {
 	return ""
 }
 
-// IsValidDownloadDomain return whether or not the host is a valid download domain
-func (config *Configuration) IsValidDownloadDomain(host string) bool {
+// IsDownloadDomain returns true if the host matches the configured download domain
+// or any of its aliases. Returns false if no download domain is configured.
+func (config *Configuration) IsDownloadDomain(host string) bool {
 	if config.downloadDomainURL == nil {
-		return true
+		return false
 	}
 
 	if config.downloadDomainURL.Host == host {
 		return true
 	}
 
-	// Check if the host is in the config domain alias
 	for _, urlAlias := range config.downloadDomainURLAlias {
 		if urlAlias.Host == host {
 			return true
@@ -362,6 +371,15 @@ func (config *Configuration) IsValidDownloadDomain(host string) bool {
 	}
 
 	return false
+}
+
+// IsValidDownloadDomain return whether or not the host is a valid download domain.
+// Returns true if no download domain is configured (all hosts are valid).
+func (config *Configuration) IsValidDownloadDomain(host string) bool {
+	if config.downloadDomainURL == nil {
+		return true
+	}
+	return config.IsDownloadDomain(host)
 }
 
 // AutoClean enable or disables the periodical upload cleaning goroutine.
