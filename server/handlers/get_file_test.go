@@ -257,7 +257,59 @@ func TestGetHtmlFile(t *testing.T) {
 	GetFile(ctx, rr, req)
 	context.TestOK(t, rr)
 
-	require.Equal(t, "text/plain", rr.Header().Get("Content-Type"), "invalid content type")
+	require.Equal(t, "application/octet-stream", rr.Header().Get("Content-Type"), "invalid content type")
+}
+
+func TestGetSvgFile(t *testing.T) {
+	config := common.NewConfiguration()
+	ctx := newTestingContext(config)
+
+	upload := &common.Upload{}
+	upload.InitializeForTests()
+
+	file := upload.NewFile()
+	file.Type = "image/svg+xml"
+	file.Status = "uploaded"
+	err := createTestFile(ctx, file, bytes.NewBuffer([]byte("data")))
+	require.NoError(t, err, "unable to create test file")
+
+	ctx.SetUpload(upload)
+	ctx.SetFile(file)
+
+	req, err := http.NewRequest("GET", "/file/", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	rr := ctx.NewRecorder(req)
+	GetFile(ctx, rr, req)
+	context.TestOK(t, rr)
+
+	require.Equal(t, "application/octet-stream", rr.Header().Get("Content-Type"), "SVG files should be neutralized to octet-stream")
+}
+
+func TestGetXmlFile(t *testing.T) {
+	config := common.NewConfiguration()
+	ctx := newTestingContext(config)
+
+	upload := &common.Upload{}
+	upload.InitializeForTests()
+
+	file := upload.NewFile()
+	file.Type = "text/xml"
+	file.Status = "uploaded"
+	err := createTestFile(ctx, file, bytes.NewBuffer([]byte("data")))
+	require.NoError(t, err, "unable to create test file")
+
+	ctx.SetUpload(upload)
+	ctx.SetFile(file)
+
+	req, err := http.NewRequest("GET", "/file/", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	rr := ctx.NewRecorder(req)
+	GetFile(ctx, rr, req)
+	context.TestOK(t, rr)
+
+	require.Equal(t, "application/octet-stream", rr.Header().Get("Content-Type"), "XML files should be neutralized to octet-stream")
 }
 
 func TestGetFileNoType(t *testing.T) {
