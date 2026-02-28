@@ -283,3 +283,21 @@ export function isMarkdownFile(file) {
     if (!mime.startsWith('text/')) return false
     return name.endsWith('.md') || name.endsWith('.markdown')
 }
+
+/**
+ * Determine if a file is an image (viewable as an inline preview).
+ * Checks that the MIME type starts with image/.
+ * No size limit — browsers handle large images natively.
+ */
+export function isImageFile(file) {
+    const mime = (file.fileType || '').toLowerCase()
+    return mime.startsWith('image/')
+}
+
+/**
+ * Determine if a file can be previewed inline (text or image).
+ * Combines isTextFile and isImageFile for a single viewability check.
+ */
+export function isViewableFile(file) {
+    return isTextFile(file) || isImageFile(file)
+}

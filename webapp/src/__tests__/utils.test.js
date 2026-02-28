@@ -20,6 +20,8 @@ import {
     buildEditPayload,
     isTextFile,
     isMarkdownFile,
+    isImageFile,
+    isViewableFile,
     MAX_VIEWABLE_SIZE,
     getUploadUrl,
 } from '../utils.js'
@@ -506,6 +508,66 @@ describe('isMarkdownFile', () => {
 
     it('returns false when fileType is missing', () => {
         expect(isMarkdownFile({ fileName: 'readme.md' })).toBe(false)
+    })
+})
+
+// ── isImageFile ──
+
+describe('isImageFile', () => {
+    it('returns true for image/png', () => {
+        expect(isImageFile({ fileType: 'image/png' })).toBe(true)
+    })
+
+    it('returns true for image/jpeg', () => {
+        expect(isImageFile({ fileType: 'image/jpeg' })).toBe(true)
+    })
+
+    it('returns true for image/gif', () => {
+        expect(isImageFile({ fileType: 'image/gif' })).toBe(true)
+    })
+
+    it('returns true for image/svg+xml', () => {
+        expect(isImageFile({ fileType: 'image/svg+xml' })).toBe(true)
+    })
+
+    it('returns true for image/webp', () => {
+        expect(isImageFile({ fileType: 'image/webp' })).toBe(true)
+    })
+
+    it('returns false for text/plain', () => {
+        expect(isImageFile({ fileType: 'text/plain' })).toBe(false)
+    })
+
+    it('returns false for application/octet-stream', () => {
+        expect(isImageFile({ fileType: 'application/octet-stream' })).toBe(false)
+    })
+
+    it('returns false when fileType is missing', () => {
+        expect(isImageFile({})).toBe(false)
+    })
+})
+
+// ── isViewableFile ──
+
+describe('isViewableFile', () => {
+    it('returns true for text files', () => {
+        expect(isViewableFile({ fileType: 'text/plain', fileSize: 100 })).toBe(true)
+    })
+
+    it('returns true for image files', () => {
+        expect(isViewableFile({ fileType: 'image/png' })).toBe(true)
+    })
+
+    it('returns false for binary files', () => {
+        expect(isViewableFile({ fileType: 'application/octet-stream', fileSize: 100 })).toBe(false)
+    })
+
+    it('returns false for text files exceeding size limit', () => {
+        expect(isViewableFile({ fileType: 'text/plain', fileSize: 10 * 1024 * 1024 })).toBe(false)
+    })
+
+    it('returns true for large images (no size limit)', () => {
+        expect(isViewableFile({ fileType: 'image/png', fileSize: 50 * 1024 * 1024 })).toBe(true)
     })
 })
 

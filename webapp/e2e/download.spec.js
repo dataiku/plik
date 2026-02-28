@@ -74,7 +74,7 @@ test.describe('Text viewer', () => {
         await uploadTestFile(page, 'viewer-test.txt', fileContent)
 
         const panel = page.locator('#file-viewer-panel')
-        const viewBtn = page.getByRole('button', { name: 'View' })
+        const viewBtn = page.getByRole('button', { name: 'View', exact: true })
 
         // Single text file auto-opens the viewer — wait for it to fully render
         await expect(panel).toBeVisible({ timeout: 5_000 })
@@ -127,22 +127,21 @@ test.describe('Text viewer', () => {
         await expect(page.locator('#file-viewer-panel')).not.toBeVisible()
     })
 
-    test('View button is not shown for non-text uploads', async ({ page }) => {
+    test('View button is not shown for non-viewable uploads', async ({ page }) => {
         await page.goto('/')
         await page.waitForLoadState('networkidle')
 
-        // Upload a binary file (PNG)
+        // Upload a binary file that is neither text nor image
         const input = page.locator('input[type="file"]')
-        // Minimal 1×1 transparent PNG
-        const png = Buffer.from(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAB' +
-            'Nl7BcQAAAABJRU5ErkJggg==',
-            'base64'
+        // Minimal ZIP file (local file header + EOCD)
+        const zip = Buffer.from(
+            '504b05060000000000000000000000000000000000000000',
+            'hex'
         )
         await input.setInputFiles({
-            name: 'image.png',
-            mimeType: 'image/png',
-            buffer: png,
+            name: 'archive.zip',
+            mimeType: 'application/zip',
+            buffer: zip,
         })
 
         // Upload
@@ -151,9 +150,9 @@ test.describe('Text viewer', () => {
         await page.waitForLoadState('networkidle')
 
         // File should be listed
-        await expect(page.getByRole('link', { name: 'image.png' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'archive.zip' })).toBeVisible()
 
-        // No "View" button should be present (only appears for text files)
+        // No "View" button should be present (only appears for text/image files)
         await expect(page.getByRole('button', { name: 'View' })).not.toBeVisible()
 
         // Viewer panel should not be open
@@ -247,6 +246,118 @@ test.describe('Markdown preview', () => {
 
         // Content should still be shown in the editor
         await expect(panel).toContainText('just plain text')
+    })
+})
+
+test.describe('Image viewer', () => {
+    // Minimal valid 1x1 red PNG (67 bytes)
+    const PNG_BYTES = Buffer.from(
+        '89504e470d0a1a0a0000000d4948445200000001000000010802000000907753' +
+        'de0000000c4944415408d763f86f0000000200018dcc2fe60000000049454e44ae426082',
+        'hex'
+    )
+
+    async function uploadImageFile(page, filename = 'test.png') {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: filename,
+            mimeType: 'image/png',
+            buffer: PNG_BYTES,
+        })
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+    }
+
+    test('auto-opens image viewer with img tag for single image upload', async ({ page }) => {
+        await uploadImageFile(page, 'photo.png')
+
+        const panel = page.locator('#file-viewer-panel')
+        await expect(panel).toBeVisible({ timeout: 5_000 })
+
+        // Image should be rendered as an <img> tag
+        const img = panel.locator('img')
+        await expect(img).toBeVisible()
+        await expect(img).toHaveAttribute('alt', 'photo.png')
+
+        // Should NOT have CodeEditor or markdown tabs
+        await expect(panel.locator('.cm-editor')).not.toBeVisible()
+        await expect(panel.getByRole('button', { name: 'Preview' })).not.toBeVisible()
+    })
+
+    test('View button appears for image files', async ({ page }) => {
+        await uploadImageFile(page, 'icon.png')
+
+        // The View button should be visible on the file row
+        const viewBtn = page.getByRole('button', { name: 'View', exact: true })
+        await expect(viewBtn).toBeVisible({ timeout: 5_000 })
+    })
+})
+
+test.describe('Viewer navigation', () => {
+    test('navigates between viewable files with arrows and keyboard', async ({ page }) => {
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Upload 3 files: 2 text + 1 image
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles([
+            { name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('file A') },
+            { name: 'b.txt', mimeType: 'text/plain', buffer: Buffer.from('file B') },
+            {
+                name: 'c.png', mimeType: 'image/png', buffer: Buffer.from(
+                    '89504e470d0a1a0a0000000d4948445200000001000000010802000000907753' +
+                    'de0000000c4944415408d763f86f0000000200018dcc2fe60000000049454e44ae426082',
+                    'hex'
+                )
+            },
+        ])
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Viewer should NOT auto-open (multiple files)
+        const panel = page.locator('#file-viewer-panel')
+        await expect(panel).not.toBeVisible()
+
+        // Click View on first file
+        const viewButtons = page.getByRole('button', { name: 'View', exact: true })
+        await expect(viewButtons.first()).toBeVisible({ timeout: 5_000 })
+        await viewButtons.first().click()
+
+        await expect(panel).toBeVisible({ timeout: 5_000 })
+
+        // Position indicator should show 1/3
+        await expect(panel.locator('text=1/3')).toBeVisible()
+
+        // Prev should be disabled, Next enabled
+        const prevBtn = panel.getByTitle('Previous file (←)')
+        const nextBtn = panel.getByTitle('Next file (→)')
+        await expect(prevBtn).toBeDisabled()
+        await expect(nextBtn).not.toBeDisabled()
+
+        // Click Next → should show file 2/3
+        await nextBtn.click()
+        await expect(panel.locator('text=2/3')).toBeVisible()
+        await expect(prevBtn).not.toBeDisabled()
+
+        // Keyboard ArrowRight → 3/3
+        await page.keyboard.press('ArrowRight')
+        await expect(panel.locator('text=3/3')).toBeVisible()
+        await expect(nextBtn).toBeDisabled()
+
+        // Keyboard ArrowLeft → 2/3
+        await page.keyboard.press('ArrowLeft')
+        await expect(panel.locator('text=2/3')).toBeVisible()
+
+        // Escape closes viewer
+        await page.keyboard.press('Escape')
+        await expect(panel).not.toBeVisible()
     })
 })
 
