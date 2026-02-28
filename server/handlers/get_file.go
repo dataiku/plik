@@ -64,9 +64,10 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		}
 	}
 
-	// Avoid rendering HTML in browser
-	if strings.Contains(file.Type, "html") {
-		file.Type = "text/plain"
+	// Avoid rendering potentially dangerous content types in the browser
+	// HTML could execute inline scripts, SVG/XML can contain onload handlers (SECU-10)
+	if strings.Contains(file.Type, "html") || strings.Contains(file.Type, "svg") || file.Type == "text/xml" || file.Type == "text/xml; charset=utf-8" {
+		file.Type = "application/octet-stream"
 	}
 
 	// Force the download of the following types as they are blocked by the CSP Header and won't display properly.
