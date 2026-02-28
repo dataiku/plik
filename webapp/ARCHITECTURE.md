@@ -640,6 +640,41 @@ The `isTextFile()` utility in `utils.js` determines if a file can be viewed in t
 
 `FileRow.vue` uses this to conditionally show a "View" button on uploaded files in download mode. The View button is also hidden for one-shot (`isOneShot` prop) and streaming (`isStream` prop) uploads.
 
+### Markdown File Preview
+
+When viewing or editing a Markdown file (`.md` or `.markdown` extension), **Code / Preview** tabs appear. All three usages share the `MarkdownTabs.vue` component:
+
+| Context | View | Tab labels | Trigger |
+|---------|------|-----------|---------|
+| Comment editor | UploadView | Write / Preview | Always shown when comments enabled |
+| Text paste editor | UploadView | Code / Preview | `isMarkdownFile({ fileName, fileType: 'text/plain' })` |
+| File viewer | DownloadView | Code / Preview | `isMarkdownFile(file)` — checks filename + MIME from server |
+
+**`MarkdownTabs.vue`** — Reusable component that renders the tab bar, the HTML preview panel (with `.prose` styling), and a default slot for the editor content. Props: `modelValue` (active tab), `leftLabel`/`leftIcon` (Code vs Write), `renderedHtml`. Named slot `left-badge` for extras like "required".
+
+**`isMarkdownFile(file)`** — Utility in `utils.js` checking filename extension AND `text/*` MIME type.
+
+Default tab for markdown files in the download viewer is **Preview**; in the paste editor it stays on **Code**.
+
+### Image File Preview
+
+When viewing an image file (`image/*` MIME type), the file viewer renders an `<img>` tag directly from the server URL — no content fetching or text decoding required.
+
+- **`isImageFile(file)`** in `utils.js` checks that the MIME type starts with `image/`
+- **`isViewableFile(file)`** combines `isTextFile(file) || isImageFile(file)` — used by `FileRow` for the View button and the auto-view watcher
+- No file size limit for images (browsers handle large images natively)
+- The viewer header shows a landscape-photo icon (instead of the code angle-brackets icon) for image files
+- E2E encrypted images are not supported in the inline viewer (same limitation as text viewer)
+
+### Viewer Navigation
+
+When an upload contains multiple viewable files (text or image), the viewer shows prev/next navigation:
+
+- **Arrow buttons** (‹ ›) with a position indicator (`2/5`) appear in the viewer header
+- **Keyboard shortcuts**: `ArrowLeft` / `ArrowRight` to navigate, `Escape` to close
+- `viewableFiles` computed filters `activeFiles` through `isViewableFile`, excluding one-shot and streaming uploads
+- Keyboard handler ignores events when focus is in an input, textarea, or contenteditable element
+
 ---
 
 ## Testing

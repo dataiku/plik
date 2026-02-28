@@ -5,11 +5,12 @@ import { config, isFeatureEnabled, isFeatureForced, isFeatureDefaultOn } from '.
 import { createUpload } from '../api.js'
 import { setToken } from '../tokenStore.js'
 import { setPendingFiles } from '../pendingUploadStore.js'
-import { generateRef, ttlToSeconds, secondsToTTL, encodeBasicAuth, humanReadableSize } from '../utils.js'
+import { generateRef, ttlToSeconds, secondsToTTL, encodeBasicAuth, humanReadableSize, isMarkdownFile } from '../utils.js'
 import { encryptFile } from '../crypto.js'
 import { auth } from '../authStore.js'
 import { renderMarkdown } from '../markdown.js'
 import UploadSidebar from '../components/UploadSidebar.vue'
+import MarkdownTabs from '../components/MarkdownTabs.vue'
 import FileRow from '../components/FileRow.vue'
 import { defineAsyncComponent } from 'vue'
 const CodeEditor = defineAsyncComponent(() => import('../components/CodeEditor.vue'))
@@ -82,6 +83,13 @@ const hasFiles = computed(() => files.value.length > 0)
 const textMode = ref(false)
 const textContent = ref('')
 const textFilename = ref('paste.txt')
+const pasteTab = ref('code') // 'code' | 'preview'
+const isPasteMarkdown = computed(() => isMarkdownFile({ fileName: textFilename.value, fileType: 'text/plain' }))
+const renderedPasteContent = computed(() => {
+  if (!isPasteMarkdown.value || pasteTab.value !== 'preview') return ''
+  if (!textContent.value) return ''
+  return renderMarkdown(textContent.value)
+})
 
 function onLanguageDetected({ extension }) {
   if (!extension) return
@@ -101,6 +109,7 @@ function addTextAsFile() {
   addFiles([file])
   textContent.value = ''
   textMode.value = false
+  pasteTab.value = 'code'
 }
 
 function triggerFileSelect() {
@@ -341,48 +350,24 @@ async function doUpload() {
         <!-- Markdown Editor -->
         <div v-if="settings.commentEnabled && !isUploading" class="glass-card overflow-hidden animate-fade-in"
              :class="{ 'ring-1 ring-danger-500/50': commentsRequired }">
-          <div class="flex border-b border-surface-700/50">
-            <button class="px-4 py-2 text-sm font-medium transition-colors"
-                    :class="commentTab === 'write'
-                      ? 'text-accent-400 border-b-2 border-accent-400 bg-surface-700/30'
-                      : 'text-surface-400 hover:text-surface-200'"
-                    @click="commentTab = 'write'">
-              <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Write
+          <MarkdownTabs :modelValue="commentTab"
+                        @update:modelValue="commentTab = $event"
+                        leftLabel="Write"
+                        leftIcon="write"
+                        :renderedHtml="renderedComment">
+            <template #left-badge>
               <span v-if="isFeatureForced('comments')" class="ml-1 text-[10px] text-danger-400 font-semibold uppercase">required</span>
-            </button>
-            <button class="px-4 py-2 text-sm font-medium transition-colors"
-                    :class="commentTab === 'preview'
-                      ? 'text-accent-400 border-b-2 border-accent-400 bg-surface-700/30'
-                      : 'text-surface-400 hover:text-surface-200'"
-                    @click="commentTab = 'preview'">
-              <svg class="w-4 h-4 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              Preview
-            </button>
-          </div>
-          <div v-if="commentTab === 'write'" class="p-3">
-            <textarea
-              v-model="commentText"
-              class="w-full bg-transparent border border-surface-700 rounded-lg p-3 text-sm text-surface-200
-                     placeholder-surface-500 font-mono resize-y focus:outline-none focus:border-accent-500/50
-                     transition-colors min-h-[120px]"
-              :placeholder="isFeatureForced('comments') ? 'Write a comment... (required, Markdown supported)' : 'Write a comment... (Markdown supported)'"
-            />
-          </div>
-          <div v-else class="p-4 min-h-[120px]">
-            <div v-if="renderedComment"
-                 class="prose prose-invert prose-sm max-w-none"
-                 v-html="renderedComment" />
-            <p v-else class="text-sm text-surface-500 italic">Nothing to preview</p>
-          </div>
+            </template>
+            <div class="p-3">
+              <textarea
+                v-model="commentText"
+                class="w-full bg-transparent border border-surface-700 rounded-lg p-3 text-sm text-surface-200
+                       placeholder-surface-500 font-mono resize-y focus:outline-none focus:border-accent-500/50
+                       transition-colors min-h-[120px]"
+                :placeholder="isFeatureForced('comments') ? 'Write a comment... (required, Markdown supported)' : 'Write a comment... (Markdown supported)'"
+              />
+            </div>
+          </MarkdownTabs>
         </div>
 
         <!-- Text Paste Mode -->
@@ -396,7 +381,7 @@ async function doUpload() {
               <span class="text-sm font-medium text-surface-200">Text Upload</span>
             </div>
             <button class="text-surface-400 hover:text-white transition-colors"
-                    @click="textMode = false; textContent = ''">
+                    @click="textMode = false; textContent = ''; pasteTab = 'code'">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -410,7 +395,20 @@ async function doUpload() {
                      class="input-field text-sm flex-1 font-mono"
                      placeholder="paste.txt" />
             </div>
+            <!-- Markdown Code/Preview tabs -->
+            <MarkdownTabs v-if="isPasteMarkdown"
+                          :modelValue="pasteTab"
+                          @update:modelValue="pasteTab = $event"
+                          :renderedHtml="renderedPasteContent">
+              <CodeEditor
+                v-model="textContent"
+                :filename="textFilename"
+                placeholder="Paste or type text here..."
+                @language-detected="onLanguageDetected"
+              />
+            </MarkdownTabs>
             <CodeEditor
+              v-if="!isPasteMarkdown"
               v-model="textContent"
               :filename="textFilename"
               placeholder="Paste or type text here..."
@@ -419,7 +417,7 @@ async function doUpload() {
             <div class="flex justify-end gap-2">
               <button class="btn border border-surface-600 bg-surface-700/50 text-surface-300 hover:bg-surface-600/50
                              hover:text-white px-4 py-1.5 text-sm transition-all"
-                      @click="textMode = false; textContent = ''">
+                      @click="textMode = false; textContent = ''; pasteTab = 'code'">
                 Cancel
               </button>
               <button class="btn-primary px-4 py-1.5 text-sm"

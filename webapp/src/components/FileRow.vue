@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { humanReadableSize, isTextFile as checkIsTextFile } from '../utils.js'
+import { humanReadableSize, isViewableFile as checkIsViewableFile } from '../utils.js'
 import { getFileURL } from '../api.js'
 import CopyButton from './CopyButton.vue'
 
@@ -24,9 +24,9 @@ const isDownloadable = computed(() =>
   (props.isStream && props.file.status === 'uploading')
 )
 
-const isTextFile = computed(() => {
+const isViewable = computed(() => {
   if (props.file.status !== 'uploaded') return false
-  return checkIsTextFile(props.file)
+  return checkIsViewableFile(props.file)
 })
 
 const showDetails = ref(false)
@@ -218,8 +218,8 @@ function fileUrl() {
         <CopyButton v-if="mode === 'download' && isDownloadable"
                     :text="fileUrl()" />
 
-        <!-- View button (download mode, text files only) -->
-        <button v-if="mode === 'download' && file.status === 'uploaded' && isTextFile && !isOneShot && !isStream"
+        <!-- View button (download mode, viewable files) -->
+        <button v-if="mode === 'download' && file.status === 'uploaded' && isViewable && !isOneShot && !isStream"
                 class="btn bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 px-2 py-1.5 text-xs"
                 title="View file content"
                 @click="emit('view', file)">
