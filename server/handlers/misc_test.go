@@ -182,6 +182,19 @@ func TestLogout(t *testing.T) {
 	context.TestOK(t, rr)
 }
 
+func TestLogoutNoAuthenticator(t *testing.T) {
+	ctx := newTestingContext(common.NewConfiguration())
+	// Clear the authenticator to simulate auth being disabled
+	ctx.SetAuthenticator(nil)
+
+	req, err := http.NewRequest("GET", "/logout", bytes.NewBuffer([]byte{}))
+	require.NoError(t, err, "unable to create new request")
+
+	rr := ctx.NewRecorder(req)
+	Logout(ctx, rr, req)
+	context.TestOK(t, rr)
+}
+
 func TestGetRedirectionURL(t *testing.T) {
 	ctx := newTestingContext(common.NewConfiguration())
 

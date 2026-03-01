@@ -67,14 +67,15 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		}
 	}
 
-	// Avoid rendering potentially dangerous content types in the browser
-	// HTML could execute inline scripts, SVG/XML can contain onload handlers (SECU-10)
-	if strings.Contains(file.Type, "html") || strings.Contains(file.Type, "svg") || file.Type == "text/xml" || file.Type == "text/xml; charset=utf-8" {
-		file.Type = "application/octet-stream"
-	}
-
-	// Force the download of the following types as they are blocked by the CSP Header and won't display properly.
-	if file.Type == "" || strings.Contains(file.Type, "flash") || strings.Contains(file.Type, "pdf") {
+	// Neutralize content types that could execute code in the browser
+	// Force download as binary to prevent XSS via inline scripts, SVG onload handlers, etc.
+	if file.Type == "" ||
+		strings.Contains(file.Type, "html") ||
+		strings.Contains(file.Type, "svg") ||
+		strings.Contains(file.Type, "xml") ||
+		strings.Contains(file.Type, "javascript") ||
+		strings.Contains(file.Type, "flash") ||
+		strings.Contains(file.Type, "pdf") {
 		file.Type = "application/octet-stream"
 	}
 

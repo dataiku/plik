@@ -2,10 +2,9 @@ package context
 
 import (
 	"net"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/root-gg/utils"
 
 	"github.com/stretchr/testify/require"
 
@@ -221,11 +220,8 @@ func TestUpload_PasswordEnabled(t *testing.T) {
 	require.NotNil(t, upload)
 	require.True(t, upload.ProtectedByPassword)
 
-	md5sum, err := utils.Md5sum(common.EncodeAuthBasicHeader("login", "password"))
-	require.NoError(t, err)
-
+	require.True(t, strings.HasPrefix(upload.Password, "$2"), "password should be bcrypt hash")
 	require.Equal(t, "login", upload.Login)
-	require.Equal(t, md5sum, upload.Password)
 }
 
 func TestUpload_PasswordForced(t *testing.T) {
@@ -251,11 +247,48 @@ func TestUpload_PasswordDefaultLogin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, upload)
 	require.Equal(t, "plik", upload.Login)
-	md5sum, err := utils.Md5sum(common.EncodeAuthBasicHeader("plik", "bar"))
-	require.NoError(t, err)
-
-	require.Equal(t, md5sum, upload.Password)
+	require.True(t, strings.HasPrefix(upload.Password, "$2"), "password should be bcrypt hash")
 	require.True(t, upload.ProtectedByPassword)
+}
+
+func TestUpload_PasswordEmptyWithProtectedFlag(t *testing.T) {
+	ctx := newTestContext()
+	ctx.config.FeaturePassword = common.FeatureEnabled
+
+	// Client sends protectedByPassword=true but no password => error
+	upload, err := ctx.CreateUpload(&common.Upload{ProtectedByPassword: true, Password: ""})
+	common.RequireError(t, err, "upload password is empty")
+	require.Nil(t, upload)
+
+	// Client sends protectedByPassword=true with valid password => ok
+	upload, err = ctx.CreateUpload(&common.Upload{ProtectedByPassword: true, Password: "password"})
+	require.NoError(t, err)
+	require.NotNil(t, upload)
+	require.True(t, upload.ProtectedByPassword)
+}
+
+func TestUpload_PasswordTooLong(t *testing.T) {
+	ctx := newTestContext()
+	ctx.config.FeaturePassword = common.FeatureEnabled
+
+	// 129-char password exceeds the 128-byte limit
+	longPassword := strings.Repeat("a", 129)
+	upload, err := ctx.CreateUpload(&common.Upload{Password: longPassword})
+	common.RequireError(t, err, "password too long")
+	require.Nil(t, upload)
+
+	// 128-char password is accepted
+	maxPassword := strings.Repeat("a", 128)
+	upload, err = ctx.CreateUpload(&common.Upload{Password: maxPassword})
+	require.NoError(t, err)
+	require.NotNil(t, upload)
+	require.True(t, upload.ProtectedByPassword)
+
+	// 129-char login exceeds the 128-byte limit
+	longLogin := strings.Repeat("b", 129)
+	upload, err = ctx.CreateUpload(&common.Upload{Login: longLogin, Password: "pass"})
+	common.RequireError(t, err, "login too long")
+	require.Nil(t, upload)
 }
 
 func TestUpload_CommentsDisabled(t *testing.T) {
@@ -308,6 +341,24 @@ func TestUpload_CommentsForced(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, upload)
 	require.Equal(t, "comments", upload.Comments)
+}
+
+func TestUpload_CommentsMaxLength(t *testing.T) {
+	ctx := newTestContext()
+	ctx.config.FeatureComments = common.FeatureEnabled
+
+	// 32768 bytes should be accepted
+	longComment := strings.Repeat("a", 32768)
+	upload, err := ctx.CreateUpload(&common.Upload{Comments: longComment})
+	require.NoError(t, err)
+	require.NotNil(t, upload)
+	require.Len(t, upload.Comments, 32768)
+
+	// 32769 bytes should be rejected
+	tooLongComment := strings.Repeat("a", 32769)
+	upload, err = ctx.CreateUpload(&common.Upload{Comments: tooLongComment})
+	common.RequireError(t, err, "comment is too long")
+	require.Nil(t, upload)
 }
 
 func TestUpload_ExtendTTLDisabled(t *testing.T) {
@@ -364,7 +415,7 @@ func TestCreateUpload(t *testing.T) {
 	params.ID = "id"
 	params.UploadToken = "token"
 	params.IsAdmin = true
-	params.ProtectedByPassword = true
+
 	params.RemoteIP = "1.3.3.7"
 	params.TTL = 42
 	params.ExtendTTL = true

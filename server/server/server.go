@@ -426,12 +426,18 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 			ps.config.NewLogger().Warningf("Webapp directory %s not found, consider setting config.NoWebInterface to true", ps.config.WebappDirectory)
 		}
 
-		router.PathPrefix("/clients/").Handler(http.StripPrefix("/clients/", http.FileServer(http.Dir(ps.config.ClientsDirectory))))
-		router.PathPrefix("/changelog/").Handler(http.StripPrefix("/changelog/", http.FileServer(http.Dir(ps.config.ChangelogDirectory))))
-		router.PathPrefix("/").Handler(http.FileServer(http.Dir(ps.config.WebappDirectory)))
+		router.PathPrefix("/clients/").Handler(http.StripPrefix("/clients/", common.NoDirListing(http.FileServer(http.Dir(ps.config.ClientsDirectory)))))
+		router.PathPrefix("/changelog/").Handler(http.StripPrefix("/changelog/", common.NoDirListing(http.FileServer(http.Dir(ps.config.ChangelogDirectory)))))
+		router.PathPrefix("/").Handler(common.NoDirListing(http.FileServer(http.Dir(ps.config.WebappDirectory))))
 	}
 
 	handler = common.StripPrefix(ps.config.Path, router)
+
+	// Add HSTS header when TLS is configured
+	if ps.config.SslEnabled || ps.config.EnhancedWebSecurity {
+		handler = middleware.HSTS(handler)
+	}
+
 	return handler
 }
 
@@ -560,7 +566,7 @@ func (ps *PlikServer) initializeAuthenticator() (err error) {
 
 			ps.authenticator = &common.SessionAuthenticator{
 				SignatureKey:   setting.Value,
-				SecureCookies:  ps.config.EnhancedWebSecurity,
+				SecureCookies:  ps.config.EnhancedWebSecurity || ps.config.SslEnabled,
 				SessionTimeout: ps.config.GetSessionTimeout(),
 				Path:           ps.config.GetPath(),
 			}

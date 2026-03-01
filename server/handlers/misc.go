@@ -30,9 +30,13 @@ func GetConfiguration(ctx *context.Context, resp http.ResponseWriter, req *http.
 	common.WriteJSONResponse(resp, ctx.GetConfig())
 }
 
-// Logout return the server configuration
+// Logout delete session cookies
 func Logout(ctx *context.Context, resp http.ResponseWriter, req *http.Request) {
-	common.Logout(resp, ctx.GetAuthenticator())
+	authenticator := ctx.GetAuthenticatorSafe()
+	if authenticator == nil {
+		return
+	}
+	common.Logout(resp, authenticator)
 }
 
 // GetQrCode return a QRCode for the requested URL

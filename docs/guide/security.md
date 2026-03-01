@@ -6,6 +6,23 @@ Plik allows users to upload and serve any content as-is. Hosting untrusted conte
 
 For security reasons, Plik doesn't trust user-provided MIME types and relies solely on server-side detection. This means some files may not render properly in browsers or embedded viewers that require the correct MIME type.
 
+### Dangerous Content-Type Neutralization
+
+Plik automatically neutralizes content types that could execute code in the browser:
+
+| Original type | Served as | Reason |
+|---|---|---|
+| `text/html`, `*html*` | `application/octet-stream` | Prevents inline script execution |
+| `image/svg+xml`, `*svg*` | `application/octet-stream` | SVG can contain `onload` JavaScript handlers |
+| `text/xml`, `*xml*` | `application/octet-stream` | XML can be parsed and rendered by browsers |
+| `application/javascript`, `*javascript*` | `application/octet-stream` | Prevents script execution |
+| `application/x-shockwave-flash` | `application/octet-stream` | Flash content |
+| `application/pdf` | `application/octet-stream` | PDF can contain JavaScript |
+
+::: tip
+This protection is always active regardless of `EnhancedWebSecurity`. Use the `?dl=true` query parameter to force a download with `Content-Disposition: attachment`.
+:::
+
 ::: warning Office format detection limitation
 Office formats like `.pptx`, `.docx`, and `.xlsx` are ZIP archives internally, so Go's built-in MIME detector (`http.DetectContentType`) identifies them as `application/zip` instead of their proper types (e.g., `application/vnd.openxmlformats-officedocument.presentationml.presentation`).
 :::
@@ -18,14 +35,38 @@ When `EnhancedWebSecurity` is enabled in `plikd.cfg`, Plik sets additional HTTP 
 - **X-XSS-Protection**: enabled
 - **X-Frame-Options**: deny
 - **Content-Security-Policy**: restrictive policy disabling resource loading, XHR, iframes
-- **Secure Cookies**: session cookies only transmitted over HTTPS
+- **Strict-Transport-Security**: `max-age=31536000` (1 year) — also set when `SslEnabled` is true
+- **Secure Cookies**: session cookies only transmitted over HTTPS — also set when `SslEnabled` is true
 
 ::: warning
 Enhanced security will break audio/video playback, PDF rendering, and other rich content features. Disable it if you need those capabilities.
 :::
 
-::: danger Authentication requires HTTPS with EnhancedWebSecurity
-When `EnhancedWebSecurity` is enabled, session cookies have the `Secure` flag set and can only be transmitted over HTTPS connections. Authentication will not work over plain HTTP.
+::: danger Authentication requires HTTPS with Secure Cookies
+When `EnhancedWebSecurity` or `SslEnabled` is enabled, session cookies have the `Secure` flag set and can only be transmitted over HTTPS connections. Authentication will not work over plain HTTP.
+:::
+
+## Upload Password Protection
+
+When `FeaturePassword` is enabled, uploads can be protected with a login/password pair. Credentials are transmitted via HTTP Basic Authentication.
+
+Passwords are hashed using **bcrypt(sha256(credentials))** before storage; the plaintext is never persisted. The SHA-256 pre-hash ensures credentials of any length are securely handled within bcrypt's input constraints.
+
+| Parameter | Limit |
+|-----------|-------|
+| Login     | 128 characters max |
+| Password  | 128 characters max |
+
+::: tip
+Legacy uploads (created before version 1.4) use MD5 hashing and continue to work until they expire.
+:::
+
+## Removable Uploads
+
+When `FeatureRemovable` is enabled and an upload is created with `removable: true`, **anyone with the upload URL can delete the upload and its files** — no upload token or authentication is required. This is by design: the `removable` flag is intended for ephemeral, public uploads where ease of cleanup is prioritized over access control.
+
+::: warning
+If you need to control who can delete an upload, do **not** set `removable: true`. Only the upload owner (via upload token, API token, or session) can delete non-removable uploads.
 :::
 
 ## Download Domain

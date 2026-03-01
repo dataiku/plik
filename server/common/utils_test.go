@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,4 +139,18 @@ func TestSanitizeFilenameForDisposition(t *testing.T) {
 
 	// Multiple dangerous characters at once
 	require.Equal(t, "malicious.txt", SanitizeFilenameForDisposition("mal\"\rici\nous\x00.txt"))
+
+	// Filename truncated at 1024 characters
+	longName := strings.Repeat("a", 1025)
+	require.Len(t, SanitizeFilenameForDisposition(longName), 1024)
+
+	// Exactly 1024 passes through
+	exactName := strings.Repeat("b", 1024)
+	require.Len(t, SanitizeFilenameForDisposition(exactName), 1024)
+
+	// Unicode BiDi override characters are stripped (RLO can spoof file extensions)
+	require.Equal(t, "evilfdp.exe", SanitizeFilenameForDisposition("evil\u202Efdp.exe"))
+
+	// Multiple BiDi overrides are stripped
+	require.Equal(t, "safe.txt", SanitizeFilenameForDisposition("\u202A\u202Bsafe\u2066.\u2069txt\u202C"))
 }
