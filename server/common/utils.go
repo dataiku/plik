@@ -69,7 +69,8 @@ func StripPrefix(prefix string, handler http.Handler) http.Handler {
 }
 
 // SanitizeFilenameForDisposition strips characters that could break a
-// Content-Disposition header value: double quotes, CR, LF, and null bytes.
+// Content-Disposition header value: double quotes, CR, LF, null bytes,
+// and Unicode BiDi override characters that can spoof file extensions.
 // It also truncates excessively long names to 1024 characters.
 func SanitizeFilenameForDisposition(name string) string {
 	r := strings.NewReplacer(
@@ -77,6 +78,16 @@ func SanitizeFilenameForDisposition(name string) string {
 		"\r", "",
 		"\n", "",
 		"\x00", "",
+		// Unicode BiDi overrides — can make "evil\u202Efdp.exe" appear as "evil exe.pdf"
+		"\u202A", "", // LRE  (Left-to-Right Embedding)
+		"\u202B", "", // RLE  (Right-to-Left Embedding)
+		"\u202C", "", // PDF  (Pop Directional Formatting)
+		"\u202D", "", // LRO  (Left-to-Right Override)
+		"\u202E", "", // RLO  (Right-to-Left Override)
+		"\u2066", "", // LRI  (Left-to-Right Isolate)
+		"\u2067", "", // RLI  (Right-to-Left Isolate)
+		"\u2068", "", // FSI  (First Strong Isolate)
+		"\u2069", "", // PDI  (Pop Directional Isolate)
 	)
 	name = r.Replace(name)
 	if len(name) > 1024 {

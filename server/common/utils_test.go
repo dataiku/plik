@@ -147,4 +147,10 @@ func TestSanitizeFilenameForDisposition(t *testing.T) {
 	// Exactly 1024 passes through
 	exactName := strings.Repeat("b", 1024)
 	require.Len(t, SanitizeFilenameForDisposition(exactName), 1024)
+
+	// Unicode BiDi override characters are stripped (RLO can spoof file extensions)
+	require.Equal(t, "evilfdp.exe", SanitizeFilenameForDisposition("evil\u202Efdp.exe"))
+
+	// Multiple BiDi overrides are stripped
+	require.Equal(t, "safe.txt", SanitizeFilenameForDisposition("\u202A\u202Bsafe\u2066.\u2069txt\u202C"))
 }
