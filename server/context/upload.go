@@ -38,6 +38,9 @@ func (ctx *Context) CreateUpload(params *common.Upload) (upload *common.Upload, 
 	}
 
 	// Handle Basic Auth parameters
+	if params.ProtectedByPassword && params.Password == "" {
+		return nil, fmt.Errorf("upload password is empty")
+	}
 	err = ctx.setBasicAuth(upload, params.Login, params.Password)
 	if err != nil {
 		return nil, err

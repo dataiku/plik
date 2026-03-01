@@ -258,6 +258,22 @@ func TestUpload_PasswordDefaultLogin(t *testing.T) {
 	require.True(t, upload.ProtectedByPassword)
 }
 
+func TestUpload_PasswordEmptyWithProtectedFlag(t *testing.T) {
+	ctx := newTestContext()
+	ctx.config.FeaturePassword = common.FeatureEnabled
+
+	// Client sends protectedByPassword=true but no password => error
+	upload, err := ctx.CreateUpload(&common.Upload{ProtectedByPassword: true, Password: ""})
+	common.RequireError(t, err, "upload password is empty")
+	require.Nil(t, upload)
+
+	// Client sends protectedByPassword=true with valid password => ok
+	upload, err = ctx.CreateUpload(&common.Upload{ProtectedByPassword: true, Password: "password"})
+	require.NoError(t, err)
+	require.NotNil(t, upload)
+	require.True(t, upload.ProtectedByPassword)
+}
+
 func TestUpload_CommentsDisabled(t *testing.T) {
 	ctx := newTestContext()
 	ctx.config.FeatureComments = common.FeatureDisabled
@@ -364,7 +380,7 @@ func TestCreateUpload(t *testing.T) {
 	params.ID = "id"
 	params.UploadToken = "token"
 	params.IsAdmin = true
-	params.ProtectedByPassword = true
+
 	params.RemoteIP = "1.3.3.7"
 	params.TTL = 42
 	params.ExtendTTL = true
