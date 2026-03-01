@@ -155,6 +155,14 @@ func (ctx *Context) SetAuthenticator(authenticator *common.SessionAuthenticator)
 	ctx.authenticator = authenticator
 }
 
+// GetAuthenticatorSafe get authenticator from the context (nil-safe, no panic).
+func (ctx *Context) GetAuthenticatorSafe() *common.SessionAuthenticator {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
+	return ctx.authenticator
+}
+
 // GetMetrics get metrics from the context.
 func (ctx *Context) GetMetrics() *common.PlikMetrics {
 	ctx.mu.RLock()
