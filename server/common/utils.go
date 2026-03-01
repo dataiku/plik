@@ -70,6 +70,7 @@ func StripPrefix(prefix string, handler http.Handler) http.Handler {
 
 // SanitizeFilenameForDisposition strips characters that could break a
 // Content-Disposition header value: double quotes, CR, LF, and null bytes.
+// It also truncates excessively long names to 1024 characters.
 func SanitizeFilenameForDisposition(name string) string {
 	r := strings.NewReplacer(
 		`"`, "",
@@ -77,7 +78,11 @@ func SanitizeFilenameForDisposition(name string) string {
 		"\n", "",
 		"\x00", "",
 	)
-	return r.Replace(name)
+	name = r.Replace(name)
+	if len(name) > 1024 {
+		name = name[:1024]
+	}
+	return name
 }
 
 // EncodeAuthBasicHeader return the base64 version of "login:password"
