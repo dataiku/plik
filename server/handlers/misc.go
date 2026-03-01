@@ -96,8 +96,20 @@ func checkDownloadDomain(ctx *context.Context) bool {
 }
 
 func getRedirectURL(ctx *context.Context, callbackPath string) (redirectURL string, err error) {
+	config := ctx.GetConfig()
 	req := ctx.GetReq()
 
+	// Prefer PlikDomain (reliable, no header dependency)
+	if config.GetPlikDomain() != nil {
+		redirectURL = config.PlikDomain
+		if config.Path != "" {
+			redirectURL += config.Path
+		}
+		redirectURL += callbackPath
+		return redirectURL, nil
+	}
+
+	// Fall back to Referer header for backward compatibility
 	referer := req.Header.Get("referer")
 	if referer == "" {
 		return "", common.NewHTTPError("missing referer header", nil, http.StatusBadRequest)
@@ -109,12 +121,21 @@ func getRedirectURL(ctx *context.Context, callbackPath string) (redirectURL stri
 	}
 
 	redirectURL = fmt.Sprintf("%s://%s", originURL.Scheme, originURL.Host)
-	if ctx.GetConfig().Path != "" {
-		redirectURL += ctx.GetConfig().Path
+	if config.Path != "" {
+		redirectURL += config.Path
 	}
 	redirectURL += callbackPath
 
 	return redirectURL, nil
+}
+
+// setCORSHeaders adds CORS headers to download responses when PlikDomain and
+// DownloadDomain are both configured, allowing the webapp to fetch file content
+// cross-origin (e.g., for the file viewer and E2EE decrypt).
+func setCORSHeaders(ctx *context.Context, resp http.ResponseWriter, req *http.Request) {
+	if origin := ctx.GetConfig().GetCORSOrigin(); origin != "" && req.Header.Get("Origin") != "" {
+		resp.Header().Set("Access-Control-Allow-Origin", origin)
+	}
 }
 
 func handleHTTPError(ctx *context.Context, err error) {

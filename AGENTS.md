@@ -37,7 +37,7 @@ plik/
 │   ├── data/               ← data backend interface + implementations
 │   ├── handlers/           ← HTTP handlers
 │   ├── metadata/           ← metadata backend (GORM)
-│   ├── middleware/          ← middleware chain (auth, logging, upload/file resolution)
+│   ├── middleware/          ← middleware chain (auth, logging, upload/file resolution, CORS, download domain restriction)
 │   └── server/             ← HTTP server + router setup
 ├── client/                 ← CLI client + MCP server (see client/ARCHITECTURE.md)
 ├── plik/                   ← Go client library (see plik/ARCHITECTURE.md)

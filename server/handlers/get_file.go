@@ -20,6 +20,9 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	// Set CORS headers for cross-origin file viewer / E2EE decrypt fetch
+	setCORSHeaders(ctx, resp, req)
+
 	// Get upload from context
 	upload := ctx.GetUpload()
 	if upload == nil {

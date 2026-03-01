@@ -30,16 +30,76 @@ When `EnhancedWebSecurity` is enabled, session cookies have the `Secure` flag se
 
 ## Download Domain
 
-It is recommend to serve uploaded files on a separate (sub-)domain to:
+It is recommended to serve uploaded files on a separate (sub-)domain to:
 
 - Protect against phishing links using your main domain
 - Protect Plik's session cookie from being exposed to uploaded content
+- Prevent uploaded JavaScript from making API calls as the authenticated user
 
-Configure with `DownloadDomain` in `plikd.cfg`:
+### Configuration
+
+When using a download domain, three configuration options work together:
 
 ```toml
-DownloadDomain = "https://dl.plik.example.com"
+PlikDomain     = "https://plik.root.gg"       # Main webapp URL (recommended when DownloadDomain is set)
+DownloadDomain = "https://dl.plik.root.gg"    # Separate domain for serving files
+DownloadDomainAlias = []                       # Additional accepted download hosts
 ```
+
+**`PlikDomain`** — The public URL where the webapp is served. When set:
+- OAuth redirect URLs use this domain instead of the `Referer` header
+- `GetServerURL()` returns this domain for CLI quick upload URLs
+- CORS headers are configured when `DownloadDomain` is also set
+
+::: tip PlikDomain does not restrict downloads
+Setting `PlikDomain` alone does **not** enforce any domain check on file downloads — files remain accessible from any host. To restrict downloads to a specific domain, you must also set `DownloadDomain`.
+:::
+
+**`DownloadDomain`** — The domain that serves uploaded files. When set:
+- File/archive download requests are rejected unless the `Host` header matches the download domain (or an alias)
+- Non-file requests (webapp UI, API) on the download domain are **blocked** to prevent security issues (see below)
+- Set `PlikDomain` too to enable CORS and redirect behavior
+
+**`DownloadDomainAlias`** — Additional hostnames accepted for file downloads. Useful when:
+- Accessing the server via `localhost` during development
+- The reverse proxy uses a different host internally
+
+### Security: UI Restriction on Download Domain
+
+When `DownloadDomain` is configured, Plik **blocks** the webapp UI and API endpoints from being served on the download domain. This is critical because:
+
+- An attacker could share a link like `https://dl.plik.root.gg/` — the user sees the familiar Plik UI but on the download domain
+- If the user logs in on this domain, their session cookie is exposed to uploaded content
+- Uploaded JavaScript could make authenticated API calls on behalf of the user
+
+**How it works:**
+
+| Request type | Download domain behavior |
+|---|---|
+| File/stream/archive | ✅ Served normally |
+| `/health` | ✅ Served normally (for load balancer probes) |
+| Everything else (UI, API) | 🔄 Redirect to `PlikDomain` (or 403 if not set) |
+
+::: tip Ideal setup — use both domains
+For the best security and user experience, configure **both** `PlikDomain` and `DownloadDomain`:
+
+```toml
+PlikDomain     = "https://plik.root.gg"
+DownloadDomain = "https://dl.plik.root.gg"
+```
+
+This gives you:
+- **Domain isolation**: uploaded files served separately from the webapp
+- **Smooth redirects**: users who land on the download domain are redirected to the webapp
+- **CORS support**: the file viewer and E2EE decrypt work cross-origin
+- **Reliable OAuth**: redirect URLs use PlikDomain instead of the fragile Referer header
+
+Without `PlikDomain`, non-file requests on the download domain return **403 Forbidden** instead of redirecting.
+:::
+
+::: info How CORS works here
+When both domains are configured, Plik adds `Access-Control-Allow-Origin: <PlikDomain>` headers to download responses. This allows the webapp's JavaScript to fetch file content cross-origin (for the file viewer and E2EE decrypt), while still preventing uploaded JavaScript on the download domain from accessing the webapp's origin.
+:::
 
 ### Troubleshooting: Redirect Loops
 

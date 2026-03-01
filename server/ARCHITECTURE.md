@@ -207,6 +207,8 @@ Each middleware is a function that takes a `context.Context` and optionally call
 | `redirect.go` | `RedirectOnFailure` | Redirect to webapp on error (for browser requests) |
 | `block_bot_download.go` | `BlockBotDownload` | Block messaging app link preview bots from downloading one-shot/streaming files (returns 406) |
 | `user.go` | `User` | Resolve `{userID}` → load user (admin or self) |
+| `cors.go` | `CORSPreflight` | Short-circuits OPTIONS preflight requests with CORS headers (runs before Upload/File middleware) |
+| `download_domain.go` | `RestrictDownloadDomain` | Router-level middleware: blocks non-file routes on the download domain (redirects to PlikDomain or 403) |
 
 ---
 
