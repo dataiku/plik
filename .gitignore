@@ -22,3 +22,4 @@ plikd_*.cfg
 .vscode
 plik.iml
 coverage.out
+/plans
