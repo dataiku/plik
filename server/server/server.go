@@ -432,6 +432,12 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 	}
 
 	handler = common.StripPrefix(ps.config.Path, router)
+
+	// Add HSTS header when TLS is configured
+	if ps.config.SslEnabled || ps.config.EnhancedWebSecurity {
+		handler = middleware.HSTS(handler)
+	}
+
 	return handler
 }
 

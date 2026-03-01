@@ -35,14 +35,15 @@ When `EnhancedWebSecurity` is enabled in `plikd.cfg`, Plik sets additional HTTP 
 - **X-XSS-Protection**: enabled
 - **X-Frame-Options**: deny
 - **Content-Security-Policy**: restrictive policy disabling resource loading, XHR, iframes
-- **Secure Cookies**: session cookies only transmitted over HTTPS
+- **Strict-Transport-Security**: `max-age=31536000` (1 year) — also set when `SslEnabled` is true
+- **Secure Cookies**: session cookies only transmitted over HTTPS — also set when `SslEnabled` is true
 
 ::: warning
 Enhanced security will break audio/video playback, PDF rendering, and other rich content features. Disable it if you need those capabilities.
 :::
 
-::: danger Authentication requires HTTPS with EnhancedWebSecurity
-When `EnhancedWebSecurity` is enabled, session cookies have the `Secure` flag set and can only be transmitted over HTTPS connections. Authentication will not work over plain HTTP.
+::: danger Authentication requires HTTPS with Secure Cookies
+When `EnhancedWebSecurity` or `SslEnabled` is enabled, session cookies have the `Secure` flag set and can only be transmitted over HTTPS connections. Authentication will not work over plain HTTP.
 :::
 
 ## Download Domain
