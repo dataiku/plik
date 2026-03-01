@@ -2,6 +2,7 @@ package context
 
 import (
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -324,6 +325,24 @@ func TestUpload_CommentsForced(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, upload)
 	require.Equal(t, "comments", upload.Comments)
+}
+
+func TestUpload_CommentsMaxLength(t *testing.T) {
+	ctx := newTestContext()
+	ctx.config.FeatureComments = common.FeatureEnabled
+
+	// 32768 bytes should be accepted
+	longComment := strings.Repeat("a", 32768)
+	upload, err := ctx.CreateUpload(&common.Upload{Comments: longComment})
+	require.NoError(t, err)
+	require.NotNil(t, upload)
+	require.Len(t, upload.Comments, 32768)
+
+	// 32769 bytes should be rejected
+	tooLongComment := strings.Repeat("a", 32769)
+	upload, err = ctx.CreateUpload(&common.Upload{Comments: tooLongComment})
+	common.RequireError(t, err, "comment is too long")
+	require.Nil(t, upload)
 }
 
 func TestUpload_ExtendTTLDisabled(t *testing.T) {

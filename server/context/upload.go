@@ -181,6 +181,10 @@ func (ctx *Context) setParams(upload *common.Upload, params *common.Upload) (err
 		upload.Comments = params.Comments
 	}
 
+	if len(upload.Comments) > 32768 {
+		return fmt.Errorf("comment is too long (max 32768 bytes)")
+	}
+
 	upload.E2EE = params.E2EE
 	if upload.E2EE != "" && !common.IsValidE2EEScheme(upload.E2EE) {
 		return fmt.Errorf("invalid e2ee scheme %q", upload.E2EE)
