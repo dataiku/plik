@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { auth, logout } from '../authStore.js'
 import { config, isFeatureEnabled } from '../config.js'
@@ -28,6 +28,17 @@ const tokenFilter = ref(null)
 const uploads = ref([])
 const uploadsCursor = ref(null)
 const uploadsLoading = ref(false)
+
+// Badge filters — false = no filter, true = only matching
+const badgeFilters = ref({
+    oneShot: false,
+    removable: false,
+    stream: false,
+    extendTTL: false,
+    password: false,
+    e2ee: false,
+})
+const BADGE_FILTER_KEYS = ['oneShot', 'removable', 'stream', 'extendTTL', 'password', 'e2ee']
 
 // ── Tokens ──
 const tokens = ref([])
@@ -95,6 +106,10 @@ async function loadUploads(more = false) {
         const opts = { limit: 50 }
         if (tokenFilter.value) opts.token = tokenFilter.value
         if (more && uploadsCursor.value) opts.after = uploadsCursor.value
+        // Badge filters
+        for (const key of BADGE_FILTER_KEYS) {
+            if (badgeFilters.value[key]) opts[key] = true
+        }
         const data = await getUserUploads(opts)
         if (more) {
             uploads.value = [...uploads.value, ...data.results]
@@ -154,6 +169,16 @@ function clearTokenFilter() {
     uploads.value = []
     uploadsCursor.value = null
     loadUploads()
+}
+
+function toggleBadgeFilter(key) {
+    badgeFilters.value[key] = !badgeFilters.value[key]
+    uploads.value = []
+    uploadsCursor.value = null
+    internalNav = true
+    router.push({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
+    loadUploads() // Intentional: reads from badgeFilters.value, not URL, so safe before push resolves
 }
 
 // ── Tokens API ──
@@ -261,17 +286,47 @@ function showTokens() {
     router.push('/home/tokens')
 }
 
+// Build query params from current uploads tab filter state (omits defaults, excludes token)
+function currentUploadsQuery() {
+    const q = {}
+    for (const key of BADGE_FILTER_KEYS) {
+        if (badgeFilters.value[key]) q[key] = 'true'
+    }
+    return q
+}
+
 // ── Route → state sync ──
+
+// Guard flag: suppresses watchers during programmatic navigation so they
+// don't double-load or overwrite state the caller already set up.
+let internalNav = false
 watch(display, (tab, prevTab) => {
-    if (tab === prevTab) return
+    if (tab === prevTab || internalNav) return
     if (tab === 'stats') {
         loadUserStats()
     } else if (tab === 'uploads') {
         tokenFilter.value = null
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = route.query[key] === 'true'
+        }
         uploads.value = []
         loadUploads()
     } else if (tab === 'tokens') {
         loadTokens()
+    }
+})
+
+// Filter changes within the uploads tab (query-based) — triggers on back/forward
+watch(() => route.query, (query, oldQuery) => {
+    if (internalNav || route.params.tab !== 'uploads') return
+    const changed = BADGE_FILTER_KEYS.some(k => query[k] !== oldQuery?.[k])
+    if (changed) {
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = query[key] === 'true'
+        }
+        uploads.value = []
+        uploadsCursor.value = null
+        loadUploads()
     }
 })
 
@@ -286,6 +341,10 @@ onMounted(() => {
     loadTokens()  // needed for token comment lookup map
 
     if (tab === 'uploads') {
+        // Restore badge filters from URL
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = route.query[key] === 'true'
+        }
         loadUploads()
     } else if (tab !== 'tokens') {
         // tokens already loaded above via loadTokens()
@@ -486,6 +545,31 @@ onMounted(() => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+
+          <!-- Badge filter bar -->
+          <div class="glass-card p-3 mb-4">
+            <div class="flex items-center gap-2 text-surface-400 text-sm">
+              <span>Filter:</span>
+              <button @click="toggleBadgeFilter('oneShot')"
+                      :class="badgeFilters.oneShot ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded text-xs transition-all">one-shot</button>
+              <button @click="toggleBadgeFilter('removable')"
+                      :class="badgeFilters.removable ? 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/50' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded text-xs transition-all">removable</button>
+              <button @click="toggleBadgeFilter('stream')"
+                      :class="badgeFilters.stream ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded text-xs transition-all">stream</button>
+              <button @click="toggleBadgeFilter('extendTTL')"
+                      :class="badgeFilters.extendTTL ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded text-xs transition-all">extend TTL</button>
+              <button @click="toggleBadgeFilter('password')"
+                      :class="badgeFilters.password ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/50' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded text-xs transition-all">password</button>
+              <button @click="toggleBadgeFilter('e2ee')"
+                      :class="badgeFilters.e2ee ? 'bg-fuchsia-500/20 text-fuchsia-400 ring-1 ring-fuchsia-500/50' : 'text-surface-500 hover:text-surface-300'"
+                      class="px-2 py-0.5 rounded text-xs transition-all">encrypted</button>
+            </div>
           </div>
 
           <!-- Loading -->

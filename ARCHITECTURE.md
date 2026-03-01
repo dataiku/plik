@@ -251,7 +251,7 @@ When processing a request, limits are resolved via the custom `Context`:
 | GET | `/me/token` | `GetUserTokens` | List tokens (paginated) |
 | POST | `/me/token` | `CreateToken` | Create upload token |
 | DELETE | `/me/token/{token}` | `RevokeToken` | Revoke token |
-| GET | `/me/uploads` | `GetUserUploads` | List uploads (paginated) |
+| GET | `/me/uploads` | `GetUserUploads` | List uploads (paginated, filterable by `token` and badge settings: `oneShot`, `removable`, `stream`, `extendTTL`, `password`, `e2ee`) |
 | DELETE | `/me/uploads` | `RemoveUserUploads` | Remove all uploads |
 | GET | `/me/stats` | `GetUserStatistics` | User stats |
 
@@ -271,7 +271,7 @@ When processing a request, limits are resolved via the custom `Context`:
 | GET | `/stats` | `GetServerStatistics` | Server stats |
 | GET | `/users` | `GetUsers` | List users (paginated, filterable by `provider` and `admin` status) |
 | GET | `/users/search` | `SearchUsers` | Search users by login/name/email (LIKE query, `q`, `limit`, `provider`, `admin`) |
-| GET | `/uploads` | `GetUploads` | List all uploads (paginated) |
+| GET | `/uploads` | `GetUploads` | List all uploads (paginated, filterable by `user`, `token`, `sort`, badge settings: `oneShot`, `removable`, `stream`, `extendTTL`, `password`, `e2ee`) |
 
 ---
 

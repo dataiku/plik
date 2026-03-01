@@ -149,3 +149,13 @@ func handleHTTPError(ctx *context.Context, err error) {
 		ctx.InternalServerError("unexpected error", err)
 	}
 }
+
+// parseBoolFilter returns a *bool from a query parameter.
+// Returns nil if the parameter is absent, enabling optional boolean filtering.
+func parseBoolFilter(req *http.Request, key string) *bool {
+	if v := req.URL.Query().Get(key); v != "" {
+		b := v == "true"
+		return &b
+	}
+	return nil
+}

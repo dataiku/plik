@@ -91,6 +91,7 @@ make vuln                   # govulncheck (report only)
 | `server/common/config.go` | Config struct + parsing + env var override logic |
 | `server/common/file.go` | File model + status constants |
 | `server/common/upload.go` | Upload model |
+| `server/metadata/upload.go` | Upload queries, `UploadFilters` struct for filtering by user/token/badge settings |
 | `server/common/feature_flags.go` | Feature flag types (`disabled`/`enabled`/`default`/`forced`) |
 
 ## Conventions

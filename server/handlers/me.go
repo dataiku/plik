@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
+	"github.com/root-gg/plik/server/metadata"
 )
 
 // UserInfo return user information ( name / email / ... )
@@ -55,16 +56,23 @@ func GetUserUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 
 	pagingQuery := ctx.GetPagingQuery()
 
-	var userID, tokenStr string
+	filters := metadata.UploadFilters{
+		OneShot:   parseBoolFilter(req, "oneShot"),
+		Removable: parseBoolFilter(req, "removable"),
+		Stream:    parseBoolFilter(req, "stream"),
+		ExtendTTL: parseBoolFilter(req, "extendTTL"),
+		Password:  parseBoolFilter(req, "password"),
+		E2EE:      parseBoolFilter(req, "e2ee"),
+	}
 	if user != nil {
-		userID = user.ID
+		filters.User = user.ID
 	}
 	if token != nil {
-		tokenStr = token.Token
+		filters.Token = token.Token
 	}
 
 	// Get uploads
-	uploads, cursor, err := ctx.GetMetadataBackend().GetUploads(userID, tokenStr, true, pagingQuery)
+	uploads, cursor, err := ctx.GetMetadataBackend().GetUploads(filters, true, pagingQuery)
 	if err != nil {
 		ctx.InternalServerError("unable to get user uploads : %s", err)
 		return
