@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { auth, logout } from '../authStore.js'
 import { config, isFeatureEnabled } from '../config.js'
 import { showError } from '../notification.js'
@@ -19,9 +19,9 @@ import EditUserModal from '../components/EditUserModal.vue'
 import UploadCard from '../components/UploadCard.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // ── Display mode ──
-const display = ref('stats') // 'stats' | 'uploads' | 'tokens'
 const tokenFilter = ref(null)
 
 // ── Uploads ──
@@ -246,23 +246,34 @@ async function saveEditAccount() {
     }
 }
 
-// ── Display switching ──
+// ── Display switching (via route path) ──
+const display = computed(() => route.params.tab || 'stats')
+
 function showStats() {
-    display.value = 'stats'
-    loadUserStats()
+    router.push('/home/stats')
 }
 
 function showUploads() {
-    display.value = 'uploads'
-    tokenFilter.value = null
-    uploads.value = []
-    loadUploads()
+    router.push('/home/uploads')
 }
 
 function showTokens() {
-    display.value = 'tokens'
-    loadTokens()
+    router.push('/home/tokens')
 }
+
+// ── Route → state sync ──
+watch(display, (tab, prevTab) => {
+    if (tab === prevTab) return
+    if (tab === 'stats') {
+        loadUserStats()
+    } else if (tab === 'uploads') {
+        tokenFilter.value = null
+        uploads.value = []
+        loadUploads()
+    } else if (tab === 'tokens') {
+        loadTokens()
+    }
+})
 
 // ── Init ──
 onMounted(() => {
@@ -270,8 +281,16 @@ onMounted(() => {
         router.push('/login')
         return
     }
-    loadUserStats()
+    const tab = display.value
+
     loadTokens()  // needed for token comment lookup map
+
+    if (tab === 'uploads') {
+        loadUploads()
+    } else if (tab !== 'tokens') {
+        // tokens already loaded above via loadTokens()
+        loadUserStats()
+    }
 })
 </script>
 

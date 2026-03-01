@@ -21,12 +21,20 @@ const routes = [
     },
     {
         path: '/home',
+        redirect: '/home/stats',
+    },
+    {
+        path: '/home/:tab(stats|uploads|tokens)',
         name: 'home',
         component: HomeView,
         meta: { requiresAuth: true },
     },
     {
         path: '/admin',
+        redirect: '/admin/stats',
+    },
+    {
+        path: '/admin/:tab(stats|users|uploads)',
         name: 'admin',
         component: AdminView,
         meta: { requiresAuth: true, requiresAdmin: true },

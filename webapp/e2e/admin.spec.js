@@ -394,7 +394,7 @@ test.describe('Admin user uploads quick link', () => {
         await page.waitForLoadState('networkidle')
 
         // Should switch to uploads view with user filter chip
-        await expect(mainContent.getByText('user:')).toBeVisible({ timeout: 5_000 })
+        await expect(mainContent.getByText('user:').first()).toBeVisible({ timeout: 5_000 })
         await expect(mainContent.getByText(ADMIN_LOGIN).first()).toBeVisible()
     })
 })

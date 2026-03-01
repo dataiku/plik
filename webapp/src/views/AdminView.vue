@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { auth, impersonate as doImpersonate, clearImpersonate } from '../authStore.js'
 import { config } from '../config.js'
 import { showError } from '../notification.js'
@@ -19,9 +19,10 @@ import EditUserModal from '../components/EditUserModal.vue'
 import UploadCard from '../components/UploadCard.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // ── Display mode ──
-const display = ref('stats') // 'stats' | 'users' | 'uploads'
+const display = computed(() => route.params.tab || 'stats')
 
 // ── Version info ──
 const version = ref(null)
@@ -120,6 +121,9 @@ function changeUsersProviderFilter(val) {
     usersProviderFilter.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -127,6 +131,9 @@ function changeUsersAdminFilter(val) {
     usersAdminFilter.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -134,6 +141,9 @@ function changeUsersSortBy(val) {
     usersSortBy.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -141,6 +151,9 @@ function changeUsersSortOrder(val) {
     usersSortOrder.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -209,9 +222,11 @@ async function loadUploads(more = false) {
 function filterUploadsByUser(userId) {
     uploadsUserFilter.value = userId
     uploadsTokenFilter.value = ''
-    display.value = 'uploads'
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.push({ path: '/admin/uploads', query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -219,9 +234,11 @@ async function viewUserInUsersTab(userId) {
     try {
         const results = await searchUsers({ q: userId, limit: 1 })
         if (results.length > 0) {
-            display.value = 'users'
             users.value = [results[0]]
             usersCursor.value = null
+            internalNav = true
+            router.push('/admin/users')
+                .finally(() => nextTick(() => { internalNav = false }))
         }
     } catch {
         showError('Could not find user')
@@ -230,9 +247,12 @@ async function viewUserInUsersTab(userId) {
 
 function filterUploadsByToken(token) {
     uploadsTokenFilter.value = token
-    display.value = 'uploads'
     uploads.value = []
     uploadsCursor.value = null
+    // Token NOT in URL for security — only update tab and keep user filter if set
+    internalNav = true
+    router.push({ path: '/admin/uploads', query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -240,6 +260,9 @@ function clearUserFilter() {
     uploadsUserFilter.value = ''
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -247,6 +270,7 @@ function clearTokenFilter() {
     uploadsTokenFilter.value = ''
     uploads.value = []
     uploadsCursor.value = null
+    // Token was never in URL, so just reload
     loadUploads()
 }
 
@@ -254,6 +278,9 @@ function changeSortBy(val) {
     uploadsSortBy.value = val
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -261,6 +288,9 @@ function changeSortOrder(val) {
     uploadsSortOrder.value = val
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -341,29 +371,106 @@ function handleDeleteUpload(upload) {
     }
 }
 
-// ── Display switching ──
+// ── Display switching (via route path) ──
 function showStatsView() {
-    display.value = 'stats'
-    loadStats()
+    router.push('/admin/stats')
 }
 
 function showUsersView() {
-    display.value = 'users'
-    users.value = []
-    usersProviderFilter.value = ''
-    usersAdminFilter.value = ''
-    usersCursor.value = null
-    loadUsers()
+    router.push('/admin/users')
 }
 
 function showUploadsView() {
-    display.value = 'uploads'
-    uploadsUserFilter.value = ''
-    uploadsTokenFilter.value = ''
-    uploads.value = []
-    uploadsCursor.value = null
-    loadUploads()
+    router.push('/admin/uploads')
 }
+
+// ── Route helpers ──
+
+// Build query params from current users tab filter state (omits defaults)
+function currentUsersQuery() {
+    return {
+        provider: usersProviderFilter.value || undefined,
+        admin: usersAdminFilter.value || undefined,
+        sort: usersSortBy.value !== 'date' ? usersSortBy.value : undefined,
+        order: usersSortOrder.value !== 'desc' ? usersSortOrder.value : undefined,
+    }
+}
+
+// Build query params from current uploads tab filter state (omits defaults, excludes token)
+function currentUploadsQuery() {
+    return {
+        user: uploadsUserFilter.value || undefined,
+        sort: uploadsSortBy.value !== 'date' ? uploadsSortBy.value : undefined,
+        order: uploadsSortOrder.value !== 'desc' ? uploadsSortOrder.value : undefined,
+    }
+}
+
+// ── Route → state sync ──
+
+// Guard flag: suppresses watchers during programmatic navigation so they
+// don't double-load or overwrite state the caller already set up.
+let internalNav = false
+
+// Tab changes (path-based) — triggers on back/forward between tabs
+watch(display, (tab, prevTab) => {
+    if (tab === prevTab || internalNav) return
+    if (tab === 'stats') {
+        loadStats()
+    } else if (tab === 'users') {
+        // Sync filters from query params (e.g. back/forward within users tab)
+        usersProviderFilter.value = route.query.provider || ''
+        usersAdminFilter.value = route.query.admin || ''
+        usersSortBy.value = route.query.sort || 'date'
+        usersSortOrder.value = route.query.order || 'desc'
+        users.value = []
+        usersCursor.value = null
+        loadUsers()
+    } else if (tab === 'uploads') {
+        uploadsUserFilter.value = route.query.user || ''
+        uploadsTokenFilter.value = ''  // never from URL
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
+        uploads.value = []
+        uploadsCursor.value = null
+        loadUploads()
+    }
+})
+
+// Filter changes within same tab (query-based) — triggers on back/forward within a tab
+watch(() => route.query, (query, oldQuery) => {
+    // Only react if still on the same tab (path didn't change)
+    if (internalNav || !route.params.tab) return
+    const tab = route.params.tab
+
+    if (tab === 'users') {
+        const changed = query.provider !== oldQuery?.provider ||
+                        query.admin !== oldQuery?.admin ||
+                        query.sort !== oldQuery?.sort ||
+                        query.order !== oldQuery?.order
+        if (changed) {
+            usersProviderFilter.value = query.provider || ''
+            usersAdminFilter.value = query.admin || ''
+            usersSortBy.value = query.sort || 'date'
+            usersSortOrder.value = query.order || 'desc'
+            users.value = []
+            usersCursor.value = null
+            loadUsers()
+        }
+    } else if (tab === 'uploads') {
+        const changed = query.user !== oldQuery?.user ||
+                        query.sort !== oldQuery?.sort ||
+                        query.order !== oldQuery?.order
+        if (changed) {
+            uploadsUserFilter.value = query.user || ''
+            uploadsTokenFilter.value = ''  // never from URL
+            uploadsSortBy.value = query.sort || 'date'
+            uploadsSortOrder.value = query.order || 'desc'
+            uploads.value = []
+            uploadsCursor.value = null
+            loadUploads()
+        }
+    }
+})
 
 // ── Init ──
 onMounted(async () => {
@@ -376,7 +483,24 @@ onMounted(async () => {
     } catch (err) {
         showError('Could not load version info')
     }
-    loadStats()
+
+    // Initialize from URL
+    const tab = display.value
+
+    if (tab === 'users') {
+        usersProviderFilter.value = route.query.provider || ''
+        usersAdminFilter.value = route.query.admin || ''
+        usersSortBy.value = route.query.sort || 'date'
+        usersSortOrder.value = route.query.order || 'desc'
+        loadUsers()
+    } else if (tab === 'uploads') {
+        uploadsUserFilter.value = route.query.user || ''
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
+        loadUploads()
+    } else {
+        loadStats()
+    }
 })
 </script>
 
