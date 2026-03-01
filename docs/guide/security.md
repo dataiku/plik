@@ -46,6 +46,21 @@ Enhanced security will break audio/video playback, PDF rendering, and other rich
 When `EnhancedWebSecurity` or `SslEnabled` is enabled, session cookies have the `Secure` flag set and can only be transmitted over HTTPS connections. Authentication will not work over plain HTTP.
 :::
 
+## Upload Password Protection
+
+When `FeaturePassword` is enabled, uploads can be protected with a login/password pair. Credentials are transmitted via HTTP Basic Authentication.
+
+Passwords are hashed using **bcrypt(sha256(credentials))** before storage; the plaintext is never persisted. The SHA-256 pre-hash ensures credentials of any length are securely handled within bcrypt's input constraints.
+
+| Parameter | Limit |
+|-----------|-------|
+| Login     | 128 characters max |
+| Password  | 128 characters max |
+
+::: tip
+Legacy uploads (created before version 1.4) use MD5 hashing and continue to work until they expire.
+:::
+
 ## Download Domain
 
 It is recommended to serve uploaded files on a separate (sub-)domain to:

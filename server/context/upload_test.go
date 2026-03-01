@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/root-gg/utils"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/root-gg/plik/server/common"
@@ -222,11 +220,8 @@ func TestUpload_PasswordEnabled(t *testing.T) {
 	require.NotNil(t, upload)
 	require.True(t, upload.ProtectedByPassword)
 
-	md5sum, err := utils.Md5sum(common.EncodeAuthBasicHeader("login", "password"))
-	require.NoError(t, err)
-
+	require.True(t, strings.HasPrefix(upload.Password, "$2"), "password should be bcrypt hash")
 	require.Equal(t, "login", upload.Login)
-	require.Equal(t, md5sum, upload.Password)
 }
 
 func TestUpload_PasswordForced(t *testing.T) {
@@ -252,10 +247,7 @@ func TestUpload_PasswordDefaultLogin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, upload)
 	require.Equal(t, "plik", upload.Login)
-	md5sum, err := utils.Md5sum(common.EncodeAuthBasicHeader("plik", "bar"))
-	require.NoError(t, err)
-
-	require.Equal(t, md5sum, upload.Password)
+	require.True(t, strings.HasPrefix(upload.Password, "$2"), "password should be bcrypt hash")
 	require.True(t, upload.ProtectedByPassword)
 }
 
@@ -273,6 +265,30 @@ func TestUpload_PasswordEmptyWithProtectedFlag(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, upload)
 	require.True(t, upload.ProtectedByPassword)
+}
+
+func TestUpload_PasswordTooLong(t *testing.T) {
+	ctx := newTestContext()
+	ctx.config.FeaturePassword = common.FeatureEnabled
+
+	// 129-char password exceeds the 128-byte limit
+	longPassword := strings.Repeat("a", 129)
+	upload, err := ctx.CreateUpload(&common.Upload{Password: longPassword})
+	common.RequireError(t, err, "password too long")
+	require.Nil(t, upload)
+
+	// 128-char password is accepted
+	maxPassword := strings.Repeat("a", 128)
+	upload, err = ctx.CreateUpload(&common.Upload{Password: maxPassword})
+	require.NoError(t, err)
+	require.NotNil(t, upload)
+	require.True(t, upload.ProtectedByPassword)
+
+	// 129-char login exceeds the 128-byte limit
+	longLogin := strings.Repeat("b", 129)
+	upload, err = ctx.CreateUpload(&common.Upload{Login: longLogin, Password: "pass"})
+	common.RequireError(t, err, "login too long")
+	require.Nil(t, upload)
 }
 
 func TestUpload_CommentsDisabled(t *testing.T) {

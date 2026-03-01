@@ -10,6 +10,7 @@ import (
 
 	"github.com/root-gg/utils"
 
+	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
 )
 
@@ -112,15 +113,25 @@ func Upload(ctx *context.Context, next http.Handler) http.Handler {
 				forbidden("invalid http authorization scheme")
 				return
 			}
-			var md5sum string
-			md5sum, err = utils.Md5sum(auth[1])
-			if err != nil {
-				forbidden("unable to hash credentials")
-				return
-			}
-			if md5sum != upload.Password {
-				forbidden("invalid credentials")
-				return
+			b64Creds := auth[1]
+			if strings.HasPrefix(upload.Password, "$2") {
+				// bcrypt(sha256) hash (new uploads)
+				if !common.CheckUploadPassword(b64Creds, upload.Password) {
+					forbidden("invalid credentials")
+					return
+				}
+			} else {
+				// Legacy MD5 hash (old uploads, will expire naturally)
+				var md5sum string
+				md5sum, err = utils.Md5sum(b64Creds)
+				if err != nil {
+					forbidden("unable to hash credentials")
+					return
+				}
+				if md5sum != upload.Password {
+					forbidden("invalid credentials")
+					return
+				}
 			}
 		}
 
