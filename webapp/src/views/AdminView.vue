@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { auth, impersonate as doImpersonate, clearImpersonate } from '../authStore.js'
 import { config } from '../config.js'
 import { showError } from '../notification.js'
+import UploadControls from '../components/UploadControls.vue'
 import {
     getServerStats, getAdminUsers, getAdminUploads, searchUsers,
     createUser as apiCreateUser, deleteUser as apiDeleteUser,
@@ -862,76 +863,36 @@ onMounted(async () => {
         <!-- ─── Uploads View ─── -->
         <template v-if="display === 'uploads'">
 
-          <!-- Sort / filter controls -->
-          <div class="glass-card p-3 mb-4 space-y-2 text-sm">
-            <div class="flex flex-wrap items-center gap-4">
-              <!-- Sort by -->
-              <div class="flex items-center gap-2 text-surface-400">
-                <span>Sort:</span>
-                <button @click="changeSortBy('date')"
-                        :class="uploadsSortBy === 'date' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Date</button>
-                <span class="text-surface-600">|</span>
-                <button @click="changeSortBy('size')"
-                        :class="uploadsSortBy === 'size' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Size</button>
-              </div>
-              <!-- Order -->
-              <div class="flex items-center gap-2 text-surface-400">
-                <span>Order:</span>
-                <button @click="changeSortOrder('desc')"
-                        :class="uploadsSortOrder === 'desc' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Desc</button>
-                <span class="text-surface-600">|</span>
-                <button @click="changeSortOrder('asc')"
-                        :class="uploadsSortOrder === 'asc' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Asc</button>
-              </div>
-            </div>
-            <!-- Badge filters -->
-            <div class="flex items-center gap-2 text-surface-400">
-                <span>Filter:</span>
-                <button @click="toggleBadgeFilter('oneShot')"
-                        :class="badgeFilters.oneShot ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50' : 'text-surface-500 hover:text-surface-300'"
-                        class="px-2 py-0.5 rounded text-xs transition-all">one-shot</button>
-                <button @click="toggleBadgeFilter('removable')"
-                        :class="badgeFilters.removable ? 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/50' : 'text-surface-500 hover:text-surface-300'"
-                        class="px-2 py-0.5 rounded text-xs transition-all">removable</button>
-                <button @click="toggleBadgeFilter('stream')"
-                        :class="badgeFilters.stream ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50' : 'text-surface-500 hover:text-surface-300'"
-                        class="px-2 py-0.5 rounded text-xs transition-all">stream</button>
-                <button @click="toggleBadgeFilter('extendTTL')"
-                        :class="badgeFilters.extendTTL ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50' : 'text-surface-500 hover:text-surface-300'"
-                        class="px-2 py-0.5 rounded text-xs transition-all">extend TTL</button>
-                <button @click="toggleBadgeFilter('password')"
-                        :class="badgeFilters.password ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/50' : 'text-surface-500 hover:text-surface-300'"
-                        class="px-2 py-0.5 rounded text-xs transition-all">password</button>
-                <button @click="toggleBadgeFilter('e2ee')"
-                        :class="badgeFilters.e2ee ? 'bg-fuchsia-500/20 text-fuchsia-400 ring-1 ring-fuchsia-500/50' : 'text-surface-500 hover:text-surface-300'"
-                        class="px-2 py-0.5 rounded text-xs transition-all">encrypted</button>
-            </div>
+          <UploadControls
+            :sort-by="uploadsSortBy"
+            :sort-order="uploadsSortOrder"
+            :badge-filters="badgeFilters"
+            :show-extend-t-t-l="true"
+            @update:sort-by="changeSortBy"
+            @update:sort-order="changeSortOrder"
+            @toggle-filter="toggleBadgeFilter"
+          />
 
-            <!-- Active filters -->
-            <div v-if="uploadsUserFilter || uploadsTokenFilter" class="flex flex-wrap items-center gap-3">
-              <div v-if="uploadsUserFilter" class="flex items-center gap-1.5 text-surface-300">
-                <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                user: <span class="font-mono text-accent-400">{{ uploadsUserFilter }}</span>
-                <button @click="viewUserInUsersTab(uploadsUserFilter)"
-                        class="text-surface-400 hover:text-accent-400 transition-colors"
-                        title="View user in users tab">🔍</button>
-                <button @click="clearUserFilter" class="text-surface-500 hover:text-white">×</button>
-              </div>
-              <div v-if="uploadsTokenFilter" class="flex items-center gap-1.5 text-surface-300">
-                <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                token: <span class="font-mono text-accent-400">{{ uploadsTokenFilter.substring(0, 12) }}...</span>
-                <button @click="clearTokenFilter" class="text-surface-500 hover:text-white">×</button>
-              </div>
+          <!-- Active filters -->
+          <div v-if="uploadsUserFilter || uploadsTokenFilter" class="flex flex-wrap items-center gap-3">
+            <div v-if="uploadsUserFilter" class="flex items-center gap-1.5 text-surface-300">
+              <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              user: <span class="font-mono text-accent-400">{{ uploadsUserFilter }}</span>
+              <button @click="viewUserInUsersTab(uploadsUserFilter)"
+                      class="text-surface-400 hover:text-accent-400 transition-colors"
+                      title="View user in users tab">🔍</button>
+              <button @click="clearUserFilter" class="text-surface-500 hover:text-white">×</button>
+            </div>
+            <div v-if="uploadsTokenFilter" class="flex items-center gap-1.5 text-surface-300">
+              <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              token: <span class="font-mono text-accent-400">{{ uploadsTokenFilter.substring(0, 12) }}...</span>
+              <button @click="clearTokenFilter" class="text-surface-500 hover:text-white">×</button>
             </div>
           </div>
 

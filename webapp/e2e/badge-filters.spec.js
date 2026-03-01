@@ -317,3 +317,89 @@ test.describe('Home badge filter controls', () => {
         await expect(streamBtn).toHaveClass(/ring-1/, { timeout: 5_000 })
     })
 })
+
+// ── Sort controls tests ──
+
+test.describe('Sort controls', () => {
+    test('admin: sort buttons are visible and functional', async ({ authenticatedPage: page }) => {
+        await goToAdminUploads(page)
+        const main = page.locator('main')
+
+        // Sort and Order buttons should be visible
+        await expect(main.getByRole('button', { name: 'Date' })).toBeVisible({ timeout: 5_000 })
+        await expect(main.getByRole('button', { name: 'Size' })).toBeVisible()
+        await expect(main.getByRole('button', { name: 'Desc' })).toBeVisible()
+        await expect(main.getByRole('button', { name: 'Asc' })).toBeVisible()
+
+        // Date should be active by default
+        await expect(main.getByRole('button', { name: 'Date' })).toHaveClass(/text-accent-400/)
+
+        // Click Size — should become active and persist in URL
+        await main.getByRole('button', { name: 'Size' }).click()
+        await page.waitForLoadState('networkidle')
+        await expect(main.getByRole('button', { name: 'Size' })).toHaveClass(/text-accent-400/)
+        expect(page.url()).toContain('sort=size')
+    })
+
+    test('home: sort buttons are visible and functional', async ({ authenticatedPage: page }) => {
+        await goToHomeUploads(page)
+        const main = page.locator('main')
+
+        await expect(main.getByRole('button', { name: 'Date' })).toBeVisible({ timeout: 5_000 })
+        await expect(main.getByRole('button', { name: 'Size' })).toBeVisible()
+        await expect(main.getByRole('button', { name: 'Desc' })).toBeVisible()
+        await expect(main.getByRole('button', { name: 'Asc' })).toBeVisible()
+
+        // Click Size
+        await main.getByRole('button', { name: 'Size' }).click()
+        await page.waitForLoadState('networkidle')
+        await expect(main.getByRole('button', { name: 'Size' })).toHaveClass(/text-accent-400/)
+        expect(page.url()).toContain('sort=size')
+
+        // Reload — sort should persist
+        await page.reload({ waitUntil: 'networkidle' })
+        await expect(main.getByRole('button', { name: 'Size' })).toHaveClass(/text-accent-400/, { timeout: 5_000 })
+    })
+
+})
+
+// ── Direct URL navigation tests (new-tab simulation) ──
+
+test.describe('Direct URL with combined filters', () => {
+    test('admin: navigating to URL with sort + badge filters applies all state', async ({ authenticatedPage: page }) => {
+        // Navigate directly with multiple params — simulates paste-in-new-tab
+        await page.goto('/#/admin/uploads?sort=size&oneShot=true&removable=true')
+        await page.waitForLoadState('networkidle')
+        const main = page.locator('main')
+
+        // Sort should be "Size"
+        await expect(main.getByRole('button', { name: 'Size' })).toHaveClass(/text-accent-400/, { timeout: 5_000 })
+        await expect(main.getByRole('button', { name: 'Date' })).not.toHaveClass(/text-accent-400/)
+
+        // Badge filters should be active
+        await expect(main.getByRole('button', { name: 'one-shot' })).toHaveClass(/ring-1/)
+        await expect(main.getByRole('button', { name: 'removable' })).toHaveClass(/ring-1/)
+
+        // Other filters should NOT be active
+        await expect(main.getByRole('button', { name: 'stream' })).not.toHaveClass(/ring-1/)
+        await expect(main.getByRole('button', { name: 'password' })).not.toHaveClass(/ring-1/)
+    })
+
+    test('home: navigating to URL with sort + badge filters applies all state', async ({ authenticatedPage: page }) => {
+        await page.goto('/#/home/uploads?sort=size&stream=true&password=true')
+        await page.waitForLoadState('networkidle')
+        const main = page.locator('main')
+
+        // Sort should be "Size"
+        await expect(main.getByRole('button', { name: 'Size' })).toHaveClass(/text-accent-400/, { timeout: 5_000 })
+        await expect(main.getByRole('button', { name: 'Date' })).not.toHaveClass(/text-accent-400/)
+
+        // Badge filters should be active
+        await expect(main.getByRole('button', { name: 'stream' })).toHaveClass(/ring-1/)
+        await expect(main.getByRole('button', { name: 'password' })).toHaveClass(/ring-1/)
+
+        // Other filters should NOT be active
+        await expect(main.getByRole('button', { name: 'one-shot' })).not.toHaveClass(/ring-1/)
+        await expect(main.getByRole('button', { name: 'removable' })).not.toHaveClass(/ring-1/)
+    })
+})

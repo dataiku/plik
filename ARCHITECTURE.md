@@ -251,7 +251,7 @@ When processing a request, limits are resolved via the custom `Context`:
 | GET | `/me/token` | `GetUserTokens` | List tokens (paginated) |
 | POST | `/me/token` | `CreateToken` | Create upload token |
 | DELETE | `/me/token/{token}` | `RevokeToken` | Revoke token |
-| GET | `/me/uploads` | `GetUserUploads` | List uploads (paginated, filterable by `token` and badge settings: `oneShot`, `removable`, `stream`, `extendTTL`, `password`, `e2ee`) |
+| GET | `/me/uploads` | `GetUserUploads` | List uploads (paginated, sortable by `sort` (`date`/`size`) and `order` (`desc`/`asc`), filterable by `token` and badge settings: `oneShot`, `removable`, `stream`, `extendTTL`, `password`, `e2ee`) |
 | DELETE | `/me/uploads` | `RemoveUserUploads` | Remove all uploads |
 | GET | `/me/stats` | `GetUserStatistics` | User stats |
 

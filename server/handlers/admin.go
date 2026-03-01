@@ -8,7 +8,6 @@ import (
 
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
-	"github.com/root-gg/plik/server/metadata"
 )
 
 // GetUsers return users
@@ -104,16 +103,9 @@ func GetUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 	pagingQuery := ctx.GetPagingQuery()
 	sort := req.URL.Query().Get("sort")
 
-	filters := metadata.UploadFilters{
-		User:      req.URL.Query().Get("user"),
-		Token:     req.URL.Query().Get("token"),
-		OneShot:   parseBoolFilter(req, "oneShot"),
-		Removable: parseBoolFilter(req, "removable"),
-		Stream:    parseBoolFilter(req, "stream"),
-		ExtendTTL: parseBoolFilter(req, "extendTTL"),
-		Password:  parseBoolFilter(req, "password"),
-		E2EE:      parseBoolFilter(req, "e2ee"),
-	}
+	filters := parseBadgeFilters(req)
+	filters.User = req.URL.Query().Get("user")
+	filters.Token = req.URL.Query().Get("token")
 
 	var uploads []*common.Upload
 	var cursor *paginator.Cursor

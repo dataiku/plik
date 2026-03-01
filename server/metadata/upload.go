@@ -48,14 +48,14 @@ type UploadFilters struct {
 }
 
 // applyUploadFilters returns a scoped *gorm.DB with the given filters applied.
-// Uses explicit Where clauses instead of struct-based where because GORM
-// ignores zero-value booleans in struct conditions.
+// Uses struct-based Where for User/Token (portable quoting across PG/MySQL/SQLite)
+// and explicit Where clauses for booleans (GORM ignores zero-value bools in structs).
 func applyUploadFilters(stmt *gorm.DB, f UploadFilters) *gorm.DB {
 	if f.User != "" {
-		stmt = stmt.Where("user = ?", f.User)
+		stmt = stmt.Where(&common.Upload{User: f.User})
 	}
 	if f.Token != "" {
-		stmt = stmt.Where("token = ?", f.Token)
+		stmt = stmt.Where(&common.Upload{Token: f.Token})
 	}
 	if f.OneShot != nil {
 		stmt = stmt.Where("one_shot = ?", *f.OneShot)

@@ -178,9 +178,10 @@ export function getAdminUploads({ user, token, sort, order, after, limit, oneSho
 
 // ── User Uploads ──
 
-export function getUserUploads({ token, after, order, limit, oneShot, removable, stream, extendTTL, password, e2ee } = {}) {
+export function getUserUploads({ token, sort, after, order, limit, oneShot, removable, stream, extendTTL, password, e2ee } = {}) {
     const params = new URLSearchParams()
     if (token) params.set('token', token)
+    if (sort) params.set('sort', sort)
     if (after) params.set('after', after)
     if (order) params.set('order', order)
     if (limit) params.set('limit', String(limit))

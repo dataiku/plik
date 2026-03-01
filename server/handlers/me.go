@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pilagod/gorm-cursor-paginator/v2/paginator"
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
-	"github.com/root-gg/plik/server/metadata"
 )
 
 // UserInfo return user information ( name / email / ... )
@@ -55,15 +55,9 @@ func GetUserUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 	}
 
 	pagingQuery := ctx.GetPagingQuery()
+	sort := req.URL.Query().Get("sort")
 
-	filters := metadata.UploadFilters{
-		OneShot:   parseBoolFilter(req, "oneShot"),
-		Removable: parseBoolFilter(req, "removable"),
-		Stream:    parseBoolFilter(req, "stream"),
-		ExtendTTL: parseBoolFilter(req, "extendTTL"),
-		Password:  parseBoolFilter(req, "password"),
-		E2EE:      parseBoolFilter(req, "e2ee"),
-	}
+	filters := parseBadgeFilters(req)
 	if user != nil {
 		filters.User = user.ID
 	}
@@ -71,14 +65,30 @@ func GetUserUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 		filters.Token = token.Token
 	}
 
-	// Get uploads
-	uploads, cursor, err := ctx.GetMetadataBackend().GetUploads(filters, true, pagingQuery)
+	var uploads []*common.Upload
+	var cursor *paginator.Cursor
+
+	if sort == "size" {
+		uploads, cursor, err = ctx.GetMetadataBackend().GetUploadsSortedBySize(filters, true, pagingQuery)
+		if err != nil {
+			ctx.InternalServerError("unable to get user uploads : %s", err)
+			return
+		}
+	} else {
+		uploads, cursor, err = ctx.GetMetadataBackend().GetUploads(filters, true, pagingQuery)
+		if err != nil {
+			ctx.InternalServerError("unable to get user uploads : %s", err)
+			return
+		}
+	}
+
+	total, err := ctx.GetMetadataBackend().CountUploads(filters)
 	if err != nil {
-		ctx.InternalServerError("unable to get user uploads : %s", err)
+		ctx.InternalServerError("unable to count user uploads : %s", err)
 		return
 	}
 
-	pagingResponse := common.NewPagingResponse(uploads, cursor)
+	pagingResponse := common.NewPagingResponse(uploads, cursor).WithTotal(total)
 	common.WriteJSONResponse(resp, pagingResponse)
 }
 

@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { auth, logout } from '../authStore.js'
 import { config, isFeatureEnabled } from '../config.js'
 import { showError } from '../notification.js'
+import UploadControls from '../components/UploadControls.vue'
 import {
     getUserUploads, deleteUserUploads, removeUpload,
     getUserTokens, createToken, revokeToken,
@@ -28,6 +29,9 @@ const tokenFilter = ref(null)
 const uploads = ref([])
 const uploadsCursor = ref(null)
 const uploadsLoading = ref(false)
+const uploadsTotal = ref(null)
+const uploadsSortBy = ref('date')
+const uploadsSortOrder = ref('desc')
 
 // Badge filters — false = no filter, true = only matching
 const badgeFilters = ref({
@@ -106,6 +110,8 @@ async function loadUploads(more = false) {
         const opts = { limit: 50 }
         if (tokenFilter.value) opts.token = tokenFilter.value
         if (more && uploadsCursor.value) opts.after = uploadsCursor.value
+        if (uploadsSortBy.value !== 'date') opts.sort = uploadsSortBy.value
+        if (uploadsSortOrder.value !== 'desc') opts.order = uploadsSortOrder.value
         // Badge filters
         for (const key of BADGE_FILTER_KEYS) {
             if (badgeFilters.value[key]) opts[key] = true
@@ -117,6 +123,7 @@ async function loadUploads(more = false) {
             uploads.value = data.results || []
         }
         uploadsCursor.value = data.after || null
+        uploadsTotal.value = data.total ?? null
     } catch (err) {
         showError('Could not load uploads')
     } finally {
@@ -178,7 +185,29 @@ function toggleBadgeFilter(key) {
     internalNav = true
     router.push({ query: currentUploadsQuery() })
         .finally(() => nextTick(() => { internalNav = false }))
-    loadUploads() // Intentional: reads from badgeFilters.value, not URL, so safe before push resolves
+    loadUploads() // Intentional: reads from refs directly, not URL, so safe before push resolves
+}
+
+function changeSortBy(val) {
+    if (val === uploadsSortBy.value) return
+    uploadsSortBy.value = val
+    uploads.value = []
+    uploadsCursor.value = null
+    internalNav = true
+    router.push({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
+    loadUploads()
+}
+
+function changeSortOrder(val) {
+    if (val === uploadsSortOrder.value) return
+    uploadsSortOrder.value = val
+    uploads.value = []
+    uploadsCursor.value = null
+    internalNav = true
+    router.push({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
+    loadUploads()
 }
 
 // ── Tokens API ──
@@ -288,7 +317,10 @@ function showTokens() {
 
 // Build query params from current uploads tab filter state (omits defaults, excludes token)
 function currentUploadsQuery() {
-    const q = {}
+    const q = {
+        sort: uploadsSortBy.value !== 'date' ? uploadsSortBy.value : undefined,
+        order: uploadsSortOrder.value !== 'desc' ? uploadsSortOrder.value : undefined,
+    }
     for (const key of BADGE_FILTER_KEYS) {
         if (badgeFilters.value[key]) q[key] = 'true'
     }
@@ -306,6 +338,8 @@ watch(display, (tab, prevTab) => {
         loadUserStats()
     } else if (tab === 'uploads') {
         tokenFilter.value = null
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
         for (const key of BADGE_FILTER_KEYS) {
             badgeFilters.value[key] = route.query[key] === 'true'
         }
@@ -319,8 +353,12 @@ watch(display, (tab, prevTab) => {
 // Filter changes within the uploads tab (query-based) — triggers on back/forward
 watch(() => route.query, (query, oldQuery) => {
     if (internalNav || route.params.tab !== 'uploads') return
-    const changed = BADGE_FILTER_KEYS.some(k => query[k] !== oldQuery?.[k])
+    const changed = query.sort !== oldQuery?.sort ||
+                    query.order !== oldQuery?.order ||
+                    BADGE_FILTER_KEYS.some(k => query[k] !== oldQuery?.[k])
     if (changed) {
+        uploadsSortBy.value = query.sort || 'date'
+        uploadsSortOrder.value = query.order || 'desc'
         for (const key of BADGE_FILTER_KEYS) {
             badgeFilters.value[key] = query[key] === 'true'
         }
@@ -342,6 +380,8 @@ onMounted(() => {
 
     if (tab === 'uploads') {
         // Restore badge filters from URL
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
         for (const key of BADGE_FILTER_KEYS) {
             badgeFilters.value[key] = route.query[key] === 'true'
         }
@@ -547,30 +587,15 @@ onMounted(() => {
             </button>
           </div>
 
-          <!-- Badge filter bar -->
-          <div class="glass-card p-3 mb-4">
-            <div class="flex items-center gap-2 text-surface-400 text-sm">
-              <span>Filter:</span>
-              <button @click="toggleBadgeFilter('oneShot')"
-                      :class="badgeFilters.oneShot ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50' : 'text-surface-500 hover:text-surface-300'"
-                      class="px-2 py-0.5 rounded text-xs transition-all">one-shot</button>
-              <button @click="toggleBadgeFilter('removable')"
-                      :class="badgeFilters.removable ? 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/50' : 'text-surface-500 hover:text-surface-300'"
-                      class="px-2 py-0.5 rounded text-xs transition-all">removable</button>
-              <button @click="toggleBadgeFilter('stream')"
-                      :class="badgeFilters.stream ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50' : 'text-surface-500 hover:text-surface-300'"
-                      class="px-2 py-0.5 rounded text-xs transition-all">stream</button>
-              <button @click="toggleBadgeFilter('extendTTL')"
-                      :class="badgeFilters.extendTTL ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50' : 'text-surface-500 hover:text-surface-300'"
-                      class="px-2 py-0.5 rounded text-xs transition-all">extend TTL</button>
-              <button @click="toggleBadgeFilter('password')"
-                      :class="badgeFilters.password ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/50' : 'text-surface-500 hover:text-surface-300'"
-                      class="px-2 py-0.5 rounded text-xs transition-all">password</button>
-              <button @click="toggleBadgeFilter('e2ee')"
-                      :class="badgeFilters.e2ee ? 'bg-fuchsia-500/20 text-fuchsia-400 ring-1 ring-fuchsia-500/50' : 'text-surface-500 hover:text-surface-300'"
-                      class="px-2 py-0.5 rounded text-xs transition-all">encrypted</button>
-            </div>
-          </div>
+          <UploadControls
+            :sort-by="uploadsSortBy"
+            :sort-order="uploadsSortOrder"
+            :badge-filters="badgeFilters"
+            :show-extend-t-t-l="isFeatureEnabled('extendTTL')"
+            @update:sort-by="changeSortBy"
+            @update:sort-order="changeSortOrder"
+            @toggle-filter="toggleBadgeFilter"
+          />
 
           <!-- Loading -->
           <div v-if="uploadsLoading && uploads.length === 0"

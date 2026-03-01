@@ -92,6 +92,8 @@ make vuln                   # govulncheck (report only)
 | `server/common/file.go` | File model + status constants |
 | `server/common/upload.go` | Upload model |
 | `server/metadata/upload.go` | Upload queries, `UploadFilters` struct for filtering by user/token/badge settings |
+| `server/handlers/misc.go` | Shared helpers: `parseBoolFilter`, `parseBadgeFilters` (badge filter struct from request) |
+| `webapp/src/components/UploadControls.vue` | Shared sort/order/badge-filter control bar used by AdminView and HomeView |
 | `server/common/feature_flags.go` | Feature flag types (`disabled`/`enabled`/`default`/`forced`) |
 
 ## Conventions
