@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"strings"
@@ -60,13 +61,13 @@ func Upload(ctx *context.Context, next http.Handler) http.Handler {
 
 		upload.IsAdmin = false
 		uploadToken := req.Header.Get("X-UploadToken")
-		if uploadToken != "" && uploadToken == upload.UploadToken {
+		if uploadToken != "" && subtle.ConstantTimeCompare([]byte(uploadToken), []byte(upload.UploadToken)) == 1 {
 			upload.IsAdmin = true
 		} else {
 			token := ctx.GetToken()
 			if token != nil {
 				// A user authenticated with a token can manage uploads created with such token
-				if upload.Token == token.Token {
+				if subtle.ConstantTimeCompare([]byte(upload.Token), []byte(token.Token)) == 1 {
 					upload.IsAdmin = true
 				}
 			} else {
