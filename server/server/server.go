@@ -426,9 +426,9 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 			ps.config.NewLogger().Warningf("Webapp directory %s not found, consider setting config.NoWebInterface to true", ps.config.WebappDirectory)
 		}
 
-		router.PathPrefix("/clients/").Handler(http.StripPrefix("/clients/", http.FileServer(http.Dir(ps.config.ClientsDirectory))))
-		router.PathPrefix("/changelog/").Handler(http.StripPrefix("/changelog/", http.FileServer(http.Dir(ps.config.ChangelogDirectory))))
-		router.PathPrefix("/").Handler(http.FileServer(http.Dir(ps.config.WebappDirectory)))
+		router.PathPrefix("/clients/").Handler(http.StripPrefix("/clients/", common.NoDirListing(http.FileServer(http.Dir(ps.config.ClientsDirectory)))))
+		router.PathPrefix("/changelog/").Handler(http.StripPrefix("/changelog/", common.NoDirListing(http.FileServer(http.Dir(ps.config.ChangelogDirectory)))))
+		router.PathPrefix("/").Handler(common.NoDirListing(http.FileServer(http.Dir(ps.config.WebappDirectory))))
 	}
 
 	handler = common.StripPrefix(ps.config.Path, router)
