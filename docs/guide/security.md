@@ -61,6 +61,14 @@ Passwords are hashed using **bcrypt(sha256(credentials))** before storage; the p
 Legacy uploads (created before version 1.4) use MD5 hashing and continue to work until they expire.
 :::
 
+## Removable Uploads
+
+When `FeatureRemovable` is enabled and an upload is created with `removable: true`, **anyone with the upload URL can delete the upload and its files** — no upload token or authentication is required. This is by design: the `removable` flag is intended for ephemeral, public uploads where ease of cleanup is prioritized over access control.
+
+::: warning
+If you need to control who can delete an upload, do **not** set `removable: true`. Only the upload owner (via upload token, API token, or session) can delete non-removable uploads.
+:::
+
 ## Download Domain
 
 It is recommended to serve uploaded files on a separate (sub-)domain to:
