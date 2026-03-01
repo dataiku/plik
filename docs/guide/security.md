@@ -6,6 +6,23 @@ Plik allows users to upload and serve any content as-is. Hosting untrusted conte
 
 For security reasons, Plik doesn't trust user-provided MIME types and relies solely on server-side detection. This means some files may not render properly in browsers or embedded viewers that require the correct MIME type.
 
+### Dangerous Content-Type Neutralization
+
+Plik automatically neutralizes content types that could execute code in the browser:
+
+| Original type | Served as | Reason |
+|---|---|---|
+| `text/html`, `*html*` | `application/octet-stream` | Prevents inline script execution |
+| `image/svg+xml`, `*svg*` | `application/octet-stream` | SVG can contain `onload` JavaScript handlers |
+| `text/xml`, `*xml*` | `application/octet-stream` | XML can be parsed and rendered by browsers |
+| `application/javascript`, `*javascript*` | `application/octet-stream` | Prevents script execution |
+| `application/x-shockwave-flash` | `application/octet-stream` | Flash content |
+| `application/pdf` | `application/octet-stream` | PDF can contain JavaScript |
+
+::: tip
+This protection is always active regardless of `EnhancedWebSecurity`. Use the `?dl=true` query parameter to force a download with `Content-Disposition: attachment`.
+:::
+
 ::: warning Office format detection limitation
 Office formats like `.pptx`, `.docx`, and `.xlsx` are ZIP archives internally, so Go's built-in MIME detector (`http.DetectContentType`) identifies them as `application/zip` instead of their proper types (e.g., `application/vnd.openxmlformats-officedocument.presentationml.presentation`).
 :::
