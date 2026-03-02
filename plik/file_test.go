@@ -19,7 +19,7 @@ func TestGetFileURL(t *testing.T) {
 	require.NoError(t, err, "unable to start plik server")
 
 	data := "data data data"
-	data_byte := []byte(data)
+	dataBytes := []byte(data)
 
 	upload, file, err := pc.UploadReader("filename", bytes.NewBufferString(data))
 	require.NoError(t, err, "unable to upload file")
@@ -49,7 +49,7 @@ func TestGetFileURL(t *testing.T) {
 
 	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err, "unable to read response body")
-	require.Equal(t, data_byte[0:8], body, "invalid file content")
+	require.Equal(t, dataBytes[0:8], body, "invalid file content")
 
 	req, err = http.NewRequest("GET", fileURL.String(), &bytes.Buffer{})
 	req.Header.Add("Range", "bytes=7-14")
@@ -61,7 +61,7 @@ func TestGetFileURL(t *testing.T) {
 
 	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err, "unable to read response body")
-	require.Equal(t, data_byte[7:], body, "invalid file content")
+	require.Equal(t, dataBytes[7:], body, "invalid file content")
 }
 
 func TestNotUploadedGetFileURL(t *testing.T) {
