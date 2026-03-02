@@ -125,31 +125,33 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		}
 		defer func() { _ = fileReader.Close() }()
 		http.ServeContent(resp, req, file.Name, time.Time{}, fileReader)
-	} else if req.Method == "GET" {
+	} else {
 		// Set content length otherwise handled by http.ServeContent
 		if file.Size > 0 && !upload.Stream {
 			resp.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
 		}
 
-		// Get file in data backend
-		var backend data.Backend
-		if upload.Stream {
-			backend = ctx.GetStreamBackend()
-		} else {
-			backend = ctx.GetDataBackend()
-		}
+		if req.Method == "GET" {
+			// Get file in data backend
+			var backend data.Backend
+			if upload.Stream {
+				backend = ctx.GetStreamBackend()
+			} else {
+				backend = ctx.GetDataBackend()
+			}
 
-		fileReader, err := backend.GetFile(file)
-		if err != nil {
-			ctx.InternalServerError("unable to get file from data backend", err)
-			return
-		}
-		defer func() { _ = fileReader.Close() }()
+			fileReader, err := backend.GetFile(file)
+			if err != nil {
+				ctx.InternalServerError("unable to get file from data backend", err)
+				return
+			}
+			defer func() { _ = fileReader.Close() }()
 
-		// File is piped directly to http response body without buffering
-		_, err = io.Copy(resp, fileReader)
-		if err != nil {
-			log.Warningf("error while copying file to response : %s", err)
+			// File is piped directly to http response body without buffering
+			_, err = io.Copy(resp, fileReader)
+			if err != nil {
+				log.Warningf("error while copying file to response : %s", err)
+			}
 		}
 	}
 
