@@ -8,7 +8,7 @@ jobs:
   check-permissions:
     name: Check Permissions
     # Trigger only on pull request comments and when the comment contains "docker deploy"
-    if: github.event.issue.pull_request && trim(github.event.comment.body) == 'docker deploy'
+    if: github.event.issue.pull_request && github.event.comment.body == 'docker deploy'
     runs-on: ubuntu-latest
     outputs:
       head_ref: ${{ steps.pr.outputs.head_ref }}
