@@ -34,7 +34,7 @@ func (r *PipeReadSeeker) Close() error {
 }
 
 func (r *PipeReadSeeker) Seek(int64, int) (int64, error) {
-	panic(nil)
+	return 0, fmt.Errorf("seek not supported on stream backend")
 }
 
 // NewBackend instantiate a new Stream Data Backend
