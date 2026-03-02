@@ -40,9 +40,9 @@ func TestGetFileURL(t *testing.T) {
 	require.Equal(t, data, string(body), "invalid file content")
 
 	req, err = http.NewRequest("GET", fileURL.String(), &bytes.Buffer{})
-	req.Header.Add("Range", "bytes=0-7")
 	require.NoError(t, err, "unable to create request")
 
+	req.Header.Add("Range", "bytes=0-7")
 	resp, err = pc.HTTPClient.Do(req)
 	require.NoError(t, err, "unable to execute request")
 	require.Equal(t, http.StatusPartialContent, resp.StatusCode, "invalid response status code")
@@ -52,9 +52,9 @@ func TestGetFileURL(t *testing.T) {
 	require.Equal(t, dataBytes[0:8], body, "invalid file content")
 
 	req, err = http.NewRequest("GET", fileURL.String(), &bytes.Buffer{})
-	req.Header.Add("Range", "bytes=7-14")
 	require.NoError(t, err, "unable to create request")
 
+	req.Header.Add("Range", "bytes=7-14")
 	resp, err = pc.HTTPClient.Do(req)
 	require.NoError(t, err, "unable to execute request")
 	require.Equal(t, http.StatusPartialContent, resp.StatusCode, "invalid response status code")
