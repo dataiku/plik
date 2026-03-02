@@ -99,10 +99,6 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		resp.Header().Set("Expires", "0")                                         // Proxies
 	}
 
-	if file.Size > 0 {
-		resp.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
-	}
-
 	// If "dl" GET params is set
 	// -> Set Content-Disposition header
 	// -> The client should download file instead of displaying it
@@ -125,6 +121,11 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		defer func() { _ = fileReader.Close() }()
 		http.ServeContent(resp, req, file.Name, time.Time{}, fileReader)
 	} else if req.Method == "GET" {
+		// Set content length otherwise handled by http.ServeContent
+		if file.Size > 0 {
+			resp.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
+		}
+
 		// Get file in data backend
 		var backend data.Backend
 		if upload.Stream {
