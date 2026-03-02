@@ -101,25 +101,24 @@ func GetUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 	}
 
 	pagingQuery := ctx.GetPagingQuery()
-
-	user := req.URL.Query().Get("user")
-	token := req.URL.Query().Get("token")
 	sort := req.URL.Query().Get("sort")
+
+	filters := parseBadgeFilters(req)
+	filters.User = req.URL.Query().Get("user")
+	filters.Token = req.URL.Query().Get("token")
 
 	var uploads []*common.Upload
 	var cursor *paginator.Cursor
 	var err error
 
 	if sort == "size" {
-		// Get uploads
-		uploads, cursor, err = ctx.GetMetadataBackend().GetUploadsSortedBySize(user, token, true, pagingQuery)
+		uploads, cursor, err = ctx.GetMetadataBackend().GetUploadsSortedBySize(filters, true, pagingQuery)
 		if err != nil {
 			ctx.InternalServerError("unable to get uploads : %s", err)
 			return
 		}
 	} else {
-		// Get uploads
-		uploads, cursor, err = ctx.GetMetadataBackend().GetUploads(user, token, true, pagingQuery)
+		uploads, cursor, err = ctx.GetMetadataBackend().GetUploads(filters, true, pagingQuery)
 		if err != nil {
 			ctx.InternalServerError("unable to get uploads : %s", err)
 			return
@@ -130,7 +129,7 @@ func GetUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 	// Note: not in the same transaction as the paginated query above, so the total
 	// may be slightly inconsistent with the results if uploads are cleaned up
 	// concurrently. This is acceptable for an admin UI counter.
-	total, err := ctx.GetMetadataBackend().CountUploads(user, token)
+	total, err := ctx.GetMetadataBackend().CountUploads(filters)
 	if err != nil {
 		ctx.InternalServerError("unable to count uploads : %s", err)
 		return

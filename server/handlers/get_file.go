@@ -127,7 +127,7 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		http.ServeContent(resp, req, file.Name, time.Time{}, fileReader)
 	} else if req.Method == "GET" {
 		// Set content length otherwise handled by http.ServeContent
-		if file.Size > 0 {
+		if file.Size > 0 && !upload.Stream {
 			resp.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
 		}
 

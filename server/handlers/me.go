@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pilagod/gorm-cursor-paginator/v2/paginator"
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
 )
@@ -54,23 +55,40 @@ func GetUserUploads(ctx *context.Context, resp http.ResponseWriter, req *http.Re
 	}
 
 	pagingQuery := ctx.GetPagingQuery()
+	sort := req.URL.Query().Get("sort")
 
-	var userID, tokenStr string
+	filters := parseBadgeFilters(req)
 	if user != nil {
-		userID = user.ID
+		filters.User = user.ID
 	}
 	if token != nil {
-		tokenStr = token.Token
+		filters.Token = token.Token
 	}
 
-	// Get uploads
-	uploads, cursor, err := ctx.GetMetadataBackend().GetUploads(userID, tokenStr, true, pagingQuery)
+	var uploads []*common.Upload
+	var cursor *paginator.Cursor
+
+	if sort == "size" {
+		uploads, cursor, err = ctx.GetMetadataBackend().GetUploadsSortedBySize(filters, true, pagingQuery)
+		if err != nil {
+			ctx.InternalServerError("unable to get user uploads : %s", err)
+			return
+		}
+	} else {
+		uploads, cursor, err = ctx.GetMetadataBackend().GetUploads(filters, true, pagingQuery)
+		if err != nil {
+			ctx.InternalServerError("unable to get user uploads : %s", err)
+			return
+		}
+	}
+
+	total, err := ctx.GetMetadataBackend().CountUploads(filters)
 	if err != nil {
-		ctx.InternalServerError("unable to get user uploads : %s", err)
+		ctx.InternalServerError("unable to count user uploads : %s", err)
 		return
 	}
 
-	pagingResponse := common.NewPagingResponse(uploads, cursor)
+	pagingResponse := common.NewPagingResponse(uploads, cursor).WithTotal(total)
 	common.WriteJSONResponse(resp, pagingResponse)
 }
 

@@ -78,7 +78,7 @@ function onNamePaste(e) {
 
 function fileUrl() {
   if (!props.uploadId || !props.file.id) return ''
-  return getFileURL(props.uploadId, props.file.id, props.file.fileName)
+  return getFileURL(props.uploadId, props.file.id, props.file.fileName, props.isStream)
 }
 </script>
 

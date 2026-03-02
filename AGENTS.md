@@ -2,6 +2,22 @@
 
 > Entry point for AI agents working on this codebase. Not an exhaustive manual — follow pointers to scoped ARCHITECTURE.md files for deeper context.
 
+> [!CAUTION]
+> ## Mandatory Review Gate — No Exceptions
+>
+> **NEVER perform any git or GitHub write action without explicit user approval.** This includes:
+> - `git commit`, `git push`, `git push --force-with-lease`
+> - Creating branches, pull requests, issues, or comments on GitHub
+> - Submitting PR reviews, merging PRs
+>
+> **Required process for EVERY commit/push (use the `/commit` workflow):**
+> 1. `git add -A && git diff --cached --stat` — show the diff summary to the user
+> 2. Propose a commit message — wait for approval
+> 3. `git commit` — only after user approves both diff and message
+> 4. Ask before pushing — the user must explicitly say "push" or "go ahead"
+>
+> This applies equally to trivial one-line changes and large refactors. There are zero exceptions.
+
 ## What is Plik?
 
 Plik is a temporary file upload system (WeTransfer-like) written in Go, with a Vue 3 web UI and a cross-platform CLI client. It supports multiple storage and metadata backends, authentication providers, and features like one-shot downloads, streaming, end-to-end encryption (E2EE via age), and server-side encryption.
@@ -91,6 +107,9 @@ make vuln                   # govulncheck (report only)
 | `server/common/config.go` | Config struct + parsing + env var override logic |
 | `server/common/file.go` | File model + status constants |
 | `server/common/upload.go` | Upload model |
+| `server/metadata/upload.go` | Upload queries, `UploadFilters` struct for filtering by user/token/badge settings |
+| `server/handlers/misc.go` | Shared helpers: `parseBoolFilter`, `parseBadgeFilters` (badge filter struct from request) |
+| `webapp/src/components/UploadControls.vue` | Shared sort/order/badge-filter control bar used by AdminView and HomeView |
 | `server/common/feature_flags.go` | Feature flag types (`disabled`/`enabled`/`default`/`forced`) |
 
 ## Conventions

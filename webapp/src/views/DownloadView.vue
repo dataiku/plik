@@ -63,7 +63,7 @@ const isViewingMarkdown = computed(() => viewingFile.value && isMarkdownFile(vie
 const isViewingImage = computed(() => viewingFile.value && isImageFile(viewingFile.value))
 const viewingImageUrl = computed(() => {
   if (!isViewingImage.value) return ''
-  return getFileURL(props.id, viewingFile.value.id, viewingFile.value.fileName)
+  return getFileURL(props.id, viewingFile.value.id, viewingFile.value.fileName, upload.value?.stream)
 })
 const renderedFileContent = computed(() => {
   if (!isViewingMarkdown.value || viewerTab.value !== 'preview') return ''
@@ -93,7 +93,7 @@ async function viewFile(file) {
 
   viewingLoading.value = true
   try {
-    const url = getFileURL(props.id, file.id, file.fileName)
+    const url = getFileURL(props.id, file.id, file.fileName, upload.value?.stream)
     const resp = await fetch(url, { credentials: 'same-origin' })
     if (!resp.ok) {
       const text = await resp.text().catch(() => '')
@@ -425,7 +425,7 @@ function fileLinks() {
     .filter(f => f.status === 'uploaded')
     .map(f => ({
       ...f,
-      url: getFileURL(props.id, f.id, f.fileName),
+      url: getFileURL(props.id, f.id, f.fileName, upload.value?.stream),
     }))
 }
 
@@ -438,7 +438,7 @@ function openQrUpload() {
 
 function openQrFile(file) {
   qrTitle.value = file.fileName
-  qrUrl.value = getFileURL(props.id, file.id, file.fileName)
+  qrUrl.value = getFileURL(props.id, file.id, file.fileName, upload.value?.stream)
   showQr.value = true
 }
 
@@ -451,7 +451,7 @@ async function decryptAndDownload(file) {
 
   isDecrypting.value = true
   try {
-    const url = getFileURL(props.id, file.id, file.fileName)
+    const url = getFileURL(props.id, file.id, file.fileName, upload.value?.stream)
     const blob = await fetchAndDecrypt(url, e2eePassphrase.value)
     // Trigger browser download
     const a = document.createElement('a')

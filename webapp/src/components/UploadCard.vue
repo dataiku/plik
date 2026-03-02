@@ -1,6 +1,7 @@
 <script setup>
 import { humanReadableSize, getUploadUrl, formatDate } from '../utils.js'
 import { getFileURL } from '../api.js'
+import UploadBadges from './UploadBadges.vue'
 
 defineProps({
     upload: { type: Object, required: true },
@@ -22,6 +23,7 @@ const emit = defineEmits(['delete', 'filter-token', 'filter-user'])
         </a>
         <p class="text-surface-500">uploaded: {{ formatDate(upload.createdAt) }}</p>
         <p class="text-surface-500">expires: {{ upload.expireAt ? formatDate(upload.expireAt) : 'Never' }}</p>
+        <UploadBadges :upload="upload" size="sm" class="mt-1" />
         <p v-if="showUser && upload.user" class="text-surface-500">
           user:
           <button @click="emit('filter-user', upload.user)"
@@ -43,7 +45,7 @@ const emit = defineEmits(['delete', 'filter-token', 'filter-user'])
         <div v-for="file in (upload.files || []).filter(f => f.status === 'uploaded')"
              :key="file.id"
              class="flex items-center justify-between gap-2">
-          <a :href="getFileURL(upload.id, file.id, file.fileName)"
+          <a :href="getFileURL(upload.id, file.id, file.fileName, upload.stream)"
              class="text-surface-300 hover:text-white transition-colors truncate">
             {{ file.fileName }}
           </a>

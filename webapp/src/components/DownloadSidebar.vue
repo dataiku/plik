@@ -4,6 +4,7 @@ import { formatDate } from '../utils.js'
 import { getArchiveURL, getAdminURL } from '../api.js'
 import { showError } from '../notification.js'
 import CopyButton from './CopyButton.vue'
+import UploadBadges from './UploadBadges.vue'
 
 const passphrase = defineModel('passphrase', { type: String, default: null })
 
@@ -97,28 +98,7 @@ const canAddFiles = computed(() => props.upload.admin && !props.upload.stream)
       </div>
 
       <!-- Upload options badges -->
-      <div class="flex flex-wrap gap-1.5 mt-2">
-        <span v-if="upload.oneShot"
-              class="text-xs px-2 py-0.5 rounded-full bg-warning-500/15 text-warning-500">
-          One-shot
-        </span>
-        <span v-if="upload.removable"
-              class="text-xs px-2 py-0.5 rounded-full bg-danger-500/15 text-danger-500">
-          Removable
-        </span>
-        <span v-if="upload.stream"
-              class="text-xs px-2 py-0.5 rounded-full bg-accent-500/15 text-accent-400">
-          Stream
-        </span>
-        <span v-if="upload.protectedByPassword"
-              class="text-xs px-2 py-0.5 rounded-full bg-surface-600/50 text-surface-300">
-          🔒 Password
-        </span>
-        <span v-if="upload.e2ee"
-              class="text-xs px-2 py-0.5 rounded-full bg-accent-500/15 text-accent-400">
-          🔐 Encrypted
-        </span>
-      </div>
+      <UploadBadges :upload="upload" class="mt-2" />
     </div>
 
     <!-- Share -->

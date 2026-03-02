@@ -13,6 +13,7 @@ import (
 
 	"github.com/root-gg/plik/server/common"
 	"github.com/root-gg/plik/server/context"
+	"github.com/root-gg/plik/server/metadata"
 )
 
 // GetVersion return the build information.
@@ -147,5 +148,28 @@ func handleHTTPError(ctx *context.Context, err error) {
 		ctx.Fail(httpError.Message, httpError.Err, httpError.StatusCode)
 	} else {
 		ctx.InternalServerError("unexpected error", err)
+	}
+}
+
+// parseBoolFilter returns a *bool from a query parameter.
+// Returns nil if the parameter is absent, enabling optional boolean filtering.
+func parseBoolFilter(req *http.Request, key string) *bool {
+	if v := req.URL.Query().Get(key); v != "" {
+		b := v == "true"
+		return &b
+	}
+	return nil
+}
+
+// parseBadgeFilters builds an UploadFilters with the six badge-setting
+// query parameters.  Callers may set .User / .Token afterwards.
+func parseBadgeFilters(req *http.Request) metadata.UploadFilters {
+	return metadata.UploadFilters{
+		OneShot:   parseBoolFilter(req, "oneShot"),
+		Removable: parseBoolFilter(req, "removable"),
+		Stream:    parseBoolFilter(req, "stream"),
+		ExtendTTL: parseBoolFilter(req, "extendTTL"),
+		Password:  parseBoolFilter(req, "password"),
+		E2EE:      parseBoolFilter(req, "e2ee"),
 	}
 }
