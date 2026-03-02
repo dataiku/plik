@@ -6,6 +6,23 @@ Plik allows users to upload and serve any content as-is. Hosting untrusted conte
 
 For security reasons, Plik doesn't trust user-provided MIME types and relies solely on server-side detection. This means some files may not render properly in browsers or embedded viewers that require the correct MIME type.
 
+### Dangerous Content-Type Neutralization
+
+Plik automatically neutralizes content types that could execute code in the browser:
+
+| Original type | Served as | Reason |
+|---|---|---|
+| `text/html`, `*html*` | `application/octet-stream` | Prevents inline script execution |
+| `image/svg+xml`, `*svg*` | `application/octet-stream` | SVG can contain `onload` JavaScript handlers |
+| `text/xml`, `*xml*` | `application/octet-stream` | XML can be parsed and rendered by browsers |
+| `application/javascript`, `*javascript*` | `application/octet-stream` | Prevents script execution |
+| `application/x-shockwave-flash` | `application/octet-stream` | Flash content |
+| `application/pdf` | `application/octet-stream` | PDF can contain JavaScript |
+
+::: tip
+This protection is always active regardless of `EnhancedWebSecurity`. Use the `?dl=true` query parameter to force a download with `Content-Disposition: attachment`.
+:::
+
 ::: warning Office format detection limitation
 Office formats like `.pptx`, `.docx`, and `.xlsx` are ZIP archives internally, so Go's built-in MIME detector (`http.DetectContentType`) identifies them as `application/zip` instead of their proper types (e.g., `application/vnd.openxmlformats-officedocument.presentationml.presentation`).
 :::
@@ -18,28 +35,112 @@ When `EnhancedWebSecurity` is enabled in `plikd.cfg`, Plik sets additional HTTP 
 - **X-XSS-Protection**: enabled
 - **X-Frame-Options**: deny
 - **Content-Security-Policy**: restrictive policy disabling resource loading, XHR, iframes
-- **Secure Cookies**: session cookies only transmitted over HTTPS
+- **Strict-Transport-Security**: `max-age=31536000` (1 year) — also set when `SslEnabled` is true
+- **Secure Cookies**: session cookies only transmitted over HTTPS — also set when `SslEnabled` is true
 
 ::: warning
 Enhanced security will break audio/video playback, PDF rendering, and other rich content features. Disable it if you need those capabilities.
 :::
 
-::: danger Authentication requires HTTPS with EnhancedWebSecurity
-When `EnhancedWebSecurity` is enabled, session cookies have the `Secure` flag set and can only be transmitted over HTTPS connections. Authentication will not work over plain HTTP.
+::: danger Authentication requires HTTPS with Secure Cookies
+When `EnhancedWebSecurity` or `SslEnabled` is enabled, session cookies have the `Secure` flag set and can only be transmitted over HTTPS connections. Authentication will not work over plain HTTP.
+:::
+
+## Upload Password Protection
+
+When `FeaturePassword` is enabled, uploads can be protected with a login/password pair. Credentials are transmitted via HTTP Basic Authentication.
+
+Passwords are hashed using **bcrypt(sha256(credentials))** before storage; the plaintext is never persisted. The SHA-256 pre-hash ensures credentials of any length are securely handled within bcrypt's input constraints.
+
+| Parameter | Limit |
+|-----------|-------|
+| Login     | 128 characters max |
+| Password  | 128 characters max |
+
+::: tip
+Legacy uploads (created before version 1.4) use MD5 hashing and continue to work until they expire.
+:::
+
+## Removable Uploads
+
+When `FeatureRemovable` is enabled and an upload is created with `removable: true`, **anyone with the upload URL can delete the upload and its files** — no upload token or authentication is required. This is by design: the `removable` flag is intended for ephemeral, public uploads where ease of cleanup is prioritized over access control.
+
+::: warning
+If you need to control who can delete an upload, do **not** set `removable: true`. Only the upload owner (via upload token, API token, or session) can delete non-removable uploads.
 :::
 
 ## Download Domain
 
-It is recommend to serve uploaded files on a separate (sub-)domain to:
+It is recommended to serve uploaded files on a separate (sub-)domain to:
 
 - Protect against phishing links using your main domain
 - Protect Plik's session cookie from being exposed to uploaded content
+- Prevent uploaded JavaScript from making API calls as the authenticated user
 
-Configure with `DownloadDomain` in `plikd.cfg`:
+### Configuration
+
+When using a download domain, three configuration options work together:
 
 ```toml
-DownloadDomain = "https://dl.plik.example.com"
+PlikDomain     = "https://plik.root.gg"       # Main webapp URL (recommended when DownloadDomain is set)
+DownloadDomain = "https://dl.plik.root.gg"    # Separate domain for serving files
+DownloadDomainAlias = []                       # Additional accepted download hosts
 ```
+
+**`PlikDomain`** — The public URL where the webapp is served. When set:
+- OAuth redirect URLs use this domain instead of the `Referer` header
+- `GetServerURL()` returns this domain for CLI quick upload URLs
+- CORS headers are configured when `DownloadDomain` is also set
+
+::: tip PlikDomain does not restrict downloads
+Setting `PlikDomain` alone does **not** enforce any domain check on file downloads — files remain accessible from any host. To restrict downloads to a specific domain, you must also set `DownloadDomain`.
+:::
+
+**`DownloadDomain`** — The domain that serves uploaded files. When set:
+- File/archive download requests are rejected unless the `Host` header matches the download domain (or an alias)
+- Non-file requests (webapp UI, API) on the download domain are **blocked** to prevent security issues (see below)
+- Set `PlikDomain` too to enable CORS and redirect behavior
+
+**`DownloadDomainAlias`** — Additional hostnames accepted for file downloads. Useful when:
+- Accessing the server via `localhost` during development
+- The reverse proxy uses a different host internally
+
+### Security: UI Restriction on Download Domain
+
+When `DownloadDomain` is configured, Plik **blocks** the webapp UI and API endpoints from being served on the download domain. This is critical because:
+
+- An attacker could share a link like `https://dl.plik.root.gg/` — the user sees the familiar Plik UI but on the download domain
+- If the user logs in on this domain, their session cookie is exposed to uploaded content
+- Uploaded JavaScript could make authenticated API calls on behalf of the user
+
+**How it works:**
+
+| Request type | Download domain behavior |
+|---|---|
+| File/stream/archive | ✅ Served normally |
+| `/health` | ✅ Served normally (for load balancer probes) |
+| Everything else (UI, API) | 🔄 Redirect to `PlikDomain` (or 403 if not set) |
+
+::: tip Ideal setup — use both domains
+For the best security and user experience, configure **both** `PlikDomain` and `DownloadDomain`:
+
+```toml
+PlikDomain     = "https://plik.root.gg"
+DownloadDomain = "https://dl.plik.root.gg"
+```
+
+This gives you:
+- **Domain isolation**: uploaded files served separately from the webapp
+- **Smooth redirects**: users who land on the download domain are redirected to the webapp
+- **CORS support**: the file viewer and E2EE decrypt work cross-origin
+- **Reliable OAuth**: redirect URLs use PlikDomain instead of the fragile Referer header
+
+Without `PlikDomain`, non-file requests on the download domain return **403 Forbidden** instead of redirecting.
+:::
+
+::: info How CORS works here
+When both domains are configured, Plik adds `Access-Control-Allow-Origin: <PlikDomain>` headers to download responses. This allows the webapp's JavaScript to fetch file content cross-origin (for the file viewer and E2EE decrypt), while still preventing uploaded JavaScript on the download domain from accessing the webapp's origin.
+:::
 
 ### Troubleshooting: Redirect Loops
 

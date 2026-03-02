@@ -108,7 +108,7 @@ func UpdateUser(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 			ctx.Forbidden("can't grant yourself admin right, nice try!")
 			return
 		}
-		if userParams.MaxTTL != user.MaxTTL || userParams.MaxFileSize != user.MaxFileSize {
+		if userParams.MaxTTL != user.MaxTTL || userParams.MaxFileSize != user.MaxFileSize || userParams.MaxUserSize != user.MaxUserSize {
 			ctx.Forbidden("can't edit your own quota, nice try!")
 			return
 		}

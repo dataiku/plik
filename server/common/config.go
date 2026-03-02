@@ -53,6 +53,7 @@ type Configuration struct {
 	TlsVersion string `json:"-"`
 
 	NoWebInterface      bool     `json:"-"`
+	PlikDomain          string   `json:"plikDomain"`
 	DownloadDomain      string   `json:"downloadDomain"`
 	DownloadDomainAlias []string `json:"downloadDomainAlias"`
 	EnhancedWebSecurity bool     `json:"-"`
@@ -113,6 +114,7 @@ type Configuration struct {
 	DataBackend       string         `json:"-"`
 	DataBackendConfig map[string]any `json:"-"`
 
+	plikDomainURL          *url.URL
 	downloadDomainURL      *url.URL
 	downloadDomainURLAlias []*url.URL
 	uploadWhitelist        []*net.IPNet
@@ -235,6 +237,14 @@ func (config *Configuration) Initialize() (err error) {
 		return fmt.Errorf("authentication is enabled but no authentication method is available, enable at least one of : FeatureLocalLogin, Google, OVH, or OIDC")
 	}
 
+	if config.PlikDomain != "" {
+		config.PlikDomain = strings.Trim(config.PlikDomain, "/ ")
+		var err error
+		if config.plikDomainURL, err = url.Parse(config.PlikDomain); err != nil {
+			return fmt.Errorf("invalid plik domain URL %s : %s", config.PlikDomain, err)
+		}
+	}
+
 	if config.DownloadDomain != "" {
 		config.DownloadDomain = strings.Trim(config.DownloadDomain, "/ ")
 		var err error
@@ -248,6 +258,10 @@ func (config *Configuration) Initialize() (err error) {
 				return fmt.Errorf("invalid download domain URL %s : %s", domainAlias, err)
 			}
 			config.downloadDomainURLAlias = append(config.downloadDomainURLAlias, domainAlias)
+		}
+
+		if config.plikDomainURL != nil && config.IsDownloadDomain(config.plikDomainURL.Host) {
+			return fmt.Errorf("PlikDomain and DownloadDomain must be different domains (%s), using the same domain would cause redirect loops", config.plikDomainURL.Host)
 		}
 	}
 
@@ -314,22 +328,42 @@ func (config *Configuration) GetUploadWhitelist() []*net.IPNet {
 	return config.uploadWhitelist
 }
 
+// GetPlikDomain return the parsed plik domain URL
+func (config *Configuration) GetPlikDomain() *url.URL {
+	return config.plikDomainURL
+}
+
 // GetDownloadDomain return the parsed download domain URL
 func (config *Configuration) GetDownloadDomain() *url.URL {
 	return config.downloadDomainURL
 }
 
-// IsValidDownloadDomain return whether or not the host is a valid download domain
-func (config *Configuration) IsValidDownloadDomain(host string) bool {
+// GetDownloadDomainAlias return the parsed download domain alias URLs
+func (config *Configuration) GetDownloadDomainAlias() []*url.URL {
+	return config.downloadDomainURLAlias
+}
+
+// GetCORSOrigin returns the Access-Control-Allow-Origin value for download endpoints.
+// When both PlikDomain and DownloadDomain are configured, returns the PlikDomain origin
+// so the webapp can fetch file content cross-origin. Returns empty string otherwise.
+func (config *Configuration) GetCORSOrigin() string {
+	if config.plikDomainURL != nil && config.downloadDomainURL != nil {
+		return config.PlikDomain
+	}
+	return ""
+}
+
+// IsDownloadDomain returns true if the host matches the configured download domain
+// or any of its aliases. Returns false if no download domain is configured.
+func (config *Configuration) IsDownloadDomain(host string) bool {
 	if config.downloadDomainURL == nil {
-		return true
+		return false
 	}
 
 	if config.downloadDomainURL.Host == host {
 		return true
 	}
 
-	// Check if the host is in the config domain alias
 	for _, urlAlias := range config.downloadDomainURLAlias {
 		if urlAlias.Host == host {
 			return true
@@ -337,6 +371,15 @@ func (config *Configuration) IsValidDownloadDomain(host string) bool {
 	}
 
 	return false
+}
+
+// IsValidDownloadDomain return whether or not the host is a valid download domain.
+// Returns true if no download domain is configured (all hosts are valid).
+func (config *Configuration) IsValidDownloadDomain(host string) bool {
+	if config.downloadDomainURL == nil {
+		return true
+	}
+	return config.IsDownloadDomain(host)
 }
 
 // AutoClean enable or disables the periodical upload cleaning goroutine.
@@ -367,8 +410,18 @@ func (config *Configuration) IsWhitelisted(ip net.IP) bool {
 	return false
 }
 
-// GetServerURL is a helper to get the server HTTP URL
+// GetServerURL is a helper to get the server HTTP URL.
+// When PlikDomain is configured it returns the public-facing URL,
+// otherwise falls back to ListenAddress:ListenPort.
 func (config *Configuration) GetServerURL() *url.URL {
+	if config.plikDomainURL != nil {
+		u := *config.plikDomainURL // copy
+		if config.Path != "" {
+			u.Path = config.Path
+		}
+		return &u
+	}
+
 	URL := &url.URL{}
 
 	if config.SslEnabled {
@@ -423,6 +476,9 @@ func (config *Configuration) GetSessionTimeout() int {
 
 func (config *Configuration) String() string {
 	str := ""
+	if config.PlikDomain != "" {
+		str += fmt.Sprintf("Plik domain : %s\n", config.PlikDomain)
+	}
 	if config.DownloadDomain != "" {
 		str += fmt.Sprintf("Download domain : %s\n", config.DownloadDomain)
 		if len(config.DownloadDomainAlias) > 0 {

@@ -172,6 +172,10 @@ func (ps *PlikServer) start() (err error) {
 		}
 	}
 
+	if ps.config.DownloadDomain != "" && ps.config.PlikDomain == "" {
+		log.Warning("DownloadDomain is set without PlikDomain: non-file requests on the download domain will be rejected with 403 instead of redirected. Set PlikDomain for a smoother user experience.")
+	}
+
 	// Initialize backends
 	err = ps.initializeMetadataBackend()
 	if err != nil {
@@ -360,11 +364,12 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 	tokenChainWithRedirect := context.NewChain(middleware.RedirectOnFailure).AppendChain(tokenChain)
 
 	// Chain that fetches the requested upload and file metadata
-	getFileChain := context.NewChain(middleware.Upload, middleware.BlockBotDownload, middleware.File)
+	getFileChain := context.NewChain(middleware.CORSPreflight, middleware.Upload, middleware.BlockBotDownload, middleware.File)
 	userChain := authenticatedChain.Append(middleware.User)
 
 	// HTTP Api routes configuration
 	router := mux.NewRouter()
+	router.Use(middleware.RestrictDownloadDomain(ps.config))
 	router.Handle("/", tokenChain.Append(middleware.CreateUpload).Then(handlers.AddFile)).Methods("POST")
 
 	router.Handle("/config", stdChain.Then(handlers.GetConfiguration)).Methods("GET")
@@ -378,10 +383,10 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 	router.Handle("/file/{uploadID}", tokenChain.Append(middleware.Upload).Then(handlers.AddFile)).Methods("POST")
 	router.Handle("/file/{uploadID}/{fileID}/{filename}", tokenChain.AppendChain(getFileChain).Then(handlers.AddFile)).Methods("POST")
 	router.Handle("/file/{uploadID}/{fileID}/{filename}", tokenChain.AppendChain(getFileChain).Then(handlers.RemoveFile)).Methods("DELETE")
-	router.Handle("/file/{uploadID}/{fileID}/{filename}", tokenChainWithRedirect.AppendChain(getFileChain).Then(handlers.GetFile)).Methods("HEAD", "GET")
+	router.Handle("/file/{uploadID}/{fileID}/{filename}", tokenChainWithRedirect.AppendChain(getFileChain).Then(handlers.GetFile)).Methods("HEAD", "GET", "OPTIONS")
 	router.Handle("/stream/{uploadID}/{fileID}/{filename}", tokenChain.AppendChain(getFileChain).Then(handlers.AddFile)).Methods("POST")
-	router.Handle("/stream/{uploadID}/{fileID}/{filename}", tokenChainWithRedirect.AppendChain(getFileChain).Then(handlers.GetFile)).Methods("HEAD", "GET")
-	router.Handle("/archive/{uploadID}/{filename}", tokenChainWithRedirect.Append(middleware.Upload, middleware.BlockBotDownload).Then(handlers.GetArchive)).Methods("HEAD", "GET")
+	router.Handle("/stream/{uploadID}/{fileID}/{filename}", tokenChainWithRedirect.AppendChain(getFileChain).Then(handlers.GetFile)).Methods("HEAD", "GET", "OPTIONS")
+	router.Handle("/archive/{uploadID}/{filename}", tokenChainWithRedirect.Append(middleware.CORSPreflight, middleware.Upload, middleware.BlockBotDownload).Then(handlers.GetArchive)).Methods("HEAD", "GET", "OPTIONS")
 
 	router.Handle("/auth/google/login", authChain.Then(handlers.GoogleLogin)).Methods("GET")
 	router.Handle("/auth/google/callback", stdChainWithRedirect.Then(handlers.GoogleCallback)).Methods("GET")
@@ -421,12 +426,18 @@ func (ps *PlikServer) getHTTPHandler() (handler http.Handler) {
 			ps.config.NewLogger().Warningf("Webapp directory %s not found, consider setting config.NoWebInterface to true", ps.config.WebappDirectory)
 		}
 
-		router.PathPrefix("/clients/").Handler(http.StripPrefix("/clients/", http.FileServer(http.Dir(ps.config.ClientsDirectory))))
-		router.PathPrefix("/changelog/").Handler(http.StripPrefix("/changelog/", http.FileServer(http.Dir(ps.config.ChangelogDirectory))))
-		router.PathPrefix("/").Handler(http.FileServer(http.Dir(ps.config.WebappDirectory)))
+		router.PathPrefix("/clients/").Handler(http.StripPrefix("/clients/", common.NoDirListing(http.FileServer(http.Dir(ps.config.ClientsDirectory)))))
+		router.PathPrefix("/changelog/").Handler(http.StripPrefix("/changelog/", common.NoDirListing(http.FileServer(http.Dir(ps.config.ChangelogDirectory)))))
+		router.PathPrefix("/").Handler(common.NoDirListing(http.FileServer(http.Dir(ps.config.WebappDirectory))))
 	}
 
 	handler = common.StripPrefix(ps.config.Path, router)
+
+	// Add HSTS header when TLS is configured
+	if ps.config.SslEnabled || ps.config.EnhancedWebSecurity {
+		handler = middleware.HSTS(handler)
+	}
+
 	return handler
 }
 
@@ -555,7 +566,7 @@ func (ps *PlikServer) initializeAuthenticator() (err error) {
 
 			ps.authenticator = &common.SessionAuthenticator{
 				SignatureKey:   setting.Value,
-				SecureCookies:  ps.config.EnhancedWebSecurity,
+				SecureCookies:  ps.config.EnhancedWebSecurity || ps.config.SslEnabled,
 				SessionTimeout: ps.config.GetSessionTimeout(),
 				Path:           ps.config.GetPath(),
 			}

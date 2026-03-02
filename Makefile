@@ -177,9 +177,10 @@ release-and-push-to-docker-hub:
 
 ###
 # Regenerate Helm chart README from values.yaml annotations
-# Requires: helm-docs (go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest)
+# Auto-installs helm-docs via go install if not found
 ###
 helm-docs:
+	@command -v helm-docs >/dev/null 2>&1 || { echo "Installing helm-docs..." && go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest; }
 	@helm-docs --chart-search-root ./charts
 
 ###

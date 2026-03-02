@@ -173,6 +173,8 @@ plikd:
   TlsVersion: "tlsv10"
   # -- Disable the web interface
   NoWebInterface: false
+  # -- Public webapp URL for OAuth redirects, CORS, and download domain redirects (e.g., `https://plik.example.com`)
+  PlikDomain: ""
   # -- Custom download domain
   DownloadDomain: ""
   # -- Additional download domain aliases

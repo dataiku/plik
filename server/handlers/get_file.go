@@ -21,6 +21,9 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	// Set CORS headers for cross-origin file viewer / E2EE decrypt fetch
+	setCORSHeaders(ctx, resp, req)
+
 	// Get upload from context
 	upload := ctx.GetUpload()
 	if upload == nil {
@@ -65,13 +68,15 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		}
 	}
 
-	// Avoid rendering HTML in browser
-	if strings.Contains(file.Type, "html") {
-		file.Type = "text/plain"
-	}
-
-	// Force the download of the following types as they are blocked by the CSP Header and won't display properly.
-	if file.Type == "" || strings.Contains(file.Type, "flash") || strings.Contains(file.Type, "pdf") {
+	// Neutralize content types that could execute code in the browser
+	// Force download as binary to prevent XSS via inline scripts, SVG onload handlers, etc.
+	if file.Type == "" ||
+		strings.Contains(file.Type, "html") ||
+		strings.Contains(file.Type, "svg") ||
+		strings.Contains(file.Type, "xml") ||
+		strings.Contains(file.Type, "javascript") ||
+		strings.Contains(file.Type, "flash") ||
+		strings.Contains(file.Type, "pdf") {
 		file.Type = "application/octet-stream"
 	}
 

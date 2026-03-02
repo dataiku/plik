@@ -5,11 +5,14 @@ on:
     types: [created]
 
 jobs:
-  docker-build:
-    name: Docker Build & Push
+  check-permissions:
+    name: Check Permissions
     # Trigger only on pull request comments and when the comment contains "docker build"
-    if: github.event.issue.pull_request && contains(github.event.comment.body, 'docker build')
+    if: github.event.issue.pull_request && github.event.comment.body == 'docker build'
     runs-on: ubuntu-latest
+    outputs:
+      head_ref: ${{ steps.pr.outputs.head_ref }}
+      head_repo: ${{ steps.pr.outputs.head_repo }}
     steps:
       - name: Check permissions
         id: check_perms
@@ -30,7 +33,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            github.rest.reactions.createForIssueComment({
+            await github.rest.reactions.createForIssueComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: context.payload.comment.id,
@@ -47,45 +50,29 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number,
             });
-            return pr;
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_repo', pr.head.repo.full_name);
 
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ fromJson(steps.pr.outputs.result).head.ref }}
-          repository: ${{ fromJson(steps.pr.outputs.result).head.repo.full_name }}
+  build:
+    name: Build
+    needs: check-permissions
+    uses: ./.github/workflows/docker-build-reusable.yaml
+    with:
+      pr_number: ${{ github.event.issue.number }}
+      head_ref: ${{ needs.check-permissions.outputs.head_ref }}
+      head_repo: ${{ needs.check-permissions.outputs.head_repo }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Fetch tags
-        run: |
-          git fetch --prune --unshallow --tags
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Compute version
-        id: version
-        run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0)
-          SHORT_COMMIT=$(git rev-parse --short HEAD)
-          VERSION="${LATEST_TAG}-pr-${{ github.event.issue.number }}-${SHORT_COMMIT}"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push
-        env:
-          TAG: pr-${{ github.event.issue.number }}
-          VERSION: ${{ steps.version.outputs.version }}
-          RELEASE: "false"
-          PUSH_TO_DOCKER_HUB: "true"
-        run: make release-and-push-to-docker-hub
-
+  notify:
+    name: Notify
+    needs: [check-permissions, build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
       - name: Post success comment
-        if: success()
+        if: needs.build.result == 'success'
         uses: actions/github-script@v6
         with:
           script: |
@@ -97,7 +84,7 @@ jobs:
             });
 
       - name: Post failure comment
-        if: failure()
+        if: needs.build.result == 'failure'
         uses: actions/github-script@v6
         with:
           script: |

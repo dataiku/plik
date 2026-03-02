@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { humanReadableSize, isTextFile as checkIsTextFile } from '../utils.js'
+import { humanReadableSize, isViewableFile as checkIsViewableFile } from '../utils.js'
 import { getFileURL } from '../api.js'
 import CopyButton from './CopyButton.vue'
 
@@ -10,6 +10,7 @@ const props = defineProps({
   mode: { type: String, default: 'upload' }, // 'upload' | 'uploading' | 'download'
   canRemove: { type: Boolean, default: false },
   isStream: { type: Boolean, default: false },
+  isOneShot: { type: Boolean, default: false },
   isE2ee: { type: Boolean, default: false },
 })
 
@@ -23,9 +24,9 @@ const isDownloadable = computed(() =>
   (props.isStream && props.file.status === 'uploading')
 )
 
-const isTextFile = computed(() => {
+const isViewable = computed(() => {
   if (props.file.status !== 'uploaded') return false
-  return checkIsTextFile(props.file)
+  return checkIsViewableFile(props.file)
 })
 
 const showDetails = ref(false)
@@ -128,7 +129,8 @@ function fileUrl() {
           <a v-if="isDownloadable && !isE2ee"
              :href="fileUrl()"
              class="text-sm text-surface-100 hover:text-accent-400 transition-colors truncate"
-             target="_blank">
+             target="_blank"
+             rel="noopener noreferrer">
             {{ file.fileName }}
           </a>
           <button v-else-if="isDownloadable && isE2ee"
@@ -217,8 +219,8 @@ function fileUrl() {
         <CopyButton v-if="mode === 'download' && isDownloadable"
                     :text="fileUrl()" />
 
-        <!-- View button (download mode, text files only) -->
-        <button v-if="mode === 'download' && file.status === 'uploaded' && isTextFile"
+        <!-- View button (download mode, viewable files) -->
+        <button v-if="mode === 'download' && file.status === 'uploaded' && isViewable && !isOneShot && !isStream"
                 class="btn bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 px-2 py-1.5 text-xs"
                 title="View file content"
                 @click="emit('view', file)">
@@ -234,7 +236,9 @@ function fileUrl() {
         <!-- Download button (download mode) -->
         <a v-if="mode === 'download' && isDownloadable && !isE2ee"
            :href="fileUrl() + '?dl=1'"
-           class="btn bg-success-500/10 text-success-500 hover:bg-success-500/20 px-2 md:px-3 py-1.5 text-xs">
+           class="btn bg-success-500/10 text-success-500 hover:bg-success-500/20 px-2 md:px-3 py-1.5 text-xs"
+           target="_blank"
+           rel="noopener noreferrer">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

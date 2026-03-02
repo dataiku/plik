@@ -1,13 +1,14 @@
 <script setup>
-import { ref, onMounted, computed, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getUpload, removeUpload, removeFile as apiRemoveFile, uploadFile, getFileURL } from '../api.js'
-import { generateRef, isTextFile } from '../utils.js'
+import { generateRef, isMarkdownFile, isImageFile, isViewableFile } from '../utils.js'
 import { fetchAndDecrypt } from '../crypto.js'
 import { getToken, setToken } from '../tokenStore.js'
 import { consumePendingFiles } from '../pendingUploadStore.js'
 import { renderMarkdown } from '../markdown.js'
 import DownloadSidebar from '../components/DownloadSidebar.vue'
+import MarkdownTabs from '../components/MarkdownTabs.vue'
 import FileRow from '../components/FileRow.vue'
 import CopyButton from '../components/CopyButton.vue'
 import QrCodeDialog from '../components/QrCodeDialog.vue'
@@ -57,6 +58,18 @@ const viewingContent = ref('')
 const viewingLoading = ref(false)
 const viewingError = ref(null)
 const lastAutoViewedId = ref(null)
+const viewerTab = ref('code') // 'code' | 'preview'
+const isViewingMarkdown = computed(() => viewingFile.value && isMarkdownFile(viewingFile.value))
+const isViewingImage = computed(() => viewingFile.value && isImageFile(viewingFile.value))
+const viewingImageUrl = computed(() => {
+  if (!isViewingImage.value) return ''
+  return getFileURL(props.id, viewingFile.value.id, viewingFile.value.fileName)
+})
+const renderedFileContent = computed(() => {
+  if (!isViewingMarkdown.value || viewerTab.value !== 'preview') return ''
+  if (!viewingContent.value) return ''
+  return renderMarkdown(viewingContent.value)
+})
 
 async function viewFile(file) {
   // If already viewing this file, close it
@@ -65,9 +78,20 @@ async function viewFile(file) {
     return
   }
   viewingFile.value = file
+  viewerTab.value = isMarkdownFile(file) ? 'preview' : 'code'
   viewingContent.value = ''
-  viewingLoading.value = true
+  viewingLoading.value = false
   viewingError.value = null
+
+  // Images render directly from the server URL — no content fetch needed
+  if (isImageFile(file)) {
+    nextTick(() => {
+      document.getElementById('file-viewer-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+    return
+  }
+
+  viewingLoading.value = true
   try {
     const url = getFileURL(props.id, file.id, file.fileName)
     const resp = await fetch(url, { credentials: 'same-origin' })
@@ -91,6 +115,36 @@ function closeViewer() {
   viewingFile.value = null
   viewingContent.value = ''
   viewingError.value = null
+  viewerTab.value = 'code'
+}
+
+// Viewer navigation — prev/next through viewable files
+const viewableFiles = computed(() => {
+  if (upload.value?.oneShot || upload.value?.stream) return []
+  return activeFiles.value.filter(f => f.status === 'uploaded' && isViewableFile(f))
+})
+const viewerIndex = computed(() => {
+  if (!viewingFile.value) return -1
+  return viewableFiles.value.findIndex(f => f.id === viewingFile.value.id)
+})
+const hasPrev = computed(() => viewerIndex.value > 0)
+const hasNext = computed(() => viewerIndex.value >= 0 && viewerIndex.value < viewableFiles.value.length - 1)
+
+function viewPrev() {
+  if (hasPrev.value) viewFile(viewableFiles.value[viewerIndex.value - 1])
+}
+function viewNext() {
+  if (hasNext.value) viewFile(viewableFiles.value[viewerIndex.value + 1])
+}
+
+function onViewerKeydown(e) {
+  if (!viewingFile.value) return
+  // Don't intercept when user is typing in an input/textarea
+  const tag = e.target.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+  if (e.key === 'ArrowLeft') { e.preventDefault(); viewPrev() }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); viewNext() }
+  else if (e.key === 'Escape') { e.preventDefault(); closeViewer() }
 }
 
 // Active files for the top panel
@@ -427,6 +481,9 @@ function submitPassphrase() {
 // Whether this upload uses E2EE
 const isE2EE = computed(() => !!upload.value?.e2ee)
 
+onMounted(() => document.addEventListener('keydown', onViewerKeydown))
+onUnmounted(() => document.removeEventListener('keydown', onViewerKeydown))
+
 onMounted(async () => {
   // Extract E2EE passphrase from URL query param (?key=... inside the hash route)
   const queryKey = router.currentRoute.value.query.key
@@ -492,9 +549,11 @@ watch(activeFiles, (files) => {
   // Only auto-view when the entire upload has exactly one file
   const totalUploadFiles = upload.value?.files?.filter(f => f.status !== 'removed' && f.status !== 'deleted')
   if (totalUploadFiles?.length !== 1) return
+  // Don't auto-open for one-shot (viewing consumes the download) or streaming uploads
+  if (upload.value?.oneShot || upload.value?.stream) return
 
   const file = files[0]
-  if (file?.status === 'uploaded' && isTextFile(file) && lastAutoViewedId.value !== file.id) {
+  if (file?.status === 'uploaded' && isViewableFile(file) && lastAutoViewedId.value !== file.id) {
     lastAutoViewedId.value = file.id
     viewFile(file)
   }
@@ -593,15 +652,44 @@ watch(activeFiles, (files) => {
           <div v-if="viewingFile" id="file-viewer-panel" class="glass-card overflow-hidden animate-fade-in">
             <div class="flex items-center justify-between border-b border-surface-700/50 px-4 py-2">
               <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <!-- Image icon for image files -->
+                <svg v-if="isViewingImage" class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <!-- Code icon for text files -->
+                <svg v-else class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                 </svg>
                 <span class="text-sm font-medium text-surface-200">{{ viewingFile.fileName }}</span>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1">
                 <CopyButton v-if="viewingContent" :text="viewingContent" label="Copy" />
-                <button class="text-surface-400 hover:text-white transition-colors"
+                <!-- Prev/Next navigation (only when multiple viewable files) -->
+                <template v-if="viewableFiles.length > 1">
+                  <button class="p-1 transition-colors"
+                          :class="hasPrev ? 'text-surface-400 hover:text-white' : 'text-surface-700 cursor-default'"
+                          :disabled="!hasPrev"
+                          title="Previous file (←)"
+                          @click="viewPrev">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span class="text-xs text-surface-500 tabular-nums min-w-8 text-center">{{ viewerIndex + 1 }}/{{ viewableFiles.length }}</span>
+                  <button class="p-1 transition-colors"
+                          :class="hasNext ? 'text-surface-400 hover:text-white' : 'text-surface-700 cursor-default'"
+                          :disabled="!hasNext"
+                          title="Next file (→)"
+                          @click="viewNext">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </template>
+                <button class="p-1 text-surface-400 hover:text-white transition-colors"
+                        title="Close viewer (Esc)"
                         @click="closeViewer">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -609,12 +697,30 @@ watch(activeFiles, (files) => {
                 </button>
               </div>
             </div>
+            <!-- Markdown Code/Preview tabs -->
+            <MarkdownTabs v-if="isViewingMarkdown && !viewingLoading && !viewingError"
+                          :modelValue="viewerTab"
+                          @update:modelValue="viewerTab = $event"
+                          :renderedHtml="renderedFileContent">
+              <div class="p-2">
+                <CodeEditor
+                  v-model="viewingContent"
+                  :filename="viewingFile.fileName"
+                  :readonly="true"
+                />
+              </div>
+            </MarkdownTabs>
             <div v-if="viewingLoading" class="flex items-center justify-center py-8">
               <div class="animate-spin rounded-full h-6 w-6 border-2 border-accent-500 border-t-transparent" />
               <span class="ml-3 text-sm text-surface-400">Loading file content...</span>
             </div>
             <div v-else-if="viewingError" class="p-4 text-sm text-danger-500">{{ viewingError }}</div>
-            <div v-else class="p-2">
+            <div v-else-if="isViewingImage" class="p-4 flex items-center justify-center bg-surface-900/50">
+              <img :src="viewingImageUrl"
+                   :alt="viewingFile.fileName"
+                   class="max-w-full max-h-[70vh] object-contain rounded" />
+            </div>
+            <div v-else-if="!isViewingMarkdown" class="p-2">
               <CodeEditor
                 v-model="viewingContent"
                 :filename="viewingFile.fileName"
@@ -648,6 +754,7 @@ watch(activeFiles, (files) => {
                      mode="download"
                      :can-remove="canRemoveFiles"
                      :is-stream="upload.stream"
+                     :is-one-shot="upload.oneShot"
                      :is-e2ee="isE2EE"
                      @remove="deleteFile"
                      @show-qr="openQrFile"

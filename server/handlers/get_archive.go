@@ -21,6 +21,9 @@ func GetArchive(ctx *context.Context, resp http.ResponseWriter, req *http.Reques
 		return
 	}
 
+	// Set CORS headers for cross-origin fetch
+	setCORSHeaders(ctx, resp, req)
+
 	// Get upload from context
 	upload := ctx.GetUpload()
 	if upload == nil {

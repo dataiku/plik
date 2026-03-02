@@ -163,4 +163,80 @@ test.describe('Streaming uploads', () => {
         expect(capturedUrl).toContain('/stream/')
         expect(capturedUrl).not.toContain('/file/')
     })
+
+    test('View button hidden for streaming uploads', async ({ page, withConfig }) => {
+        await withConfig({ feature_stream: 'enabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Enable streaming toggle
+        const streamLabel = page.getByText('Streaming', { exact: false }).first()
+        const toggle = streamLabel.locator('xpath=..').locator('.toggle-switch')
+        await toggle.click()
+
+        // Intercept stream upload to avoid hanging (streaming blocks until consumed)
+        await page.route('**/stream/**', (route) => {
+            if (route.request().method() === 'POST') {
+                return route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ id: 'fake', fileName: 'stream-view.txt' }),
+                })
+            }
+            return route.continue()
+        })
+
+        // Upload a text file
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'stream-view.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('streaming text content'),
+        })
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // View button should NOT be visible for streaming uploads
+        await expect(page.getByRole('button', { name: 'View' })).not.toBeVisible()
+    })
+
+    test('text viewer does NOT auto-open for streaming uploads', async ({ page, withConfig }) => {
+        await withConfig({ feature_stream: 'enabled' })
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+
+        // Enable streaming toggle
+        const streamLabel = page.getByText('Streaming', { exact: false }).first()
+        const toggle = streamLabel.locator('xpath=..').locator('.toggle-switch')
+        await toggle.click()
+
+        // Intercept stream upload to avoid hanging (streaming blocks until consumed)
+        await page.route('**/stream/**', (route) => {
+            if (route.request().method() === 'POST') {
+                return route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ id: 'fake', fileName: 'stream-auto.txt' }),
+                })
+            }
+            return route.continue()
+        })
+
+        // Upload a single text file
+        const input = page.locator('input[type="file"]')
+        await input.setInputFiles({
+            name: 'stream-auto.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('should not auto open'),
+        })
+
+        await page.getByRole('button', { name: 'Upload', exact: true }).click()
+        await page.waitForURL(/[?&]id=/, { timeout: 10_000 })
+        await page.waitForLoadState('networkidle')
+
+        // Viewer panel should NOT auto-open for streaming uploads
+        await expect(page.locator('#file-viewer-panel')).not.toBeVisible()
+    })
 })
