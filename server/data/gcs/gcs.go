@@ -13,11 +13,9 @@ import (
 	"github.com/root-gg/plik/server/data"
 )
 
-// Implement ReadSeekerCloser og gcs objects
+// gcsReadSeekCloser Implements io.ReadSeekCloser for GCS objects
 // Courtesy of github.com/bobg/gcsobj for original code
-
-// Reader is an io.ReadSeeker for objects in Google Cloud Storage buckets.
-type GCSReadSeekCloser struct {
+type gcsReadSeekCloser struct {
 	// Embedding a context in a data structure is an antipattern,
 	// except when needed to satisfy interfaces (like io.ReadSeekCloser) that don't permit passing a context.
 	// See https://go.dev/wiki/CodeReviewComments#contexts
@@ -29,23 +27,23 @@ type GCSReadSeekCloser struct {
 	nread     int64 // Read/write with atomic
 }
 
-func NewReader(ctx context.Context, obj *storage.ObjectHandle) (*GCSReadSeekCloser, error) {
+func newReader(ctx context.Context, obj *storage.ObjectHandle) (*gcsReadSeekCloser, error) {
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return NewReaderWithSize(ctx, obj, attrs.Size), nil
+	return newReaderWithSize(ctx, obj, attrs.Size), nil
 }
 
-func NewReaderWithSize(ctx context.Context, obj *storage.ObjectHandle, size int64) *GCSReadSeekCloser {
-	return &GCSReadSeekCloser{
+func newReaderWithSize(ctx context.Context, obj *storage.ObjectHandle, size int64) *gcsReadSeekCloser {
+	return &gcsReadSeekCloser{
 		ctx:  ctx,
 		obj:  obj,
 		size: size,
 	}
 }
 
-func (r *GCSReadSeekCloser) Read(dest []byte) (int, error) {
+func (r *gcsReadSeekCloser) Read(dest []byte) (int, error) {
 	if r.r == nil && r.pos < r.size {
 		var err error
 		r.r, err = r.obj.NewRangeReader(r.ctx, r.pos, -1)
@@ -62,7 +60,7 @@ func (r *GCSReadSeekCloser) Read(dest []byte) (int, error) {
 	return n, err
 }
 
-func (r *GCSReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
+func (r *gcsReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
 	var newPos int64
 
 	switch whence {
@@ -91,7 +89,7 @@ func (r *GCSReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
 	return r.pos, nil
 }
 
-func (r *GCSReadSeekCloser) Close() error {
+func (r *gcsReadSeekCloser) Close() error {
 	if r.r == nil {
 		return nil
 	}
@@ -102,7 +100,7 @@ func (r *GCSReadSeekCloser) Close() error {
 
 // NRead reports the number of bytes that have been read from Reader.
 // This is safe to call concurrently with Read.
-func (r *GCSReadSeekCloser) NRead() int64 {
+func (r *gcsReadSeekCloser) NRead() int64 {
 	return atomic.LoadInt64(&r.nread)
 }
 
@@ -150,7 +148,7 @@ func (b *Backend) GetFile(file *common.File) (reader io.ReadSeekCloser, err erro
 	objectName := b.getObjectName(file.UploadID, file.ID)
 
 	// Get the object
-	reader, err = NewReader(context.Background(), b.client.Bucket(b.Config.Bucket).Object(objectName))
+	reader, err = newReader(context.Background(), b.client.Bucket(b.Config.Bucket).Object(objectName))
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get GCS object %s : %s", objectName, err)
 	}
