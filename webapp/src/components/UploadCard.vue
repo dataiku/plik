@@ -45,7 +45,7 @@ const emit = defineEmits(['delete', 'filter-token', 'filter-user'])
         <div v-for="file in (upload.files || []).filter(f => f.status === 'uploaded')"
              :key="file.id"
              class="flex items-center justify-between gap-2">
-          <a :href="getFileURL(upload.id, file.id, file.fileName)"
+          <a :href="getFileURL(upload.id, file.id, file.fileName, upload.stream)"
              class="text-surface-300 hover:text-white transition-colors truncate">
             {{ file.fileName }}
           </a>

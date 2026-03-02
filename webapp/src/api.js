@@ -339,8 +339,9 @@ function downloadBase() {
     return _downloadDomain || base
 }
 
-export function getFileURL(uploadId, fileId, fileName) {
-    return `${downloadBase()}/file/${uploadId}/${fileId}/${encodeURIComponent(fileName)}`
+export function getFileURL(uploadId, fileId, fileName, stream = false) {
+    const mode = stream ? 'stream' : 'file'
+    return `${downloadBase()}/${mode}/${uploadId}/${fileId}/${encodeURIComponent(fileName)}`
 }
 
 export function getArchiveURL(uploadId, fileName = 'archive.zip') {
