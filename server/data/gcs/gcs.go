@@ -69,7 +69,7 @@ func (r *GCSReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekStart:
 		newPos = offset
 	case io.SeekCurrent:
-		newPos += offset
+		newPos += r.pos + offset
 	case io.SeekEnd:
 		newPos = r.size + offset
 	default:
