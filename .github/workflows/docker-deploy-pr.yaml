@@ -5,11 +5,15 @@ on:
     types: [created]
 
 jobs:
-  docker-deploy:
-    name: Docker Deploy to Production
+  check-permissions:
+    name: Check Permissions
     # Trigger only on pull request comments and when the comment contains "docker deploy"
-    if: github.event.issue.pull_request && contains(github.event.comment.body, 'docker deploy')
+    if: github.event.issue.pull_request && trim(github.event.comment.body) == 'docker deploy'
     runs-on: ubuntu-latest
+    outputs:
+      head_ref: ${{ steps.pr.outputs.head_ref }}
+      head_repo: ${{ steps.pr.outputs.head_repo }}
+      image_exists: ${{ steps.check_image.outputs.exists }}
     steps:
       - name: Check permissions
         id: check_perms
@@ -37,6 +41,50 @@ jobs:
               content: 'rocket',
             });
 
+      - name: Get PR info
+        id: pr
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_repo', pr.head.repo.full_name);
+
+      - name: Check if image exists
+        id: check_image
+        run: |
+          if docker manifest inspect rootgg/plik:pr-${{ github.event.issue.number }} > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Image rootgg/plik:pr-${{ github.event.issue.number }} already exists"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "⚙️ Image rootgg/plik:pr-${{ github.event.issue.number }} not found, will build first"
+          fi
+
+  build:
+    name: Build (if needed)
+    needs: check-permissions
+    if: needs.check-permissions.outputs.image_exists == 'false'
+    uses: ./.github/workflows/docker-build-reusable.yaml
+    with:
+      pr_number: ${{ github.event.issue.number }}
+      head_ref: ${{ needs.check-permissions.outputs.head_ref }}
+      head_repo: ${{ needs.check-permissions.outputs.head_repo }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  deploy:
+    name: Deploy
+    needs: [check-permissions, build]
+    # Run if permissions passed and build succeeded or was skipped (image already existed)
+    if: always() && needs.check-permissions.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -50,8 +98,27 @@ jobs:
             docker compose up -d plik
             docker image prune -f
 
+  notify:
+    name: Notify
+    needs: [check-permissions, build, deploy]
+    runs-on: ubuntu-latest
+    if: always() && needs.check-permissions.result == 'success'
+    steps:
       - name: Post success comment
-        if: success()
+        if: needs.deploy.result == 'success'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const built = '${{ needs.build.result }}' === 'success' ? ' (freshly built)' : '';
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🚀 **Deployment Successful!**\n\nThe instance at [plik.root.gg](https://plik.root.gg) has been redeployed with image \`rootgg/plik:pr-${context.issue.number}\`${built}.`
+            });
+
+      - name: Post build failure comment
+        if: needs.build.result == 'failure'
         uses: actions/github-script@v6
         with:
           script: |
@@ -59,11 +126,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `🚀 **Deployment Successful!**\n\nThe instance at [plik.root.gg](https://plik.root.gg) has been redeployed with image \`rootgg/plik:pr-${context.issue.number}\`.`
+              body: `❌ **Build Failed!**\n\nThe Docker image could not be built. Check the [workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
             });
 
-      - name: Post failure comment
-        if: failure()
+      - name: Post deploy failure comment
+        if: needs.deploy.result == 'failure'
         uses: actions/github-script@v6
         with:
           script: |
