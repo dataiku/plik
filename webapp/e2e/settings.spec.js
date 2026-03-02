@@ -312,21 +312,21 @@ test.describe('Header feature flags', () => {
         await expect(page.getByText('CLI Client')).not.toBeVisible()
     })
 
-    test('Documentation and Source links visible by default', async ({ page }) => {
+    test('Documentation and GitHub links visible by default', async ({ page }) => {
         await page.goto('/')
         await page.waitForLoadState('networkidle')
 
         await expect(page.getByText('Documentation').first()).toBeVisible({ timeout: 5_000 })
-        await expect(page.getByText('Source').first()).toBeVisible()
+        await expect(page.getByText('GitHub').first()).toBeVisible()
     })
 
-    test('Documentation and Source hidden when disabled', async ({ page, withConfig }) => {
+    test('Documentation and GitHub hidden when disabled', async ({ page, withConfig }) => {
         await withConfig({ feature_github: 'disabled' })
         await page.goto('/')
         await page.waitForLoadState('networkidle')
 
         await expect(page.getByText('Documentation')).not.toBeVisible()
-        await expect(page.getByText('Source')).not.toBeVisible()
+        await expect(page.getByText('GitHub')).not.toBeVisible()
     })
 
     test('Paste text button visible by default', async ({ page }) => {

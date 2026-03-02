@@ -103,7 +103,7 @@ func GetFile(ctx *context.Context, resp http.ResponseWriter, req *http.Request) 
 		resp.Header().Set("Expires", "0")                                         // Proxies
 	}
 
-	if file.Size > 0 {
+	if file.Size > 0 && !upload.Stream {
 		resp.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
 	}
 

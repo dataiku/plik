@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { auth, impersonate as doImpersonate, clearImpersonate } from '../authStore.js'
 import { config } from '../config.js'
 import { showError } from '../notification.js'
+import UploadControls from '../components/UploadControls.vue'
 import {
     getServerStats, getAdminUsers, getAdminUploads, searchUsers,
     createUser as apiCreateUser, deleteUser as apiDeleteUser,
@@ -19,9 +20,10 @@ import EditUserModal from '../components/EditUserModal.vue'
 import UploadCard from '../components/UploadCard.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // ── Display mode ──
-const display = ref('stats') // 'stats' | 'users' | 'uploads'
+const display = computed(() => route.params.tab || 'stats')
 
 // ── Version info ──
 const version = ref(null)
@@ -55,6 +57,17 @@ const uploadsUserFilter = ref('')
 const uploadsTokenFilter = ref('')
 const uploadsSortBy = ref('date') // 'date' | 'size'
 const uploadsSortOrder = ref('desc') // 'desc' | 'asc'
+
+// Badge filters — false = no filter, true = only matching
+const badgeFilters = ref({
+    oneShot: false,
+    removable: false,
+    stream: false,
+    extendTTL: false,
+    password: false,
+    e2ee: false,
+})
+const BADGE_FILTER_KEYS = ['oneShot', 'removable', 'stream', 'extendTTL', 'password', 'e2ee']
 
 // ── Create user modal ──
 const showCreateUser = ref(false)
@@ -120,6 +133,9 @@ function changeUsersProviderFilter(val) {
     usersProviderFilter.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -127,6 +143,9 @@ function changeUsersAdminFilter(val) {
     usersAdminFilter.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -134,6 +153,9 @@ function changeUsersSortBy(val) {
     usersSortBy.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -141,6 +163,9 @@ function changeUsersSortOrder(val) {
     usersSortOrder.value = val
     users.value = []
     usersCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUsersQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUsers()
 }
 
@@ -191,6 +216,10 @@ async function loadUploads(more = false) {
         if (uploadsUserFilter.value) opts.user = uploadsUserFilter.value
         if (uploadsTokenFilter.value) opts.token = uploadsTokenFilter.value
         if (more && uploadsCursor.value) opts.after = uploadsCursor.value
+        // Badge filters
+        for (const key of BADGE_FILTER_KEYS) {
+            if (badgeFilters.value[key]) opts[key] = true
+        }
         const data = await getAdminUploads(opts)
         if (more) {
             uploads.value = [...uploads.value, ...data.results]
@@ -209,9 +238,11 @@ async function loadUploads(more = false) {
 function filterUploadsByUser(userId) {
     uploadsUserFilter.value = userId
     uploadsTokenFilter.value = ''
-    display.value = 'uploads'
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.push({ path: '/admin/uploads', query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -219,9 +250,11 @@ async function viewUserInUsersTab(userId) {
     try {
         const results = await searchUsers({ q: userId, limit: 1 })
         if (results.length > 0) {
-            display.value = 'users'
             users.value = [results[0]]
             usersCursor.value = null
+            internalNav = true
+            router.push('/admin/users')
+                .finally(() => nextTick(() => { internalNav = false }))
         }
     } catch {
         showError('Could not find user')
@@ -230,9 +263,12 @@ async function viewUserInUsersTab(userId) {
 
 function filterUploadsByToken(token) {
     uploadsTokenFilter.value = token
-    display.value = 'uploads'
     uploads.value = []
     uploadsCursor.value = null
+    // Token NOT in URL for security — only update tab and keep user filter if set
+    internalNav = true
+    router.push({ path: '/admin/uploads', query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -240,6 +276,9 @@ function clearUserFilter() {
     uploadsUserFilter.value = ''
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -247,6 +286,7 @@ function clearTokenFilter() {
     uploadsTokenFilter.value = ''
     uploads.value = []
     uploadsCursor.value = null
+    // Token was never in URL, so just reload
     loadUploads()
 }
 
@@ -254,6 +294,9 @@ function changeSortBy(val) {
     uploadsSortBy.value = val
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -261,7 +304,20 @@ function changeSortOrder(val) {
     uploadsSortOrder.value = val
     uploads.value = []
     uploadsCursor.value = null
+    internalNav = true
+    router.replace({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
+}
+
+function toggleBadgeFilter(key) {
+    badgeFilters.value[key] = !badgeFilters.value[key]
+    uploads.value = []
+    uploadsCursor.value = null
+    internalNav = true
+    router.push({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
+    loadUploads() // Intentional: reads from badgeFilters.value, not URL, so safe before push resolves
 }
 
 // ── User management ──
@@ -341,29 +397,117 @@ function handleDeleteUpload(upload) {
     }
 }
 
-// ── Display switching ──
+// ── Display switching (via route path) ──
 function showStatsView() {
-    display.value = 'stats'
-    loadStats()
+    router.push('/admin/stats')
 }
 
 function showUsersView() {
-    display.value = 'users'
-    users.value = []
-    usersProviderFilter.value = ''
-    usersAdminFilter.value = ''
-    usersCursor.value = null
-    loadUsers()
+    router.push('/admin/users')
 }
 
 function showUploadsView() {
-    display.value = 'uploads'
-    uploadsUserFilter.value = ''
-    uploadsTokenFilter.value = ''
-    uploads.value = []
-    uploadsCursor.value = null
-    loadUploads()
+    router.push('/admin/uploads')
 }
+
+// ── Route helpers ──
+
+// Build query params from current users tab filter state (omits defaults)
+function currentUsersQuery() {
+    return {
+        provider: usersProviderFilter.value || undefined,
+        admin: usersAdminFilter.value || undefined,
+        sort: usersSortBy.value !== 'date' ? usersSortBy.value : undefined,
+        order: usersSortOrder.value !== 'desc' ? usersSortOrder.value : undefined,
+    }
+}
+
+// Build query params from current uploads tab filter state (omits defaults, excludes token)
+function currentUploadsQuery() {
+    const q = {
+        user: uploadsUserFilter.value || undefined,
+        sort: uploadsSortBy.value !== 'date' ? uploadsSortBy.value : undefined,
+        order: uploadsSortOrder.value !== 'desc' ? uploadsSortOrder.value : undefined,
+    }
+    for (const key of BADGE_FILTER_KEYS) {
+        if (badgeFilters.value[key]) q[key] = 'true'
+    }
+    return q
+}
+
+// ── Route → state sync ──
+
+// Guard flag: suppresses watchers during programmatic navigation so they
+// don't double-load or overwrite state the caller already set up.
+let internalNav = false
+
+// Tab changes (path-based) — triggers on back/forward between tabs
+watch(display, (tab, prevTab) => {
+    if (tab === prevTab || internalNav) return
+    if (tab === 'stats') {
+        loadStats()
+    } else if (tab === 'users') {
+        // Sync filters from query params (e.g. back/forward within users tab)
+        usersProviderFilter.value = route.query.provider || ''
+        usersAdminFilter.value = route.query.admin || ''
+        usersSortBy.value = route.query.sort || 'date'
+        usersSortOrder.value = route.query.order || 'desc'
+        users.value = []
+        usersCursor.value = null
+        loadUsers()
+    } else if (tab === 'uploads') {
+        uploadsUserFilter.value = route.query.user || ''
+        uploadsTokenFilter.value = ''  // never from URL
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = route.query[key] === 'true'
+        }
+        uploads.value = []
+        uploadsCursor.value = null
+        loadUploads()
+    }
+})
+
+// Filter changes within same tab (query-based) — triggers on back/forward within a tab
+watch(() => route.query, (query, oldQuery) => {
+    // Only react if still on the same tab (path didn't change)
+    if (internalNav || !route.params.tab) return
+    const tab = route.params.tab
+
+    if (tab === 'users') {
+        const changed = query.provider !== oldQuery?.provider ||
+                        query.admin !== oldQuery?.admin ||
+                        query.sort !== oldQuery?.sort ||
+                        query.order !== oldQuery?.order
+        if (changed) {
+            usersProviderFilter.value = query.provider || ''
+            usersAdminFilter.value = query.admin || ''
+            usersSortBy.value = query.sort || 'date'
+            usersSortOrder.value = query.order || 'desc'
+            users.value = []
+            usersCursor.value = null
+            loadUsers()
+        }
+    } else if (tab === 'uploads') {
+        const changed = query.user !== oldQuery?.user ||
+                        query.sort !== oldQuery?.sort ||
+                        query.order !== oldQuery?.order ||
+                        BADGE_FILTER_KEYS.some(k => query[k] !== oldQuery?.[k])
+        if (changed) {
+            uploadsUserFilter.value = query.user || ''
+            uploadsTokenFilter.value = ''  // never from URL
+            uploadsSortBy.value = query.sort || 'date'
+            uploadsSortOrder.value = query.order || 'desc'
+            for (const key of BADGE_FILTER_KEYS) {
+                badgeFilters.value[key] = query[key] === 'true'
+            }
+            uploads.value = []
+            uploadsCursor.value = null
+            loadUploads()
+        }
+    }
+})
 
 // ── Init ──
 onMounted(async () => {
@@ -376,7 +520,28 @@ onMounted(async () => {
     } catch (err) {
         showError('Could not load version info')
     }
-    loadStats()
+
+    // Initialize from URL
+    const tab = display.value
+
+    if (tab === 'users') {
+        usersProviderFilter.value = route.query.provider || ''
+        usersAdminFilter.value = route.query.admin || ''
+        usersSortBy.value = route.query.sort || 'date'
+        usersSortOrder.value = route.query.order || 'desc'
+        loadUsers()
+    } else if (tab === 'uploads') {
+        uploadsUserFilter.value = route.query.user || ''
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
+        // Restore badge filters from URL
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = route.query[key] === 'true'
+        }
+        loadUploads()
+    } else {
+        loadStats()
+    }
 })
 </script>
 
@@ -698,54 +863,36 @@ onMounted(async () => {
         <!-- ─── Uploads View ─── -->
         <template v-if="display === 'uploads'">
 
-          <!-- Sort / filter controls -->
-          <div class="glass-card p-3 mb-4 space-y-2 text-sm">
-            <div class="flex flex-wrap items-center gap-4">
-              <!-- Sort by -->
-              <div class="flex items-center gap-2 text-surface-400">
-                <span>Sort:</span>
-                <button @click="changeSortBy('date')"
-                        :class="uploadsSortBy === 'date' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Date</button>
-                <span class="text-surface-600">|</span>
-                <button @click="changeSortBy('size')"
-                        :class="uploadsSortBy === 'size' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Size</button>
-              </div>
-              <!-- Order -->
-              <div class="flex items-center gap-2 text-surface-400">
-                <span>Order:</span>
-                <button @click="changeSortOrder('desc')"
-                        :class="uploadsSortOrder === 'desc' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Desc</button>
-                <span class="text-surface-600">|</span>
-                <button @click="changeSortOrder('asc')"
-                        :class="uploadsSortOrder === 'asc' ? 'text-accent-400' : 'text-surface-500 hover:text-surface-300'"
-                        class="transition-colors">Asc</button>
-              </div>
-            </div>
+          <UploadControls
+            :sort-by="uploadsSortBy"
+            :sort-order="uploadsSortOrder"
+            :badge-filters="badgeFilters"
+            :show-extend-t-t-l="true"
+            @update:sort-by="changeSortBy"
+            @update:sort-order="changeSortOrder"
+            @toggle-filter="toggleBadgeFilter"
+          />
 
-            <!-- Active filters -->
-            <div v-if="uploadsUserFilter || uploadsTokenFilter" class="flex flex-wrap items-center gap-3">
-              <div v-if="uploadsUserFilter" class="flex items-center gap-1.5 text-surface-300">
-                <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                user: <span class="font-mono text-accent-400">{{ uploadsUserFilter }}</span>
-                <button @click="viewUserInUsersTab(uploadsUserFilter)"
-                        class="text-surface-400 hover:text-accent-400 transition-colors"
-                        title="View user in users tab">🔍</button>
-                <button @click="clearUserFilter" class="text-surface-500 hover:text-white">×</button>
-              </div>
-              <div v-if="uploadsTokenFilter" class="flex items-center gap-1.5 text-surface-300">
-                <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                token: <span class="font-mono text-accent-400">{{ uploadsTokenFilter.substring(0, 12) }}...</span>
-                <button @click="clearTokenFilter" class="text-surface-500 hover:text-white">×</button>
-              </div>
+          <!-- Active filters -->
+          <div v-if="uploadsUserFilter || uploadsTokenFilter" class="flex flex-wrap items-center gap-3">
+            <div v-if="uploadsUserFilter" class="flex items-center gap-1.5 text-surface-300">
+              <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              user: <span class="font-mono text-accent-400">{{ uploadsUserFilter }}</span>
+              <button @click="viewUserInUsersTab(uploadsUserFilter)"
+                      class="text-surface-400 hover:text-accent-400 transition-colors"
+                      title="View user in users tab">🔍</button>
+              <button @click="clearUserFilter" class="text-surface-500 hover:text-white">×</button>
+            </div>
+            <div v-if="uploadsTokenFilter" class="flex items-center gap-1.5 text-surface-300">
+              <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              token: <span class="font-mono text-accent-400">{{ uploadsTokenFilter.substring(0, 12) }}...</span>
+              <button @click="clearTokenFilter" class="text-surface-500 hover:text-white">×</button>
             </div>
           </div>
 

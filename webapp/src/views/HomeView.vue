@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { auth, logout } from '../authStore.js'
 import { config, isFeatureEnabled } from '../config.js'
 import { showError } from '../notification.js'
+import UploadControls from '../components/UploadControls.vue'
 import {
     getUserUploads, deleteUserUploads, removeUpload,
     getUserTokens, createToken, revokeToken,
@@ -19,15 +20,29 @@ import EditUserModal from '../components/EditUserModal.vue'
 import UploadCard from '../components/UploadCard.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // ── Display mode ──
-const display = ref('stats') // 'stats' | 'uploads' | 'tokens'
 const tokenFilter = ref(null)
 
 // ── Uploads ──
 const uploads = ref([])
 const uploadsCursor = ref(null)
 const uploadsLoading = ref(false)
+const uploadsTotal = ref(null)
+const uploadsSortBy = ref('date')
+const uploadsSortOrder = ref('desc')
+
+// Badge filters — false = no filter, true = only matching
+const badgeFilters = ref({
+    oneShot: false,
+    removable: false,
+    stream: false,
+    extendTTL: false,
+    password: false,
+    e2ee: false,
+})
+const BADGE_FILTER_KEYS = ['oneShot', 'removable', 'stream', 'extendTTL', 'password', 'e2ee']
 
 // ── Tokens ──
 const tokens = ref([])
@@ -95,6 +110,12 @@ async function loadUploads(more = false) {
         const opts = { limit: 50 }
         if (tokenFilter.value) opts.token = tokenFilter.value
         if (more && uploadsCursor.value) opts.after = uploadsCursor.value
+        if (uploadsSortBy.value !== 'date') opts.sort = uploadsSortBy.value
+        if (uploadsSortOrder.value !== 'desc') opts.order = uploadsSortOrder.value
+        // Badge filters
+        for (const key of BADGE_FILTER_KEYS) {
+            if (badgeFilters.value[key]) opts[key] = true
+        }
         const data = await getUserUploads(opts)
         if (more) {
             uploads.value = [...uploads.value, ...data.results]
@@ -102,6 +123,7 @@ async function loadUploads(more = false) {
             uploads.value = data.results || []
         }
         uploadsCursor.value = data.after || null
+        uploadsTotal.value = data.total ?? null
     } catch (err) {
         showError('Could not load uploads')
     } finally {
@@ -153,6 +175,38 @@ function clearTokenFilter() {
     tokenFilter.value = null
     uploads.value = []
     uploadsCursor.value = null
+    loadUploads()
+}
+
+function toggleBadgeFilter(key) {
+    badgeFilters.value[key] = !badgeFilters.value[key]
+    uploads.value = []
+    uploadsCursor.value = null
+    internalNav = true
+    router.push({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
+    loadUploads() // Intentional: reads from refs directly, not URL, so safe before push resolves
+}
+
+function changeSortBy(val) {
+    if (val === uploadsSortBy.value) return
+    uploadsSortBy.value = val
+    uploads.value = []
+    uploadsCursor.value = null
+    internalNav = true
+    router.push({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
+    loadUploads()
+}
+
+function changeSortOrder(val) {
+    if (val === uploadsSortOrder.value) return
+    uploadsSortOrder.value = val
+    uploads.value = []
+    uploadsCursor.value = null
+    internalNav = true
+    router.push({ query: currentUploadsQuery() })
+        .finally(() => nextTick(() => { internalNav = false }))
     loadUploads()
 }
 
@@ -246,23 +300,73 @@ async function saveEditAccount() {
     }
 }
 
-// ── Display switching ──
+// ── Display switching (via route path) ──
+const display = computed(() => route.params.tab || 'stats')
+
 function showStats() {
-    display.value = 'stats'
-    loadUserStats()
+    router.push('/home/stats')
 }
 
 function showUploads() {
-    display.value = 'uploads'
-    tokenFilter.value = null
-    uploads.value = []
-    loadUploads()
+    router.push('/home/uploads')
 }
 
 function showTokens() {
-    display.value = 'tokens'
-    loadTokens()
+    router.push('/home/tokens')
 }
+
+// Build query params from current uploads tab filter state (omits defaults, excludes token)
+function currentUploadsQuery() {
+    const q = {
+        sort: uploadsSortBy.value !== 'date' ? uploadsSortBy.value : undefined,
+        order: uploadsSortOrder.value !== 'desc' ? uploadsSortOrder.value : undefined,
+    }
+    for (const key of BADGE_FILTER_KEYS) {
+        if (badgeFilters.value[key]) q[key] = 'true'
+    }
+    return q
+}
+
+// ── Route → state sync ──
+
+// Guard flag: suppresses watchers during programmatic navigation so they
+// don't double-load or overwrite state the caller already set up.
+let internalNav = false
+watch(display, (tab, prevTab) => {
+    if (tab === prevTab || internalNav) return
+    if (tab === 'stats') {
+        loadUserStats()
+    } else if (tab === 'uploads') {
+        tokenFilter.value = null
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = route.query[key] === 'true'
+        }
+        uploads.value = []
+        loadUploads()
+    } else if (tab === 'tokens') {
+        loadTokens()
+    }
+})
+
+// Filter changes within the uploads tab (query-based) — triggers on back/forward
+watch(() => route.query, (query, oldQuery) => {
+    if (internalNav || route.params.tab !== 'uploads') return
+    const changed = query.sort !== oldQuery?.sort ||
+                    query.order !== oldQuery?.order ||
+                    BADGE_FILTER_KEYS.some(k => query[k] !== oldQuery?.[k])
+    if (changed) {
+        uploadsSortBy.value = query.sort || 'date'
+        uploadsSortOrder.value = query.order || 'desc'
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = query[key] === 'true'
+        }
+        uploads.value = []
+        uploadsCursor.value = null
+        loadUploads()
+    }
+})
 
 // ── Init ──
 onMounted(() => {
@@ -270,8 +374,22 @@ onMounted(() => {
         router.push('/login')
         return
     }
-    loadUserStats()
+    const tab = display.value
+
     loadTokens()  // needed for token comment lookup map
+
+    if (tab === 'uploads') {
+        // Restore badge filters from URL
+        uploadsSortBy.value = route.query.sort || 'date'
+        uploadsSortOrder.value = route.query.order || 'desc'
+        for (const key of BADGE_FILTER_KEYS) {
+            badgeFilters.value[key] = route.query[key] === 'true'
+        }
+        loadUploads()
+    } else if (tab !== 'tokens') {
+        // tokens already loaded above via loadTokens()
+        loadUserStats()
+    }
 })
 </script>
 
@@ -468,6 +586,16 @@ onMounted(() => {
               </svg>
             </button>
           </div>
+
+          <UploadControls
+            :sort-by="uploadsSortBy"
+            :sort-order="uploadsSortOrder"
+            :badge-filters="badgeFilters"
+            :show-extend-t-t-l="isFeatureEnabled('extendTTL')"
+            @update:sort-by="changeSortBy"
+            @update:sort-order="changeSortOrder"
+            @toggle-filter="toggleBadgeFilter"
+          />
 
           <!-- Loading -->
           <div v-if="uploadsLoading && uploads.length === 0"

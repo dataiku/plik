@@ -34,37 +34,72 @@ func (b *Backend) GetUpload(ID string) (upload *common.Upload, err error) {
 	return upload, err
 }
 
-func getUploadsWhereClause(userID string, tokenStr string) *common.Upload {
-	whereClause := &common.Upload{}
-	if userID != "" {
-		whereClause.User = userID
+// UploadFilters holds optional filters for querying uploads.
+// Boolean pointers: nil = no filter, true = only matching.
+type UploadFilters struct {
+	User      string
+	Token     string
+	OneShot   *bool
+	Removable *bool
+	Stream    *bool
+	ExtendTTL *bool
+	Password  *bool // maps to ProtectedByPassword column
+	E2EE      *bool // maps to e2ee != '' check
+}
+
+// applyUploadFilters returns a scoped *gorm.DB with the given filters applied.
+// Uses struct-based Where for User/Token (portable quoting across PG/MySQL/SQLite)
+// and explicit Where clauses for booleans (GORM ignores zero-value bools in structs).
+func applyUploadFilters(stmt *gorm.DB, f UploadFilters) *gorm.DB {
+	if f.User != "" {
+		stmt = stmt.Where(&common.Upload{User: f.User})
 	}
-	if tokenStr != "" {
-		whereClause.Token = tokenStr
+	if f.Token != "" {
+		stmt = stmt.Where(&common.Upload{Token: f.Token})
 	}
-	return whereClause
+	if f.OneShot != nil {
+		stmt = stmt.Where("one_shot = ?", *f.OneShot)
+	}
+	if f.Removable != nil {
+		stmt = stmt.Where("removable = ?", *f.Removable)
+	}
+	if f.Stream != nil {
+		stmt = stmt.Where("stream = ?", *f.Stream)
+	}
+	if f.ExtendTTL != nil {
+		stmt = stmt.Where("extend_ttl = ?", *f.ExtendTTL)
+	}
+	if f.Password != nil {
+		stmt = stmt.Where("protected_by_password = ?", *f.Password)
+	}
+	if f.E2EE != nil {
+		if *f.E2EE {
+			stmt = stmt.Where("e2ee != ''")
+		} else {
+			stmt = stmt.Where("e2ee = '' OR e2ee IS NULL")
+		}
+	}
+	return stmt
 }
 
 // CountUploads return the total number of uploads matching the optional filters
-func (b *Backend) CountUploads(userID string, tokenStr string) (count int64, err error) {
-	stmt := b.db.Model(&common.Upload{}).
-		Where(getUploadsWhereClause(userID, tokenStr))
+func (b *Backend) CountUploads(filters UploadFilters) (count int64, err error) {
+	stmt := b.db.Model(&common.Upload{})
+	stmt = applyUploadFilters(stmt, filters)
 
 	err = stmt.Count(&count).Error
 	return count, err
 }
 
 // GetUploads return uploads from DB
-// userID and tokenStr are filters
 // set withFiles to also fetch the files
-func (b *Backend) GetUploads(userID string, tokenStr string, withFiles bool, pagingQuery *common.PagingQuery) (uploads []*common.Upload, cursor *paginator.Cursor, err error) {
+func (b *Backend) GetUploads(filters UploadFilters, withFiles bool, pagingQuery *common.PagingQuery) (uploads []*common.Upload, cursor *paginator.Cursor, err error) {
 	if pagingQuery == nil {
 		return nil, nil, fmt.Errorf("missing paging query")
 	}
 
-	stmt := b.db.
-		Model(&common.Upload{}).
-		Where(getUploadsWhereClause(userID, tokenStr))
+	stmt := b.db.Model(&common.Upload{})
+	stmt = applyUploadFilters(stmt, filters)
 
 	if withFiles {
 		stmt = stmt.Preload("Files")
@@ -85,9 +120,8 @@ func (b *Backend) GetUploads(userID string, tokenStr string, withFiles bool, pag
 }
 
 // GetUploadsSortedBySize return uploads from DB sorted by size
-// userID and tokenStr are filters
 // set withFiles to also fetch the files
-func (b *Backend) GetUploadsSortedBySize(userID string, tokenStr string, withFiles bool, pagingQuery *common.PagingQuery) (uploads []*common.Upload, cursor *paginator.Cursor, err error) {
+func (b *Backend) GetUploadsSortedBySize(filters UploadFilters, withFiles bool, pagingQuery *common.PagingQuery) (uploads []*common.Upload, cursor *paginator.Cursor, err error) {
 	if pagingQuery == nil {
 		return nil, nil, fmt.Errorf("missing paging query")
 	}
@@ -108,16 +142,16 @@ func (b *Backend) GetUploadsSortedBySize(userID string, tokenStr string, withFil
 
 	stmt := b.db.
 		Model(&common.Upload{}).
-		Select("uploads.id, sub.total_size as size").
-		Joins("INNER JOIN (?) AS sub ON sub.upload_id = uploads.id", sizeSubquery).
-		Where(getUploadsWhereClause(userID, tokenStr))
+		Select("uploads.id, COALESCE(sub.total_size, 0) as size").
+		Joins("LEFT JOIN (?) AS sub ON sub.upload_id = uploads.id", sizeSubquery)
+	stmt = applyUploadFilters(stmt, filters)
 
 	// Setup paginator
 	p := pagingQuery.Paginator()
 	p.SetRules([]paginator.Rule{
 		{
 			Key:     "Size",
-			SQLRepr: "sub.total_size",
+			SQLRepr: "COALESCE(sub.total_size, 0)",
 		},
 		{
 			Key:     "ID",

@@ -158,7 +158,7 @@ export function deleteUser(userId) {
     return apiCall(`${base}/user/${encodeURIComponent(userId)}`, 'DELETE')
 }
 
-export function getAdminUploads({ user, token, sort, order, after, limit } = {}) {
+export function getAdminUploads({ user, token, sort, order, after, limit, oneShot, removable, stream, extendTTL, password, e2ee } = {}) {
     const params = new URLSearchParams()
     if (user) params.set('user', user)
     if (token) params.set('token', token)
@@ -166,18 +166,31 @@ export function getAdminUploads({ user, token, sort, order, after, limit } = {})
     if (order) params.set('order', order)
     if (after) params.set('after', after)
     if (limit) params.set('limit', limit)
+    if (oneShot === true) params.set('oneShot', 'true')
+    if (removable === true) params.set('removable', 'true')
+    if (stream === true) params.set('stream', 'true')
+    if (extendTTL === true) params.set('extendTTL', 'true')
+    if (password === true) params.set('password', 'true')
+    if (e2ee === true) params.set('e2ee', 'true')
     const qs = params.toString()
     return apiCall(`${base}/uploads${qs ? '?' + qs : ''}`)
 }
 
 // ── User Uploads ──
 
-export function getUserUploads({ token, after, order, limit } = {}) {
+export function getUserUploads({ token, sort, after, order, limit, oneShot, removable, stream, extendTTL, password, e2ee } = {}) {
     const params = new URLSearchParams()
     if (token) params.set('token', token)
+    if (sort) params.set('sort', sort)
     if (after) params.set('after', after)
     if (order) params.set('order', order)
     if (limit) params.set('limit', String(limit))
+    if (oneShot === true) params.set('oneShot', 'true')
+    if (removable === true) params.set('removable', 'true')
+    if (stream === true) params.set('stream', 'true')
+    if (extendTTL === true) params.set('extendTTL', 'true')
+    if (password === true) params.set('password', 'true')
+    if (e2ee === true) params.set('e2ee', 'true')
     const qs = params.toString()
     return apiCall(`${base}/me/uploads${qs ? '?' + qs : ''}`)
 }
@@ -326,8 +339,9 @@ function downloadBase() {
     return _downloadDomain || base
 }
 
-export function getFileURL(uploadId, fileId, fileName) {
-    return `${downloadBase()}/file/${uploadId}/${fileId}/${encodeURIComponent(fileName)}`
+export function getFileURL(uploadId, fileId, fileName, stream = false) {
+    const mode = stream ? 'stream' : 'file'
+    return `${downloadBase()}/${mode}/${uploadId}/${fileId}/${encodeURIComponent(fileName)}`
 }
 
 export function getArchiveURL(uploadId, fileName = 'archive.zip') {

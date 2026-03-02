@@ -23,3 +23,5 @@ plikd_*.cfg
 plik.iml
 coverage.out
 /plans
+test-results/
+

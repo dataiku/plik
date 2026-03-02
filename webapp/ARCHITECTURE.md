@@ -36,6 +36,42 @@ Admin link (upload-level): `/#/?id=<uploadId>&uploadToken=<token>`
 
 `RootView.vue` checks `route.query.id` — if present, renders `DownloadView`; otherwise `UploadView`.
 
+### Tab Routes & Filter Query Parameters
+
+HomeView and AdminView use path-based tab segments for the active tab and query parameters for filter state, enabling bookmarking, sharing, and browser back/forward navigation.
+
+**HomeView** — `/#/home/:tab`:
+
+| Path | Tab |
+|------|-----|
+| `/#/home/stats` | Stats (default — `/#/home` redirects here) |
+| `/#/home/uploads` | Uploads |
+| `/#/home/tokens` | Tokens |
+
+> **Security**: Token filter values (raw UUIDs) are intentionally NOT included in the URL. They remain in-memory only.
+
+**AdminView** — `/#/admin/:tab`:
+
+| Path | Tab |
+|------|-----|
+| `/#/admin/stats` | Stats (default — `/#/admin` redirects here) |
+| `/#/admin/users` | Users |
+| `/#/admin/uploads` | Uploads |
+
+Filter/sort state is appended as query parameters (e.g. `/#/admin/users?provider=local&admin=true`):
+
+| Param | Values | Default | Tab | Notes |
+|-------|--------|---------|-----|-------|
+| `user` | user ID | — | uploads | Filter uploads by user |
+| `sort` | `date`, `size` | `date` | uploads/users | Sort field |
+| `order` | `desc`, `asc` | `desc` | uploads/users | Sort direction |
+| `provider` | `local`, `google`, `ovh`, `oidc` | — | users | Filter by auth provider |
+| `admin` | `true`, `false` | — | users | Filter by admin role |
+
+> **Security**: Token filter values are NOT included in admin upload URLs — they contain full API tokens that would leak in browser history, Referer headers, and shared links.
+
+**Sync strategy**: Tab changes use `router.push()` (creates history entries — back/forward works between tabs). Filter changes use `router.replace()` (avoids cluttering history with each filter tweak). Router constraints (`/:tab(stats|users|uploads)`) reject invalid tab segments.
+
 > **Gotcha**: The router uses `createWebHashHistory()`, so all URLs include `#/`. The `base` in `api.js` is computed from `window.location.origin + pathname` (without hash), so API calls go to the correct backend path.
 
 ### Auth Navigation Guard
